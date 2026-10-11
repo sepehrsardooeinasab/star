@@ -4,7 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from unlocker.runner import list_status, run
+from unlocker.runner import list_status, run, run_auto
 from unlocker.state import list_profiles
 from unlocker.timeline import show_timeline
 
@@ -42,6 +42,10 @@ def parse_delay(text):
 
 if __name__ == "__main__":
     args = sys.argv[1:]
+    if "--ui" in args or "--ui-stop" in args:
+        from unlocker.server import open_app, stop_app
+        open_app() if "--ui" in args else stop_app()
+        sys.exit(0)
     if "--status" in args:
         list_status()
         sys.exit(0)
@@ -55,6 +59,7 @@ if __name__ == "__main__":
     force = "-f" in args or "--force" in args
     time_only = "-t" in args or "--time" in args
     wait_ready = "-w" in args or "--wait" in args
+    auto = "--auto" in args
 
     delay = None
     for flag in ("-in", "--in"):
@@ -71,7 +76,13 @@ if __name__ == "__main__":
         sys.exit(1)
 
     positional = [a for a in args
-                  if a not in ("-f", "--force", "-t", "--time", "-w", "--wait")]
+                  if a not in ("-f", "--force", "-t", "--time", "-w", "--wait", "--auto")]
 
     game_name = positional[0] if positional else choose_game_name()
+    if auto:
+        if force or time_only or wait_ready or delay is not None:
+            print("--auto can't be combined with -f, -t, -w or -in.")
+            sys.exit(1)
+        run_auto(game_name)
+        sys.exit(0)
     run(game_name, force=force, time_only=time_only, delay=delay, wait_ready=wait_ready)

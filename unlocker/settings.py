@@ -11,6 +11,8 @@ DEFAULTS = {
     "asf_port": 1243,
     # ASF's IPCPassword (from ASF.json), if one is set. null when there's none.
     "ipc_password": None,
+    # Port of the local app (runsteamunlocker --ui), at http://127.0.0.1:<port>.
+    "ui_port": 8788,
     # How long a command keeps retrying while ASF starts up or the bot
     # (re)connects to Steam, before giving up.
     "bot_connect_timeout": 60,
@@ -48,6 +50,7 @@ DEFAULTS = {
 _TYPES = {
     "asf_port": (int,),
     "ipc_password": (str, type(None)),
+    "ui_port": (int,),
     "bot_connect_timeout": (int,),
     "warm_settle_delay": (int,),
     "reconnect_settle_delay": (int,),
@@ -88,8 +91,9 @@ def load_settings(path=SETTINGS_PATH):
             _fail(f"{key!r} has the wrong type ({type(value).__name__})")
         if not isinstance(value, bool) and isinstance(value, (int, float)) and value < 0:
             _fail(f"{key!r} can't be negative")
-    if not 1 <= overrides.get("asf_port", 1) <= 65535:
-        _fail("'asf_port' must be between 1 and 65535")
+    for port in ("asf_port", "ui_port"):
+        if not 1 <= overrides.get(port, 1) <= 65535:
+            _fail(f"{port!r} must be between 1 and 65535")
     if overrides.get("play_check_interval", 1) < 1:
         _fail("'play_check_interval' must be at least 1")
     if overrides.get("jitter_percent", 0) > 100:

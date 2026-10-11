@@ -382,6 +382,9 @@
     toast: document.getElementById("toast"),
     jsonSlot: document.getElementById("json-slot"),
     csvSlot: document.getElementById("csv-slot"),
+    runsList: document.getElementById("runs-list"),
+    runsLog: document.getElementById("runs-log"),
+    runsLogTitle: document.getElementById("runs-log-title"),
     inputAlertSlot: document.getElementById("input-alert-slot")
   };
 
@@ -393,14 +396,16 @@
     input: "Achievements",
     settings: "Settings",
     json: "Schedule (config.json)",
-    csv: "Timeline (csv)"
+    csv: "Timeline (csv)",
+    runs: "Runs"
   };
 
   var navButtons = {
     input: document.getElementById("nav-input"),
     settings: document.getElementById("nav-settings"),
     json: document.getElementById("nav-json"),
-    csv: document.getElementById("nav-csv")
+    csv: document.getElementById("nav-csv"),
+    runs: document.getElementById("nav-runs")
   };
 
   var currentView = "input";
@@ -434,6 +439,7 @@
     els.boxTitle.textContent = NAV_TITLES[view];
     document.querySelector(".box").setAttribute("data-view", view);  // shows that tab's help
     render();
+    if (view === "runs") refreshRuns();
   }
 
   Object.keys(navButtons).forEach(function (key) {
@@ -663,7 +669,9 @@
     var dangerHtml = dangers.map(function (d) { return noticeHtml("danger", d); }).join("");
     els.inputAlertSlot.innerHTML = dangerHtml + editsBannerHtml();
     els.downloadBtn.classList.toggle("btn-danger", dangers.length > 0);
-    els.downloadBtn.textContent = dangers.length ? "Download anyway" : "Download All";
+    els.downloadBtn.textContent = local
+      ? (dangers.length ? "Save anyway" : "Save to project")
+      : (dangers.length ? "Download anyway" : "Download All");
     els.downloadBtn.title = dangers.join("\n");
 
     var fileKey = fileKeyForView(currentView);
@@ -984,6 +992,7 @@
   // stagger) when no folder has been chosen.
   els.downloadBtn.addEventListener("click", function () {
     if (!latest || latest.errors.length) return;
+    if (local) { saveToProject(false); return; }
 
     var files = [
       {dirParts: ["jsons"], filename: latest.filenames.json, mime: "application/json", content: latest.jsonText},
@@ -1035,6 +1044,243 @@
       showToast("Save folder forgotten — downloads go to your browser's default");
     });
     loadFolderHandle().then(function (handle) { if (handle) setFolder(handle); });
+  }
+
+  // ---------------------------------------------------------------
+  // Local app (runsteamunlocker --ui): the same page, served from this
+  // machine, which can also save straight into the project and run games.
+  // Runs are background processes, so this page only shows and controls
+  // them; closing it never stops anything.
+  // ---------------------------------------------------------------
+  var local = false;
+  var runsData = null, runsError = null, runsFetchedAt = 0;
+  var selectedRun = null;
+  var runsTimer = null;
+
+  function api(path, body) {
+    var opts = body === undefined ? {} : {
+      method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)
+    };
+    return fetch(path, opts).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (data) {
+        if (!r.ok) {
+          var err = new Error(data.error || "Request failed (" + r.status + ")");
+          err.data = data;
+          throw err;
+        }
+        return data;
+      });
+    });
+  }
+
+  function saveToProject(overwrite) {
+    var name = els.gameName.value.trim().toLowerCase();
+    api("/api/save", {name: name, config: latest.config, csv: latest.csvText, overwrite: overwrite})
+      .then(function () {
+        resetAll();
+        selectedRun = name;
+        setView("runs");
+        showToast("Saved " + name + " to the project. Press Run to start it.");
+      })
+      .catch(function (err) {
+        if (err.data && err.data.exists) {
+          if (window.confirm(err.message + " Replace it? Its progress is kept.")) saveToProject(true);
+          return;
+        }
+        showToast("Couldn't save: " + err.message);
+      });
+  }
+
+  // "2h 10m", "4m", "35s"
+  function fmtDur(seconds) {
+    seconds = Math.max(0, Math.round(seconds));
+    var d = Math.floor(seconds / 86400), h = Math.floor(seconds % 86400 / 3600), m = Math.floor(seconds % 3600 / 60);
+    if (d) return d + "d " + h + "h";
+    if (h) return h + "h " + m + "m";
+    if (m) return m + "m";
+    return seconds + "s";
+  }
+
+  // Clock time `seconds` from now, with the weekday when it isn't today.
+  function fmtAt(seconds) {
+    var at = new Date(Date.now() + seconds * 1000);
+    var time = at.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+    return at.toDateString() === new Date().toDateString()
+      ? time : at.toLocaleDateString([], {weekday: "short"}) + " " + time;
+  }
+
+  // Countdowns come from the last fetch; count them down in between.
+  function left(seconds) {
+    return Math.max(0, seconds - (Date.now() - runsFetchedAt) / 1000);
+  }
+
+  function runCardHtml(g) {
+    var badge = {
+      in_session: ["live", "In session"],
+      waiting: ["wait", g.auto ? "Waiting for next session" : "Waiting"],
+      idle: ["", "Not running"],
+      completed: ["", "Completed"],
+      invalid: ["bad", "Invalid config"]
+    }[g.state];
+    var lines = [];
+    if (g.state === "invalid") {
+      lines.push('<span class="bad">' + escapeHtml(g.error) + "</span>");
+    } else if (g.finished) {
+      lines.push("All achievements unlocked. Its files moved to completed/.");
+    } else if (g.total) {
+      lines.push("<b>" + g.done + " / " + g.total + "</b> achievements" + (g.appid ? " · app " + g.appid : ""));
+      if (g.session) {
+        lines.push("Session <b>" + g.session + " of " + g.sessions + "</b> · " + g.count + " to go, ~" + fmtDur(g.duration));
+        if (g.state === "in_session") {
+          lines.push(g.next_unlock_in == null ? "Unlocking…"
+            : "Next unlock in <b>" + fmtDur(left(g.next_unlock_in)) + "</b>");
+        } else {
+          var wait = left(g.ready_in);
+          lines.push(wait > 0
+            ? "Next session in <b>" + fmtDur(wait) + "</b> (" + fmtAt(wait) + ")"
+            : "Next session can start <b>now</b>");
+        }
+      }
+      if (g.config_changed) {
+        lines.push('<span class="warn">The achievement order changed since it started. Run it once from the terminal to confirm.</span>');
+      }
+      if (g.stop_after) lines.push('<span class="warn">Stops after this session.</span>');
+    }
+
+    var actions = [];
+    function btn(action, label, cls) {
+      var armed = action === "stop" && isArmed("stop:" + g.name);
+      return '<button class="' + (cls || "btn-ghost") + (armed ? " armed" : "") + '" type="button" data-action="' +
+        action + '" data-name="' + escapeHtml(g.name) + '">' + (armed ? "Click again to stop" : label) + "</button>";
+    }
+    if (g.running) {
+      actions.push(btn("stop", "Stop"));
+      if (g.auto && g.state === "in_session") {
+        actions.push(g.stop_after ? btn("keep-going", "Keep going") : btn("stop-after", "Stop after this session"));
+      }
+    } else if (g.finished) {
+      actions.push(btn("dismiss", "Dismiss"));
+    } else if (g.state === "idle" && !g.config_changed) {
+      actions.push(btn("run", g.done ? "Continue" : "Run", "btn-primary"));
+    }
+
+    var pct = g.total ? Math.round(100 * g.done / g.total) : (g.finished ? 100 : 0);
+    return '<div class="run-card' + (g.name === selectedRun ? " selected" : "") + '" data-name="' + escapeHtml(g.name) + '">' +
+      '<div class="run-head"><span class="run-name">' + escapeHtml(g.name) + "</span>" +
+      '<span class="run-badge ' + badge[0] + '">' + badge[1] + "</span></div>" +
+      (lines.length ? '<div class="run-meta">' + lines.join("<br>") + "</div>" : "") +
+      (g.state !== "invalid" ? '<div class="run-progress"><span style="width:' + pct + '%"></span></div>' : "") +
+      (actions.length ? '<div class="run-actions">' + actions.join("") + "</div>" : "") +
+      "</div>";
+  }
+
+  function renderRuns() {
+    var games = runsData ? runsData.games : [];
+    var running = games.filter(function (g) { return g.running; }).length;
+    navButtons.runs.classList.toggle("has-content", running > 0);
+    if (currentView !== "runs") return;
+    els.statsStrip.innerHTML = runsData
+      ? "<span><b>" + games.length + "</b> game" + (games.length === 1 ? "" : "s") + "</span>" +
+        "<span><b>" + running + "</b> running</span>" +
+        (runsData.session ? "<span>in session: <b>" + escapeHtml(runsData.session) + "</b></span>" : "")
+      : "";
+
+    if (runsError) {
+      els.runsList.innerHTML = noticeHtml("danger", "Can't reach the app: " + runsError +
+        ". Start it again with runsteamunlocker --ui.");
+    } else if (!runsData) {
+      els.runsList.innerHTML = "";
+    } else if (!games.length) {
+      els.runsList.innerHTML = emptyHtml("▶", "No games yet. Make a config on the Achievements tab, then Save to project.");
+    } else {
+      if (!games.some(function (g) { return g.name === selectedRun; })) {
+        var pick = games.filter(function (g) { return g.running; })[0] || games[0];
+        selectedRun = pick.name;
+      }
+      els.runsList.innerHTML = games.map(runCardHtml).join("");
+    }
+    els.runsLogTitle.innerHTML = selectedRun ? "Output · <b>" + escapeHtml(selectedRun) + "</b>" : "Output";
+  }
+
+  function refreshLog() {
+    if (!selectedRun) { els.runsLog.textContent = ""; return; }
+    var name = selectedRun;
+    api("/api/log?name=" + encodeURIComponent(name)).then(function (data) {
+      if (name !== selectedRun) return;
+      var pre = els.runsLog;
+      var atBottom = pre.scrollHeight - pre.scrollTop - pre.clientHeight < 40;
+      pre.textContent = data.text || "No output yet. Games run from here write their progress here.";
+      if (atBottom) pre.scrollTop = pre.scrollHeight;
+    }).catch(function () {});
+  }
+
+  function refreshRuns() {
+    if (!local) return;
+    clearTimeout(runsTimer);
+    api("/api/games").then(function (data) {
+      runsData = data;
+      runsError = null;
+      runsFetchedAt = Date.now();
+    }).catch(function (err) {
+      runsError = err.message;
+    }).then(function () {
+      renderRuns();
+      if (currentView === "runs") refreshLog();
+      // Quick while it's being looked at, slow otherwise (just the tab dot).
+      var visible = currentView === "runs" && !document.hidden;
+      runsTimer = setTimeout(refreshRuns, visible ? 3000 : 20000);
+    });
+  }
+
+  function runAction(action, name) {
+    var requests = {
+      run: ["/api/run", {name: name}, "Started " + name + ". You can close this page; it keeps running."],
+      stop: ["/api/stop", {name: name}, "Stopping " + name + "…"],
+      "stop-after": ["/api/stop-after", {name: name, on: true}, name + " will stop after this session."],
+      "keep-going": ["/api/stop-after", {name: name, on: false}, name + " will keep going."],
+      dismiss: ["/api/dismiss", {name: name}, null]
+    };
+    var req = requests[action];
+    if (action === "stop" && !confirmTwice("stop:" + name)) { renderRuns(); return; }
+    api(req[0], req[1]).then(function (data) {
+      showToast(data.stopped && action === "stop-after"
+        ? "Stopped " + name + " (it was between sessions)." : req[2] || "Done.");
+    }).catch(function (err) {
+      showToast(err.message);
+    }).then(function () {
+      setTimeout(refreshRuns, 400);  // let the run start/stop before re-reading
+    });
+  }
+
+  els.runsList.addEventListener("click", function (e) {
+    var button = e.target.closest("button[data-action]");
+    if (button) { runAction(button.getAttribute("data-action"), button.getAttribute("data-name")); return; }
+    var card = e.target.closest(".run-card");
+    if (card && card.getAttribute("data-name") !== selectedRun) {
+      selectedRun = card.getAttribute("data-name");
+      els.runsLog.textContent = "";
+      renderRuns();
+      refreshLog();
+    }
+  });
+
+  // render() redraws the cards for the "click again" labels too.
+  var baseRender = render;
+  render = function () { baseRender(); if (local) renderRuns(); };
+
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) refreshRuns(); });
+
+  function enableLocal() {
+    local = true;
+    navButtons.runs.hidden = false;
+    els.folderBtn.style.display = "none";
+    els.folderStatus.style.display = "none";
+    render();
+    refreshRuns();
+  }
+
+  if (/^https?:$/.test(location.protocol)) {
+    api("/api/ping").then(function (data) { if (data.app === "steam-unlocker") enableLocal(); }).catch(function () {});
   }
 
   // ---------------------------------------------------------------

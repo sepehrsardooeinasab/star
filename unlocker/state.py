@@ -137,13 +137,15 @@ def save_progress(path, progress):
 
 
 _held_locks = []  # open lock files, kept referenced so they stay locked
+_kept_locks = []  # same, but left alone by release_locks()
 
 
-def acquire_lock(path, label, block=False):
+def acquire_lock(path, label, block=False, keep=False):
     """Takes an exclusive lock on path, recording label and this PID in it.
     Returns True once held — until this process exits, even if it's killed,
     since the OS drops the lock with the process. Without block, returns
-    False straight away when another process holds it."""
+    False straight away when another process holds it. keep: survive
+    release_locks(), for a lock held across several runs in one process."""
     path.parent.mkdir(parents=True, exist_ok=True)
     f = open(path, "a+")
     try:
@@ -155,7 +157,7 @@ def acquire_lock(path, label, block=False):
     f.truncate()
     f.write(f"{os.getpid()} {label}\n")
     f.flush()
-    _held_locks.append(f)
+    (_kept_locks if keep else _held_locks).append(f)
     return True
 
 
@@ -165,8 +167,8 @@ def release_locks():
         _held_locks.pop().close()
 
 
-def lock_holder(path):
-    """'<label> (PID <pid>)' for the process holding path's lock, or None if
+def lock_info(path):
+    """(pid or None, label) of the process holding path's lock, or None if
     nobody holds it. Read-only: never takes the lock for longer than the
     check itself."""
     if not path.exists():
@@ -177,13 +179,38 @@ def lock_holder(path):
         except BlockingIOError:
             f.seek(0)
             pid, _, label = f.read().strip().partition(" ")
-            return f"{label or '?'} (PID {pid or '?'})"
+            return (int(pid) if pid.isdigit() else None), label
         fcntl.flock(f, fcntl.LOCK_UN)
     return None
 
 
+def lock_holder(path):
+    """'<label> (PID <pid>)' for the process holding path's lock, or None if
+    nobody holds it."""
+    info = lock_info(path)
+    if info is None:
+        return None
+    pid, label = info
+    return f"{label or '?'} (PID {pid or '?'})"
+
+
 def profile_lock_path(game_name):
     return JSONS_DIR / f".lock_{game_name or 'default'}"
+
+
+# An auto run (--auto, or Run in the app) plays every remaining session of a
+# game back to back. Its lock is held for the whole run, its output goes to
+# the log, and the flag file asks it to stop once the current session ends.
+def auto_lock_path(game_name):
+    return JSONS_DIR / f".auto_{game_name or 'default'}"
+
+
+def auto_log_path(game_name):
+    return JSONS_DIR / f".run_{game_name or 'default'}.log"
+
+
+def stop_after_path(game_name):
+    return JSONS_DIR / f".stop_after_{game_name or 'default'}"
 
 
 def cleanup_profile(game_name):

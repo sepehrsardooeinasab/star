@@ -92,6 +92,10 @@ Description text
             <span class="icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2.5" y="4" width="15" height="12" rx="1.5"/><line x1="2.5" y1="8.5" x2="17.5" y2="8.5"/><line x1="2.5" y1="12.5" x2="17.5" y2="12.5"/><line x1="8" y1="4" x2="8" y2="16"/></svg></span>
             <span class="label">Timeline</span>
           </button>
+          <button class="tab" id="nav-runs" type="button" title="Run, stop and follow your games" hidden>
+            <span class="icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><circle cx="10" cy="10" r="7.5"/><path d="M8.3 6.9v6.2l5-3.1z" fill="currentColor"/></svg></span>
+            <span class="label">Runs</span>
+          </button>
         </div>
       </nav>
 
@@ -162,6 +166,13 @@ Description text
         </div>
         <div class="view-pane" data-view="csv">
           <div id="csv-slot"></div>
+        </div>
+        <div class="view-pane" data-view="runs">
+          <div class="runs-list" id="runs-list"></div>
+          <div class="runs-log">
+            <div class="runs-log-head" id="runs-log-title">Output</div>
+            <pre class="file-preview" id="runs-log"></pre>
+          </div>
         </div>
       </div>
 

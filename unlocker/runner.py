@@ -26,6 +26,7 @@ from unlocker.state import (
     DEFAULT_PROGRESS,
     SESSION_LOCK,
     acquire_lock,
+    auto_lock_path,
     cleanup_profile,
     config_fingerprint,
     config_problems,
@@ -36,7 +37,8 @@ from unlocker.state import (
     profile_lock_path,
     profile_paths,
     release_locks,
-    save_progress)
+    save_progress,
+    stop_after_path)
 
 # See unlocker/settings.py for what each of these is for.
 ASF_SHUTDOWN_DELAY = SETTINGS["asf_shutdown_delay"]
@@ -256,11 +258,50 @@ def list_status():
 
 
 def run(*args, **kwargs):
-    """Runs a session (see _run), releasing its locks when it returns."""
+    """Runs a session (see _run), releasing its locks when it returns.
+    Returns how it ended: "session_done" (more sessions to go), "all_done",
+    "stopped" (signal or Ctrl+C), "cancelled", "busy" (this game or another
+    session is running), "not_ready" (still in its break), "refused" (config
+    order changed, with -f) or "error"; None for -t."""
     try:
-        _run(*args, **kwargs)
+        return _run(*args, **kwargs)
     finally:
         release_locks()
+
+
+def run_auto(game_name):
+    """Plays every remaining session of a game back to back: runs one,
+    waits out the break, runs the next, until the game is done. Each
+    session is a normal run(), confirmed up front (like -f) and started
+    as soon as it can (like -w). Stops after the current session when its
+    stop-after flag file appears, and right away on SIGTERM (Stop in the
+    app, or -k), which the session itself cleans up after."""
+    game_label = game_name or "default"
+    if not acquire_lock(auto_lock_path(game_name), game_label, keep=True):
+        print(f"{game_label} is already running: {lock_holder(auto_lock_path(game_name))}.")
+        return
+    stop_after = stop_after_path(game_name)
+    stop_after.unlink(missing_ok=True)
+    # Also set by each run, but a signal can land between runs too.
+    signal.signal(signal.SIGHUP, _raise_signalled)
+    signal.signal(signal.SIGTERM, _raise_signalled)
+
+    print(f"Running every remaining session of {game_label}, started {datetime.now():%a %H:%M}.")
+    try:
+        while True:
+            outcome = run(game_name, force=True, wait_ready=True)
+            if outcome != "session_done":
+                break
+            if stop_after.exists():
+                stop_after.unlink(missing_ok=True)
+                print("Stopped after this session, as asked. Progress is saved.")
+                notify(game_label, "Stopped after the session, as asked.")
+                break
+            print()
+    except _Signalled:
+        print("\nStopped. Progress is saved — run it again to continue.")
+    finally:
+        stop_after.unlink(missing_ok=True)
 
 
 def _run(game_name=None, force=False, time_only=False, delay=None, wait_ready=False):
@@ -275,7 +316,7 @@ def _run(game_name=None, force=False, time_only=False, delay=None, wait_ready=Fa
     # any -w/-in wait. -t only reads, so it doesn't need it.
     if not time_only and not acquire_lock(profile_lock_path(game_name), game_label):
         print(f"{game_label} is already running: {lock_holder(profile_lock_path(game_name))}.")
-        return
+        return "busy"
 
     config = load_config(config_path)
     achievements = config["achievements"]
@@ -295,7 +336,7 @@ def _run(game_name=None, force=False, time_only=False, delay=None, wait_ready=Fa
             return
         print("All achievements already completed.")
         cleanup_profile(game_name)
-        return
+        return "all_done"
 
     if config_changed(config, progress) and not time_only:
         n = progress["last_completed"] + 1
@@ -305,10 +346,10 @@ def _run(game_name=None, force=False, time_only=False, delay=None, wait_ready=Fa
         if force:
             print("Not running with -f. Run without -f to confirm, or delete "
                   f"{progress_path.name} to start over.")
-            return
+            return "refused"
         if input("Continue from the same position anyway? [y/N] ").strip().lower() != "y":
             print("Cancelled.")
-            return
+            return "cancelled"
     # Every save from here on records the config it was made against.
     progress["config_hash"] = config_fingerprint(config)
 
@@ -347,7 +388,7 @@ def _run(game_name=None, force=False, time_only=False, delay=None, wait_ready=Fa
                 if delay is not None:
                     print(f"-in {_format_duration(delay)} would start before then — use a longer delay, or -w.")
                 print(session_line)
-                return
+                return "not_ready"
             cooldown_ends = session_start
         else:
             progress["session_ends_at"] = None
@@ -386,7 +427,7 @@ def _run(game_name=None, force=False, time_only=False, delay=None, wait_ready=Fa
         if not wait_ready and delay is None:
             print(f"Another session is running: {busy}. Run this one after it "
                   "finishes, or use -w / -in to queue it.")
-            return
+            return "busy"
         print(f"Another session is running: {busy}. If it's still going by then, "
               "this one will wait for it to finish.")
 
@@ -407,7 +448,7 @@ def _run(game_name=None, force=False, time_only=False, delay=None, wait_ready=Fa
         answer = input(f"{session_line} Continue? [y/N] ").strip().lower()
         if answer != "y":
             print("Cancelled.")
-            return
+            return "cancelled"
 
     # Only touch ASF once the user has actually committed to running —
     # not before, so declining the prompt above never starts it up.
@@ -454,7 +495,7 @@ def _run(game_name=None, force=False, time_only=False, delay=None, wait_ready=Fa
             # that process orphaned and running for the next session to
             # trip over.
             schedule_asf_kill()
-            return
+            return "error"
 
         awaiting_first_unlock = progress["last_completed"] == -1
         _, wait_seconds, _ = _estimate_session(
@@ -590,7 +631,7 @@ def _run(game_name=None, force=False, time_only=False, delay=None, wait_ready=Fa
                     # The API isn't reachable, so there's no graceful way to tell it
                     # to resume/exit — force-kill it directly instead.
                     schedule_asf_kill()
-                    return
+                    return "error"
 
                 if status == "unknown":
                     print(f"ERROR: unexpected response for {label}: {result}")
@@ -598,7 +639,7 @@ def _run(game_name=None, force=False, time_only=False, delay=None, wait_ready=Fa
                     progress["next_unlock_at"] = datetime.now().isoformat()
                     save_progress(progress_path, progress)
                     schedule_asf_kill()
-                    return
+                    return "error"
 
                 if status == "already_unlocked":
                     print(f"Already unlocked, skipping: {label}")
@@ -607,7 +648,7 @@ def _run(game_name=None, force=False, time_only=False, delay=None, wait_ready=Fa
 
             for gi in range(i, group_end):
                 if advance(gi, issued_at):
-                    return
+                    return "session_done"
             i = group_end
 
         playing = False
@@ -616,6 +657,7 @@ def _run(game_name=None, force=False, time_only=False, delay=None, wait_ready=Fa
         print("\nAll achievements unlocked.")
         notify(game_label, "All achievements unlocked.")
         cleanup_profile(game_name)
+        return "all_done"
     except (_Signalled, KeyboardInterrupt) as e:
         # Progress is already on disk (saved after every unlock), so the
         # next run picks up where this one stopped.
@@ -625,6 +667,7 @@ def _run(game_name=None, force=False, time_only=False, delay=None, wait_ready=Fa
             notify(game_label, "Stopped: the terminal running it was closed.", error=True)
         else:
             print("\nStopped. Progress is saved — run it again to continue.")
+        return "stopped"
     except Exception as e:
         if playing:
             _stop_playing()

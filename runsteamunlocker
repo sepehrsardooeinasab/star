@@ -10,9 +10,10 @@ ASF_BINARY="$ASF_DIR/ArchiSteamFarm"
 show_help() {
     cat <<'EOF'
 Usage: runsteamunlocker [-f] [-w | -in <time>] <config-name>
+       runsteamunlocker --auto <config-name>
        runsteamunlocker -t <config-name>
        runsteamunlocker -s <config-name> [all | <session-number>]
-       runsteamunlocker [-h | -a | -ls | -c | -j | -k]
+       runsteamunlocker [-h | -a | -ls | -c | -j | -k | -u | --ui-stop]
 
   <config-name>   Run the unlocker using jsons/config_<config-name>.json.
                   Shows the upcoming session's length and asks to confirm.
@@ -22,6 +23,9 @@ Usage: runsteamunlocker [-f] [-w | -in <time>] <config-name>
   -in <time>      Confirm now, then wait <time> before starting, e.g.
                   30 (minutes), 45m, 2h, 1h30m. Refused if the session's
                   cooldown would still be running by then.
+  --auto          Run every remaining session back to back, waiting out
+                  the breaks in between, until the game is done. Starts
+                  without asking. Stop it with Ctrl+C or -k.
   -t, --time      Print "<wait_seconds> <duration_seconds>" for the next
                   session and exit, without running or touching ASF.
   -k, --kill      Stop ArchiSteamFarm and any running unlocker session.
@@ -36,6 +40,11 @@ Usage: runsteamunlocker [-f] [-w | -in <time>] <config-name>
                   a number just that one. Works for finished games too.
   -c, --code      Open the project in VS Code.
   -j, --json      Open the JSON/unlock scheduler builder.
+  -u, --ui        Open the app in the browser (starting it in the
+                  background if needed): make configs, save them straight
+                  into jsons/, and run, stop and follow games. Closing the
+                  browser doesn't stop anything.
+  --ui-stop       Stop the app. Games it started keep running.
 EOF
 }
 
@@ -85,12 +94,14 @@ kill_all() {
 }
 
 force=0
+auto=0
 time_only=0
 wait_ready=0
 delay=""
 while [ "$#" -gt 0 ]; do
     case "$1" in
         -f|--force) force=1; shift ;;
+        --auto) auto=1; shift ;;
         -t|--time) time_only=1; shift ;;
         -w|--wait) wait_ready=1; shift ;;
         -in|--in)
@@ -111,6 +122,10 @@ done
 
 if [ "$wait_ready" -eq 1 ] && [ -n "$delay" ]; then
     echo "Use either -w or -in, not both." >&2
+    exit 1
+fi
+if [ "$auto" -eq 1 ] && { [ "$force" -eq 1 ] || [ "$time_only" -eq 1 ] || [ "$wait_ready" -eq 1 ] || [ -n "$delay" ]; }; then
+    echo "--auto can't be combined with -f, -t, -w or -in." >&2
     exit 1
 fi
 if [ "$time_only" -eq 1 ] && { [ "$force" -eq 1 ] || [ "$wait_ready" -eq 1 ] || [ -n "$delay" ]; }; then
@@ -150,6 +165,12 @@ case "${1-}" in
     -k|--kill)
         kill_all
         ;;
+    -u|--ui)
+        exec python3 "$PROJECT_DIR/unlocker/run_unlocker.py" --ui
+        ;;
+    --ui-stop)
+        exec python3 "$PROJECT_DIR/unlocker/run_unlocker.py" --ui-stop
+        ;;
     -*)
         echo "Unknown option: $1" >&2
         show_help
@@ -164,6 +185,7 @@ case "${1-}" in
             exit 1
         fi
         py_args=("$name")
+        [ "$auto" -eq 1 ] && py_args+=(--auto)
         [ "$time_only" -eq 1 ] && py_args+=(--time)
         [ "$force" -eq 1 ] && py_args+=(--force)
         [ "$wait_ready" -eq 1 ] && py_args+=(--wait)

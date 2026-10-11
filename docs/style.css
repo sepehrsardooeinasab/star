@@ -222,6 +222,7 @@
     white-space: nowrap;
     transition: color 0.12s ease, background 0.12s ease;
   }
+  .tab[hidden] { display: none; }
   .tab .icon { flex: none; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; }
   .tab .icon svg { width: 100%; height: 100%; }
   .tab:hover { color: var(--text); background: var(--surface-2); }
@@ -311,6 +312,73 @@
     .view-pane[data-view="settings"].active { grid-template-columns: minmax(0, 1fr); }
     .settings-help { padding-left: 0; border-left: none; margin-top: 0.7rem; }
   }
+
+  /* Runs (only in the local app): games on the left, the selected one's
+     output on the right (stacked on narrow screens). */
+  .view-pane[data-view="runs"].active {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+    gap: 1rem;
+  }
+  @media (max-width: 900px) {
+    .view-pane[data-view="runs"].active { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }
+  }
+  .runs-list { display: flex; flex-direction: column; gap: 0.6rem; min-height: 0; overflow-y: auto; }
+  .runs-list .empty-hint, .runs-list .notice { margin: 0; }
+  .run-card {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.8rem 0.9rem;
+    cursor: pointer;
+    transition: border-color 0.12s ease;
+  }
+  .run-card:hover { border-color: var(--border-strong); }
+  .run-card.selected { border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+  .run-head { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
+  .run-name { font-weight: 600; font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .run-badge {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.72rem;
+    font-weight: 500;
+    padding: 0.18rem 0.55rem;
+    border-radius: 999px;
+    background: var(--surface-3);
+    color: var(--text-dim);
+  }
+  .run-badge.live { background: var(--accent-tint); color: var(--accent); }
+  .run-badge.live::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: run-pulse 1.6s ease-in-out infinite;
+  }
+  .run-badge.wait { background: var(--info-bg); color: var(--info); }
+  .run-badge.bad { background: var(--danger-bg); color: var(--danger); }
+  @keyframes run-pulse { 50% { opacity: 0.3; } }
+  .run-meta {
+    margin-top: 0.4rem;
+    font-size: 0.8rem;
+    line-height: 1.55;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .run-meta b { color: var(--text); font-weight: 500; }
+  .run-meta .warn { color: var(--warn); }
+  .run-meta .bad { color: var(--danger); }
+  .run-progress { height: 4px; margin-top: 0.6rem; background: var(--surface-3); border-radius: 2px; overflow: hidden; }
+  .run-progress span { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
+  .run-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+  .run-actions button { padding: 0.42rem 0.85rem; font-size: 0.8rem; }
+  .runs-log { display: flex; flex-direction: column; min-height: 0; }
+  .runs-log-head { font-size: 0.78rem; color: var(--text-dim); margin-bottom: 0.45rem; }
+  .runs-log-head b { color: var(--text); font-weight: 500; }
+  .runs-log pre { white-space: pre-wrap; word-break: break-word; }
 
   /* Notices take what they need, up to a cap, then scroll. */
   #input-alert-slot, .notices-below { flex: none; max-height: 8.5rem; overflow-y: auto; }
