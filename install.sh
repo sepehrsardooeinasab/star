@@ -173,11 +173,15 @@ install_mac_app() {  # $1: a .app folder or a .dmg
     mkdir -p "$dest"
     case "$1" in
         *.dmg)
-            hdiutil attach -nobrowse -readonly -mountpoint "$TMP/dmg" "$1" >/dev/null
+            # hdiutil's output (including deprecation warnings on newer
+            # macOS) is noise here; failure is still caught.
+            hdiutil attach -nobrowse -readonly -mountpoint "$TMP/dmg" "$1" >/dev/null 2>&1 \
+                || fail "Couldn't open the downloaded app ($1)."
             app=$(find "$TMP/dmg" -maxdepth 1 -name '*.app' | head -n 1)
+            [ -n "$app" ] || fail "The downloaded disk image has no app in it."
             rm -rf "$dest/$APP_NAME.app"
             cp -R "$app" "$dest/$APP_NAME.app"
-            hdiutil detach "$TMP/dmg" >/dev/null
+            hdiutil detach "$TMP/dmg" >/dev/null 2>&1 || true
             ;;
         *)
             rm -rf "$dest/$APP_NAME.app"
