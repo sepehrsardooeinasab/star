@@ -1762,7 +1762,7 @@
   function renderUpdate() {
     var u = updateData;
     if (!u) return;
-    var text = "Steam Auto Unlocker " + u.current + (updateChecked && !u.error ? " is up to date." : "");
+    var text = "STAR " + u.current + (updateChecked && !u.error ? " is up to date." : "");
     if (u.updating) {
       text = "Updating to " + u.latest + "… The app closes and opens again when it's done.";
     } else if (u.failed && u.available) {
@@ -1771,7 +1771,7 @@
       text = "Version " + u.latest + " is out (you have " + u.current + ")." +
         (u.can_update ? "" : " Update with git pull.");
     } else if (u.error && updateChecked) {
-      text = "Steam Auto Unlocker " + u.current + ". " + u.error;
+      text = "STAR " + u.current + ". " + u.error;
     }
     byId("update-text").textContent = text;
     byId("update-btn").hidden = !u.available || u.updating;

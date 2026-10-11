@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Unlock Scheduler</title>
+<title>STAR · Steam Timed Achievement Replayer</title>
 <link rel="icon" type="image/png" href="logo.png">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap">
@@ -28,7 +28,7 @@
 <header class="topbar" data-tauri-drag-region="deep">
   <a class="brand" href="./">
     <svg viewBox="0 0 20 20" aria-hidden="true"><defs><linearGradient id="brand-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color: var(--input)"/><stop offset="1" style="stop-color: var(--accent)"/></linearGradient></defs><path d="M10 1.5c.6 4.6 3.9 7.9 8.5 8.5-4.6.6-7.9 3.9-8.5 8.5-.6-4.6-3.9-7.9-8.5-8.5 4.6-.6 7.9-3.9 8.5-8.5z" fill="url(#brand-grad)"/></svg>
-    <span>Unlock Scheduler</span>
+    <span>STAR</span>
   </a>
   <div class="screen-switch" id="screen-switch" role="group" aria-label="Screen" hidden>
     <button type="button" id="switch-home" class="switch-home" title="Home" aria-label="Home"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 9.2 10 3.8l6.5 5.4"/><path d="M5.2 8v7.7h3.4v-4.3h2.8v4.3h3.4V8"/></svg></button>
@@ -59,14 +59,14 @@
         </div>
       </div>
     </div>
-    <a class="topbar-btn" href="https://github.com/sepehrsardooeinasab/steam-auto-unlocker" target="_blank" rel="noopener">GitHub</a>
+    <a class="topbar-btn" href="https://github.com/sepehrsardooeinasab/star" target="_blank" rel="noopener">GitHub</a>
   </div>
 </header>
 
 <!-- The page under the top bar; in the app, it alone scrolls. -->
 <div class="page" id="page">
 <section class="hero" aria-labelledby="hero-title">
-  <div class="hero-eyebrow"><span>Steam achievement scheduler</span></div>
+  <div class="hero-eyebrow"><span>STAR · Steam Timed Achievement Replayer</span></div>
   <h1 class="hero-title" id="hero-title"><span class="hero-bright">Replay a real player's</span> achievement timeline</h1>
   <p class="hero-sub">Turn a SteamHunters export into realistic sessions and breaks, then let ArchiSteamFarm unlock them on your account at the same pace.</p>
 
@@ -82,10 +82,10 @@
   <div class="hero-panel" id="hero-install" hidden>
     <div class="panel-title">Get the app</div>
     <p>Running games needs the app on your Mac or Linux PC. One line installs it, ArchiSteamFarm and its achievement plugin:</p>
-    <div class="install-line"><code id="install-cmd">curl -fsSL https://raw.githubusercontent.com/sepehrsardooeinasab/steam-auto-unlocker/main/install.sh | sh</code><button class="btn-ghost" id="copy-install" type="button">Copy</button></div>
+    <div class="install-line"><code id="install-cmd">curl -fsSL https://raw.githubusercontent.com/sepehrsardooeinasab/star/main/install.sh | sh</code><button class="btn-ghost" id="copy-install" type="button">Copy</button></div>
     <p class="panel-small">Paste it into Terminal. Needs Python 3, which macOS offers to install the first time if it's missing.</p>
     <ol class="guide-list">
-      <li>Open <b>Steam Auto Unlocker</b>. It walks you through installing ArchiSteamFarm and signing in to Steam.</li>
+      <li>Open <b>STAR</b>. It walks you through installing ArchiSteamFarm and signing in to Steam.</li>
       <li>On SteamHunters, open a player's achievements for the game, select the whole list and copy it.</li>
       <li>Press <b>New schedule</b>, paste it, enter the game name and App ID under Settings, and save.</li>
       <li>Open <b>Runs</b> in the top bar and press <b>Run</b>. It keeps going when you close the window.</li>
@@ -144,7 +144,7 @@
     </ol>
     <p class="setup-error" id="setup-error" hidden></p>
     <div class="update-row" id="update-row">
-      <span id="update-text">Steam Auto Unlocker</span>
+      <span id="update-text">STAR</span>
       <button class="btn-ghost" id="update-check" type="button">Check for updates</button>
       <button class="btn-ghost primary-ghost" id="update-now" type="button" hidden>Update now</button>
     </div>

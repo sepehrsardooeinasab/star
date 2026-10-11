@@ -139,7 +139,7 @@ def start_keep_awake():
         # Holds the sleep/idle inhibitor for as long as the wrapped command
         # runs; the command polls this process and ends once it's gone.
         cmd = ["systemd-inhibit", "--what=sleep:idle", "--mode=block",
-               "--who=Steam unlocker", "--why=Unlocking achievements",
+               "--who=STAR", "--why=Unlocking achievements",
                "sh", "-c", 'while kill -0 "$0" 2>/dev/null; do sleep 5; done', pid]
     else:
         return None
@@ -171,7 +171,7 @@ def stop_keep_awake(proc):
     proc.wait()
 
 
-NOTIFY_TITLE = "Steam unlocker"
+NOTIFY_TITLE = "STAR"
 NOTIFY_ICON = CODE_DIR / "docs" / "logo.png"
 NOTIFY_REMOVE_AFTER = 1800  # "done" notifications clear themselves after 30 min
 

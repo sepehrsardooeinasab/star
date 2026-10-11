@@ -1,4 +1,4 @@
-"""Updates for Steam Auto Unlocker itself: checks GitHub for a newer
+"""Updates for STAR itself: checks GitHub for a newer
 release, and updates by running the install script again — the same
 command that installed it, which replaces the app and the code and keeps
 the user's games, ArchiSteamFarm and settings. The script closes the app
@@ -23,7 +23,7 @@ from unlocker.state import JSONS_DIR
 # The release this code is. Bump it along with the app's version in
 # app/src-tauri/tauri.conf.json and Cargo.toml (release v3.01 is 3.0.1).
 RELEASE = "v3.03"
-REPO = "sepehrsardooeinasab/steam-auto-unlocker"
+REPO = "sepehrsardooeinasab/star"
 LATEST_URL = f"https://api.github.com/repos/{REPO}/releases/latest"
 INSTALL_URL = f"https://raw.githubusercontent.com/{REPO}/main/install.sh"
 UPDATE_LOG = JSONS_DIR / ".update.log"
@@ -45,7 +45,7 @@ def has_app():
     it; on Linux the install script keeps the AppImage in the data folder."""
     if sys.platform == "darwin":
         return CODE_DIR.parent.name == "Contents" and CODE_DIR.parent.parent.suffix == ".app"
-    return (DATA_DIR / "Steam Auto Unlocker.AppImage").exists()
+    return (DATA_DIR / "STAR.AppImage").exists() or (DATA_DIR / "Steam Auto Unlocker.AppImage").exists()
 
 
 def _app_asset_suffix():
@@ -58,7 +58,7 @@ def _app_asset_suffix():
 
 def _latest_release():
     req = urllib.request.Request(LATEST_URL, headers={
-        "User-Agent": "steam-auto-unlocker", "Accept": "application/vnd.github+json"})
+        "User-Agent": "star", "Accept": "application/vnd.github+json"})
     with urllib.request.urlopen(req, timeout=15) as r:
         release = json.loads(r.read())
     # A release's app is built after the release is made; until it's there,

@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Steam Auto Unlocker",
+  "productName": "STAR",
   "version": "3.0.3",
   "identifier": "io.github.sepehrsardooeinasab.steamautounlocker",
   "build": {
@@ -14,9 +14,9 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app", "dmg", "appimage", "deb"],
+    "targets": ["app", "dmg", "appimage"],
     "category": "Utility",
-    "shortDescription": "Replay a real player's Steam achievement timeline",
+    "shortDescription": "Steam Timed Achievement Replayer: replay a real player's achievement timeline",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

@@ -25,7 +25,7 @@ SETUP_FILE = Path(__file__).resolve().parent.parent / "unlocker" / "asf_setup.py
 
 
 def github(path):
-    headers = {"User-Agent": "steam-auto-unlocker", "Accept": "application/vnd.github+json"}
+    headers = {"User-Agent": "star", "Accept": "application/vnd.github+json"}
     if os.environ.get("GITHUB_TOKEN"):
         headers["Authorization"] = f"Bearer {os.environ['GITHUB_TOKEN']}"
     req = urllib.request.Request(f"https://api.github.com/repos/{path}", headers=headers)
