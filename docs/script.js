@@ -443,9 +443,26 @@
     });
     els.boxTitle.textContent = NAV_TITLES[view];
     document.querySelector(".box").setAttribute("data-view", view);  // shows that tab's help
+    sizeBoxes();
     render();
     if (view === "runs") refreshRuns();
   }
+
+  // Runs and Settings take the builder's height (Runs has no tabs or
+  // footer, Settings is its own panel), so switching between the tabs in
+  // the top bar doesn't move anything. Measured with the builder briefly
+  // laid out (not drawn), since it's hidden on those tabs.
+  function sizeBoxes() {
+    var body = document.body, box = document.querySelector(".box");
+    var screen = body.getAttribute("data-screen"), view = box.getAttribute("data-view");
+    body.setAttribute("data-screen", "work");
+    box.setAttribute("data-view", scheduleView);
+    var height = box.offsetHeight;
+    if (screen) body.setAttribute("data-screen", screen);
+    box.setAttribute("data-view", view);
+    if (height) document.documentElement.style.setProperty("--box-h", height + "px");
+  }
+  window.addEventListener("resize", sizeBoxes);
 
   Object.keys(navButtons).forEach(function (key) {
     navButtons[key].addEventListener("click", function () { setView(key); });
@@ -1605,8 +1622,8 @@
     var asfCurrent = asfDone && !d.outdated;
     byId("step-asf").className = "setup-step" + (installing ? " busy" : asfCurrent ? " done" : "");
     byId("step-asf-text").textContent = installing ? (d.message || "Starting…")
-      : asfCurrent ? "Installed: ArchiSteamFarm " + d.asf_version + " with\nASFAchievementManager " +
-        d.plugin_version + "."
+      : asfCurrent ? "Installed: ArchiSteamFarm " + d.asf_version + "\nInstalled: ASFAchievementManager " +
+        d.plugin_version
       : asfDone ? "ArchiSteamFarm " + d.asf_wanted + " with ASFAchievementManager " + d.plugin_wanted +
         " is ready to install. It installs by itself once no game is in a session."
       : "Downloads ArchiSteamFarm and its achievement plugin (about 50 MB).";
@@ -1619,12 +1636,15 @@
     byId("asf-check").disabled = checking;
     byId("asf-check").textContent = checking ? "Checking…" : "Check for updates";
     byId("asf-update-latest").hidden = !asfCurrent || installing || !(latest && latest.newer);
-    byId("asf-latest-text").hidden = !asfCurrent || installing || !latest;
+    // "Up to date" (or a failed check) answers the click; it's gone once
+    // you leave Settings. A newer pair stays, since it can be installed.
+    var shown = latest && (latest.newer || asfCheckAnswer);
+    byId("asf-latest-text").hidden = !asfCurrent || installing || !shown;
     if (latest) {
       byId("asf-latest-text").textContent = latest.error ? latest.error
         : latest.newer ? "ArchiSteamFarm " + latest.asf + " with ASFAchievementManager " + latest.plugin +
           " is out and they work together. Updating waits for any session that's playing."
-        : "Up to date: no newer pair that work together.";
+        : "Up to date. There's no newer pair that works together.";
       byId("asf-update-latest").textContent = "Update to " + (latest.asf || "");
     }
 
@@ -1642,6 +1662,10 @@
     byId("code-form").hidden = !asfDone || d.signed_in || signing || !d.needs;
 
     renderExtras(d);
+    byId("step-data").hidden = !d.data_dir;
+    byId("data-path").textContent = d.data_dir || "";
+    byId("open-folder").textContent = document.documentElement.getAttribute("data-desktop") === "linux"
+      || /Linux/.test(navigator.platform) ? "Show folder" : "Show in Finder";
     byId("setup-error").hidden = !d.error;
     byId("setup-error").textContent = d.error || "";
   }
@@ -1653,21 +1677,19 @@
     byId("step-extras").hidden = !x || !(d.asf && d.plugin);
     if (!x) return;
     var awake = x.keep_awake, notes = x.notifications;
-    var mac = awake.tool === "caffeinate" || notes.tool === "terminal-notifier" || notes.tool === "osascript";
-    byId("step-extras").className = "setup-step" + (d.busy === "notifier" ? " busy"
-      : awake.tool && notes.full ? " done" : "");
+    var mac = notes.tool === "osascript";
+    byId("step-extras").className = "setup-step" + (awake.tool && notes.full ? " done" : "");
     byId("awake-text").textContent = awake.tool
       ? "Keep awake: on. While a game runs, " + awake.tool + (mac ? " (built into macOS)" : "") +
         " keeps the computer from sleeping."
       : "Keep awake: not available. systemd-inhibit (part of systemd) isn't here, so the computer may sleep during a run.";
-    byId("notify-text").textContent = d.busy === "notifier" ? (d.message || "Installing…")
-      : notes.full ? "Notifications: on (" + notes.tool + "). You get one when a session ends, a game is done, or a run stops."
-      : notes.tool === "osascript" ? "Notifications: basic. Install terminal-notifier for the logo, the game's name, and ones that clear themselves."
+    byId("awake-check").hidden = !awake.tool;
+    byId("notify-text").textContent = notes.full
+      ? "Notifications: on (" + (mac ? "built into macOS" : notes.tool) + "). You get one when a session ends, a game is done, or a run stops."
       : "Notifications: off. Install notify-send to get one when a session ends, a game is done, or a run stops.";
     var command = !notes.full && notes.install;
-    byId("notify-install").hidden = !command || d.busy === "notifier";
+    byId("notify-install").hidden = !command;
     byId("notify-cmd").textContent = command || "";
-    byId("notify-run").hidden = !notes.can_run || !!d.busy;
     byId("notify-test").hidden = !notes.tool || !!d.busy;
   }
 
@@ -1678,16 +1700,31 @@
   }
 
   byId("setup-install").addEventListener("click", function () { setupPost("/api/setup/install", {}); });
+  var asfCheckAnswer = false;  // show what Check for updates found
   byId("asf-check").addEventListener("click", function () {
+    asfCheckAnswer = true;
     byId("asf-check").textContent = "Checking…";
     byId("asf-check").disabled = true;
     setupPost("/api/setup/asf-check", {});
   });
   byId("asf-update-latest").addEventListener("click", function () { setupPost("/api/setup/install", {latest: true}); });
-  byId("notify-run").addEventListener("click", function () { setupPost("/api/setup/install-notifier", {}); });
+  byId("awake-check").addEventListener("click", function () {
+    var button = byId("awake-check");
+    button.disabled = true;
+    button.textContent = "Testing…";
+    api("/api/setup/test-awake", {}).then(function (d) {
+      showToast(d.works ? "Keep awake works: " + d.found + "." : "Keep awake doesn't work here: " + d.found + ".");
+    }).catch(function (err) { showToast(err.message); })
+      .then(function () { button.disabled = false; button.textContent = "Test keep awake"; });
+  });
   byId("notify-test").addEventListener("click", function () {
-    api("/api/setup/test-notification", {}).then(function () { showToast("Sent. If nothing showed up, check System Settings → Notifications."); })
+    api("/api/setup/test-notification", {}).then(function () { showToast(/Mac/.test(navigator.platform)
+      ? "Sent. If nothing showed up, allow notifications for Script Editor in System Settings → Notifications."
+      : "Sent. If nothing showed up, check your desktop's notification settings."); })
       .catch(function (err) { showToast(err.message); });
+  });
+  byId("open-folder").addEventListener("click", function () {
+    api("/api/open-folder", {}).catch(function (err) { showToast(err.message); });
   });
   byId("notify-copy").addEventListener("click", function () {
     var text = byId("notify-cmd").textContent;
@@ -1804,11 +1841,19 @@
     byId("page").scrollTop = 0;  // in the app, the page scrolls on its own
     // Leaving the Guide tab closes the panel, unless it's first-run setup,
     // which stays on the start screen until it's done.
+    // What Check for updates found answers the click; leaving Settings
+    // clears it (a newer version stays, since it can be installed).
+    if (name !== "guide" && (asfCheckAnswer || updateChecked)) {
+      asfCheckAnswer = updateChecked = false;
+      renderSetup();
+      renderUpdate();
+    }
     if (name !== "guide" && setupOpen && !setupAutoClose) {
       setupOpen = false;
       renderSetup();
     }
     syncScreenSwitch();
+    sizeBoxes();
   }
 
   // Schedule / Runs in the top bar (app only).
@@ -1817,10 +1862,12 @@
     byId("switch-schedule").classList.toggle("active", work && currentView !== "runs");
     byId("switch-runs").classList.toggle("active", work && currentView === "runs");
     byId("switch-guide").classList.toggle("active", document.body.getAttribute("data-screen") === "guide");
+    byId("switch-home").classList.toggle("active", document.body.getAttribute("data-screen") === "home");
   }
   byId("switch-schedule").addEventListener("click", function () { showScreen("work"); setView(scheduleView); });
   byId("switch-runs").addEventListener("click", function () { showScreen("work"); setView("runs"); });
   byId("switch-guide").addEventListener("click", showGuide);
+  byId("switch-home").addEventListener("click", function () { showScreen("home"); });
 
   byId("hero-new").addEventListener("click", function () { showScreen("work"); setView("input"); });
   byId("hero-run").addEventListener("click", function () {

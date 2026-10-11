@@ -280,7 +280,8 @@ _setup_lock = threading.Lock()
 
 def setup_state():
     with _setup_lock:
-        return {**asf_setup.status(), **_setup, "extras": extras.status(), "asf_latest": _asf_latest}
+        return {**asf_setup.status(), **_setup, "extras": extras.status(), "asf_latest": _asf_latest,
+                "data_dir": _shown_path(DATA_DIR)}
 
 
 def _setup_update(**fields):
@@ -342,14 +343,35 @@ def asf_check():
     return setup_state()
 
 
-def install_notifier():
-    report = lambda m: _setup_update(message=m)
-    return _setup_task("notifier", lambda: extras.install_notifier(report))
+def test_keep_awake():
+    works, found = extras.test_keep_awake()
+    return {"works": works, "found": found}
 
 
 def test_notification():
     notify("Test", "Notifications work. You'll get one when a session ends or a run stops.")
     return {"sent": True}
+
+
+def _shown_path(path):
+    """path with the home folder as ~, so it doesn't show the user's name."""
+    path, home = path.resolve(), Path.home().resolve()
+    return "~/" + str(path.relative_to(home)) if path.is_relative_to(home) else str(path)
+
+
+def open_data_folder():
+    """Shows the data folder (games, ArchiSteamFarm, settings) in Finder or,
+    on Linux, the desktop's file manager."""
+    opener = "open" if sys.platform == "darwin" else "xdg-open"
+    try:
+        # Both return once the file manager has the request.
+        ok = subprocess.run([opener, str(DATA_DIR)], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL, timeout=10).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        ok = False
+    if not ok:
+        raise AppError(f"Couldn't open the folder. It's at {_shown_path(DATA_DIR)}.", 500)
+    return {"opened": True}
 
 
 def app_update():
@@ -493,8 +515,9 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/dismiss": lambda: dismiss(name),
             "/api/setup/install": lambda: setup_install(bool(body.get("latest"))),
             "/api/setup/asf-check": asf_check,
-            "/api/setup/install-notifier": install_notifier,
             "/api/setup/test-notification": test_notification,
+            "/api/setup/test-awake": test_keep_awake,
+            "/api/open-folder": open_data_folder,
             "/api/setup/login": lambda: setup_login(body.get("username"), body.get("password")),
             "/api/setup/code": lambda: setup_code(body.get("code")),
             "/api/update": app_update,
