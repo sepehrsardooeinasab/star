@@ -27,6 +27,8 @@
     <span>Unlock Scheduler</span>
   </a>
   <div class="topbar-right">
+    <button class="topbar-pill accent" id="update-btn" type="button" hidden>Update</button>
+    <button class="topbar-pill" id="guide-btn" type="button" title="How to set up and use it">Guide</button>
     <button class="icon-btn" id="accent-toggle" type="button" aria-label="Accent color: violet. Click for the next one." title="Accent color (click to change)"><span class="accent-dot"></span></button>
     <button class="icon-btn" id="theme-toggle" type="button" aria-label="Switch to light theme" title="Light / dark">
       <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 9.8A5.8 5.8 0 0 1 6.2 2.5a5.8 5.8 0 1 0 7.3 7.3z" fill="currentColor"/></svg>
@@ -55,10 +57,20 @@
     <p>Running games needs the app on your Mac or Linux PC. One line installs it, ArchiSteamFarm and its achievement plugin:</p>
     <div class="install-line"><code id="install-cmd">curl -fsSL https://raw.githubusercontent.com/sepehrsardooeinasab/steam-auto-unlocker/main/install.sh | sh</code><button class="btn-ghost" id="copy-install" type="button">Copy</button></div>
     <p class="panel-small">Paste it into Terminal. Needs Python 3, which macOS offers to install the first time if it's missing.</p>
+    <ol class="guide-list">
+      <li>Open <b>Steam Auto Unlocker</b>. It walks you through installing ArchiSteamFarm and signing in to Steam.</li>
+      <li>On SteamHunters, open a player's achievements for the game, select the whole list and copy it.</li>
+      <li>Press <b>New schedule</b>, paste it, enter the game name and App ID under Settings, and save.</li>
+      <li>Open the <b>Runs</b> tab and press <b>Run</b>. It keeps going when you close the window.</li>
+    </ol>
+    <p class="panel-small">Run the same command again any time to update; your games and settings are kept.</p>
   </div>
 
   <div class="hero-panel setup" id="hero-setup" hidden>
-    <div class="panel-title">Finish setting up</div>
+    <div class="panel-head">
+      <div class="panel-title" id="setup-title">Finish setting up</div>
+      <button class="btn-ghost panel-close" id="setup-close" type="button">Close</button>
+    </div>
     <ol class="setup-steps">
       <li class="setup-step" id="step-asf">
         <div class="step-head"><span class="step-mark"></span><b>ArchiSteamFarm</b></div>
@@ -68,6 +80,7 @@
       <li class="setup-step" id="step-steam">
         <div class="step-head"><span class="step-mark"></span><b>Steam account</b></div>
         <p class="step-text" id="step-steam-text">Sign in with the account to unlock achievements on. It's saved only in ArchiSteamFarm's own config on this computer.</p>
+        <button class="btn-ghost" id="steam-change" type="button" hidden>Use another account</button>
         <form class="setup-form" id="login-form" autocomplete="off">
           <input type="text" id="steam-user" placeholder="Steam username" autocomplete="username">
           <input type="password" id="steam-pass" placeholder="Password" autocomplete="current-password">
@@ -78,8 +91,21 @@
           <button class="btn-ghost" type="submit">Continue</button>
         </form>
       </li>
+      <li class="setup-step guide">
+        <div class="step-head"><span class="step-mark"></span><b>Make a schedule</b></div>
+        <p class="step-text">On SteamHunters, open a player's achievements for the game, select the whole list and copy it. Press <b>New schedule</b>, paste it, enter the game name and App ID under Settings, then <b>Save to project</b>.</p>
+      </li>
+      <li class="setup-step guide">
+        <div class="step-head"><span class="step-mark"></span><b>Run it</b></div>
+        <p class="step-text">On the <b>Runs</b> tab, press <b>Run</b>. It plays the game in sessions with breaks in between, unlocking at the same pace as the player. Closing the window doesn't stop it.</p>
+      </li>
     </ol>
     <p class="setup-error" id="setup-error" hidden></p>
+    <div class="update-row" id="update-row">
+      <span id="update-text">Steam Auto Unlocker</span>
+      <button class="btn-ghost" id="update-check" type="button">Check for updates</button>
+      <button class="btn-ghost primary-ghost" id="update-now" type="button" hidden>Update now</button>
+    </div>
   </div>
 
   <ul class="hero-points">

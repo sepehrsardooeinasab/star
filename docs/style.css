@@ -141,6 +141,23 @@
 
   .accent-dot { width: 13px; height: 13px; border-radius: 50%; background: var(--accent); }
 
+  /* Text buttons in the top bar: the guide, and an update when there is one. */
+  .topbar-pill {
+    height: 30px;
+    padding: 0 0.75rem;
+    border-radius: 7px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.8rem;
+    font-weight: 500;
+  }
+  .topbar-pill:hover { background: var(--surface-2); }
+  .topbar-pill.accent { border-color: var(--accent); color: var(--accent); }
+  .topbar-pill[hidden] { display: none; }
+  /* Narrow windows: the logo alone, so the buttons fit. */
+  @media (max-width: 520px) { .topbar .brand span { display: none; } }
+
   .topbar-btn {
     background: var(--text);
     color: var(--bg);
@@ -313,6 +330,24 @@
   .setup-form { display: flex; flex-wrap: wrap; gap: 0.5rem; }
   .setup-form input { flex: 1 1 9rem; width: auto; font-family: var(--font); }
   .setup-error { color: var(--danger); font-size: 0.82rem; }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  .panel-close { padding: 0.3rem 0.7rem; font-size: 0.76rem; }
+  .setup-step.guide .step-mark { border-style: dashed; }
+  .guide-list { margin: 0.9rem 0 0; padding-left: 1.2rem; line-height: 1.5; }
+  .guide-list li + li { margin-top: 0.35rem; }
+  .update-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.8rem;
+    margin-top: 0.9rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.8rem;
+  }
+  .update-row span { flex: 1 1 12rem; }
+  .update-row button { padding: 0.35rem 0.8rem; font-size: 0.78rem; }
+  .update-row .primary-ghost { border-color: var(--accent); color: var(--accent); }
   .hero [hidden] { display: none !important; }
 
   .shell {

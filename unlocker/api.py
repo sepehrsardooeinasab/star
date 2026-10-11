@@ -99,6 +99,10 @@ def _stop_other_asf_instances():
     time.sleep(3)
 
 
+def asf_running():
+    return subprocess.run(["pgrep", "-f", str(ASF_BINARY)], capture_output=True).returncode == 0
+
+
 def ensure_asf_running():
     """Starts ArchiSteamFarm if it isn't already running, and waits a bit
     for it to come up. Mirrors runsteamunlocker's own bash version, but now
@@ -106,7 +110,7 @@ def ensure_asf_running():
     they want to proceed, not unconditionally before asking."""
     _stop_other_asf_instances()
 
-    if subprocess.run(["pgrep", "-f", str(ASF_BINARY)], capture_output=True).returncode == 0:
+    if asf_running():
         return
 
     print("ArchiSteamFarm isn't running, starting it...")

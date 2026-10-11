@@ -24,7 +24,7 @@ from urllib.parse import parse_qs, urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from unlocker import asf_setup
+from unlocker import asf_setup, updates
 from unlocker.paths import CODE_DIR
 from unlocker.runner import _session_status, config_changed
 from unlocker.settings import SETTINGS
@@ -178,6 +178,10 @@ def start_run(name):
         raise AppError(f"There's no config for {name}.", 404)
     if _running_pid(name):
         raise AppError(f"{name} is already running.", 409)
+    if _setup["busy"] == "install":
+        raise AppError("ArchiSteamFarm is being installed or updated. Try again once it's done.", 409)
+    if updates.updating():
+        raise AppError("The app is updating. Try again once it has reopened.", 409)
     JSONS_DIR.mkdir(parents=True, exist_ok=True)
     with open(auto_log_path(name), "w") as log:
         proc = subprocess.Popen(
@@ -285,6 +289,23 @@ def setup_install():
     return _setup_task("install", lambda: asf_setup.install(report=lambda m: _setup_update(message=m)))
 
 
+def app_update():
+    if not updates.can_update():
+        raise AppError("This copy wasn't installed with the install command; update it with git pull.", 409)
+    # Runs keep their code in memory, so ones waiting between sessions carry
+    # on; only a session that's playing has to finish first (the update may
+    # swap ArchiSteamFarm, which it's using).
+    session = lock_info(SESSION_LOCK)
+    if session:
+        raise AppError(f"{session[1]} is in a session. Update once the session ends; "
+                       "games waiting for their next session are fine.", 409)
+    if _setup["busy"]:
+        raise AppError("Setup is busy; update once it's done.", 409)
+    if not updates.updating():
+        updates.start_update()
+    return updates.update_state()
+
+
 def _finish_login(result):
     if result == "logged_on":
         _setup_update(needs=None, signed_in=True, message="Signed in to Steam.")
@@ -375,6 +396,7 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/ping": lambda: {"app": APP_ID},
             "/api/games": game_states,
             "/api/setup": setup_state,
+            "/api/update": lambda: updates.update_state(force=query.get("force") == "1"),
             "/api/log": lambda: read_log(query.get("name")),
         }
         self._route(routes.get(url.path))
@@ -407,6 +429,7 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/setup/install": setup_install,
             "/api/setup/login": lambda: setup_login(body.get("username"), body.get("password")),
             "/api/setup/code": lambda: setup_code(body.get("code")),
+            "/api/update": app_update,
         }
         self._route(routes.get(urlparse(self.path).path))
 
@@ -419,12 +442,27 @@ class Handler(SimpleHTTPRequestHandler):
             self._json(e.status, {"error": str(e), **e.extra})
 
 
+def _keep_asf_current():
+    """An app update can pin a newer ArchiSteamFarm. Installs it now, or,
+    if a game is in a session, once no session is playing (games waiting
+    between sessions don't hold it up)."""
+    while True:
+        if (asf_setup.status()["outdated"] and not lock_info(SESSION_LOCK)
+                and not _setup["busy"] and not updates.updating()):
+            try:
+                setup_install()
+            except AppError:
+                pass
+        time.sleep(600)
+
+
 def serve():
     if not acquire_lock(SERVER_LOCK, "app", keep=True):
         print("The app is already running.")
         return
     server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     print(f"Serving {URL} (started {datetime.now():%a %H:%M}).")
+    threading.Thread(target=_keep_asf_current, daemon=True).start()
     server.serve_forever()
 
 

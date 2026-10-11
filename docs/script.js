@@ -1288,11 +1288,17 @@
     render();
     refreshRuns();
     refreshSetup();
+    checkUpdates(false);
   }
 
   // ---- first-run setup (local app): install ArchiSteamFarm, sign in ----
+  // Opens by itself until both steps are done (then closes by itself), and
+  // from Guide any time after, which also covers updating ArchiSteamFarm
+  // and changing the Steam account.
   var setupData = null;
-  var setupOpen = false;   // shown until both steps are done
+  var setupOpen = false;
+  var setupAutoClose = false;
+  var changingAccount = false;
   var setupTimer = null;
 
   function byId(id) { return document.getElementById(id); }
@@ -1300,7 +1306,7 @@
   function refreshSetup() {
     clearTimeout(setupTimer);
     api("/api/setup").then(function (d) {
-      if (setupData === null) setupOpen = !(d.asf && d.plugin && d.bot);
+      if (setupData === null && !setupOpen) setupOpen = setupAutoClose = !(d.asf && d.plugin && d.bot);
       setupData = d;
       renderSetup();
       if (d.busy) setupTimer = setTimeout(refreshSetup, 800);
@@ -1309,32 +1315,42 @@
 
   function renderSetup() {
     var d = setupData;
+    if (!d) return;
     var asfDone = d.asf && d.plugin;
-    if (setupOpen && asfDone && d.signed_in && !d.busy) {
-      setupOpen = false;
+    if (d.signed_in) changingAccount = false;
+    if (setupOpen && setupAutoClose && asfDone && d.signed_in && !d.busy) {
+      setupOpen = setupAutoClose = false;
       showToast("All set. Make a schedule, then run it.");
     }
+    var signedIn = d.signed_in || (d.bot && !changingAccount);
+    var firstRun = !(asfDone && (d.signed_in || d.bot));
     byId("hero-setup").hidden = !setupOpen;
-    byId("hero-actions").hidden = setupOpen;
+    byId("hero-actions").hidden = setupOpen && firstRun;
     byId("hero-note").hidden = setupOpen;
     if (!setupOpen) return;
+    byId("setup-title").textContent = firstRun ? "Finish setting up" : "Setup guide";
 
     var installing = d.busy === "install";
-    byId("step-asf").className = "setup-step" + (asfDone ? " done" : installing ? " busy" : "");
-    byId("step-asf-text").textContent = asfDone ? "Installed." : installing ? (d.message || "Starting…")
+    var asfCurrent = asfDone && !d.outdated;
+    byId("step-asf").className = "setup-step" + (installing ? " busy" : asfCurrent ? " done" : "");
+    byId("step-asf-text").textContent = installing ? (d.message || "Starting…")
+      : asfCurrent ? "Installed" + (d.asf_version ? " (version " + d.asf_version + ")." : ".")
+      : asfDone ? "Version " + d.asf_wanted + " is ready to install. It installs by itself once no game is in a session."
       : "Downloads ArchiSteamFarm and its achievement plugin (about 50 MB).";
-    byId("setup-install").hidden = asfDone || installing;
+    byId("setup-install").hidden = asfCurrent || installing;
+    byId("setup-install").textContent = asfDone ? "Update" : "Install";
 
     var signing = d.busy === "login" || d.busy === "code";
-    byId("step-steam").className = "setup-step" + (d.signed_in ? " done" : signing ? " busy" : "");
+    byId("step-steam").className = "setup-step" + (signing ? " busy" : signedIn ? " done" : "");
     var text = "Sign in with the account to unlock achievements on. It's saved only in ArchiSteamFarm's own config on this computer.";
     if (!asfDone) text = "After ArchiSteamFarm is installed.";
-    else if (d.signed_in) text = "Signed in as " + d.account + ".";
     else if (signing) text = d.message || "Signing in…";
     else if (d.needs === "SteamGuard") text = "Steam emailed you a code. Enter it here.";
     else if (d.needs === "TwoFactorAuthentication") text = "Enter the code from Steam Guard in the Steam mobile app.";
+    else if (signedIn) text = "Signed in as " + d.account + ".";
     byId("step-steam-text").textContent = text;
-    byId("login-form").hidden = !asfDone || d.signed_in || signing || !!d.needs;
+    byId("steam-change").hidden = !asfDone || !signedIn || signing || !!d.needs;
+    byId("login-form").hidden = !asfDone || signedIn || signing || !!d.needs;
     byId("code-form").hidden = !asfDone || d.signed_in || signing || !d.needs;
 
     byId("setup-error").hidden = !d.error;
@@ -1348,6 +1364,15 @@
   }
 
   byId("setup-install").addEventListener("click", function () { setupPost("/api/setup/install", {}); });
+  byId("setup-close").addEventListener("click", function () {
+    setupOpen = setupAutoClose = false;
+    renderSetup();
+  });
+  byId("steam-change").addEventListener("click", function () {
+    changingAccount = true;
+    renderSetup();
+    byId("steam-user").focus();
+  });
   byId("login-form").addEventListener("submit", function (e) {
     e.preventDefault();
     setupPost("/api/setup/login", {username: byId("steam-user").value, password: byId("steam-pass").value});
@@ -1358,6 +1383,89 @@
     setupPost("/api/setup/code", {code: byId("steam-code").value});
     byId("steam-code").value = "";
   });
+
+  // ---- updates (local app) ----
+  // Checked when the page opens (the server asks GitHub at most every few
+  // hours) and from Check for updates / the app's menu. Updating runs the
+  // install script, which closes the app and opens the new one.
+  var updateData = null;
+  var updateChecked = false;   // checked on request, so say "up to date"
+
+  function renderUpdate() {
+    var u = updateData;
+    if (!u) return;
+    var text = "Steam Auto Unlocker " + u.current + (updateChecked && !u.error ? " is up to date." : "");
+    if (u.updating) {
+      text = "Updating to " + u.latest + "… The app closes and opens again when it's done.";
+    } else if (u.failed && u.available) {
+      text = "The last update didn't finish (" + u.failed.replace(/^Error:\s*/, "") + ")";
+    } else if (u.available) {
+      text = "Version " + u.latest + " is out (you have " + u.current + ")." +
+        (u.can_update ? "" : " Update with git pull.");
+    } else if (u.error && updateChecked) {
+      text = "Steam Auto Unlocker " + u.current + ". " + u.error;
+    }
+    byId("update-text").textContent = text;
+    byId("update-btn").hidden = !u.available || u.updating;
+    byId("update-btn").title = u.available ? "Version " + u.latest + " is out" : "";
+    byId("update-now").hidden = !u.available || !u.can_update || u.updating;
+    byId("update-check").hidden = u.updating;
+  }
+
+  function checkUpdates(force) {
+    if (force) byId("update-text").textContent = "Checking for updates…";
+    return api("/api/update" + (force ? "?force=1" : "")).then(function (u) {
+      updateData = u;
+      updateChecked = updateChecked || force;
+      renderUpdate();
+    }).catch(function () {});
+  }
+
+  // Without the app, the install script restarts the page's server: reload
+  // once it's back. (With the app, the app itself is reopened.)
+  function reloadWhenBack() {
+    var wentDown = false;
+    var timer = setInterval(function () {
+      fetch("/api/ping").then(function (r) {
+        if (wentDown && r.ok) { clearInterval(timer); location.reload(); }
+      }).catch(function () { wentDown = true; });
+    }, 2000);
+  }
+
+  function showGuide() {
+    showScreen("home");
+    if (!local) {
+      byId("hero-install").hidden = false;
+      byId("hero-install").scrollIntoView({block: "center"});
+      return;
+    }
+    setupOpen = true;
+    renderSetup();
+    refreshSetup();
+  }
+
+  byId("guide-btn").addEventListener("click", showGuide);
+  byId("update-btn").addEventListener("click", function () {
+    showGuide();
+    byId("update-row").scrollIntoView({block: "center"});
+  });
+  byId("update-check").addEventListener("click", function () { checkUpdates(true); });
+  byId("update-now").addEventListener("click", function () {
+    api("/api/update", {}).then(function (u) {
+      updateData = u;
+      renderUpdate();
+      reloadWhenBack();
+    }).catch(function (err) { showToast(err.message); });
+  });
+
+  // Called by the desktop app's menu (Help > Setup Guide, Check for Updates…).
+  window.unlockerShowGuide = showGuide;
+  window.unlockerCheckUpdates = function () {
+    showGuide();
+    if (!local) return;
+    byId("update-row").scrollIntoView({block: "center"});
+    checkUpdates(true);
+  };
 
   // ---- start screen ----
   function showScreen(name) {

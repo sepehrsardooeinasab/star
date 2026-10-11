@@ -49,7 +49,11 @@ if __name__ == "__main__":
     if "--setup" in args or "--install-asf" in args:
         from unlocker.asf_setup import SetupError, setup_interactive
         try:
-            setup_interactive(login="--setup" in args)
+            if "--setup" in args:
+                setup_interactive()
+            else:
+                # Under the installer's "==> Setting up ArchiSteamFarm" step.
+                setup_interactive(login=False, report=lambda m: print("    " + m))
         except SetupError as e:
             print(f"Setup failed: {e}")
             sys.exit(1)

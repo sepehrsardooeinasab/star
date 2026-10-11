@@ -28,6 +28,9 @@ Prefer to set everything up yourself? See [Setup](#setup) below.
 The app (or `runsteamunlocker --ui`, which opens the same thing in your browser) starts on two buttons: **New schedule** and **Run a game**. On first launch it sets up ArchiSteamFarm and signs in to Steam instead.
 
 - Paste an export and check the timeline as on the public page, then **Save to project** writes the config and CSV straight into `jsons/` and `csvs/`.
+- **Guide** (or **Help > Setup Guide** in the app's menu) shows the setup steps again: update ArchiSteamFarm, sign in with another Steam account, and how to make and run a schedule.
+- The app checks for a new release when it opens, and from **Check for Updates…** in its menu (the app menu on macOS, **Help** on Linux). **Update now** runs the install command for you: the app closes, updates and opens again. Games waiting between sessions keep going; only a session that's playing has to end first.
+- ArchiSteamFarm and its plugin are pinned to versions known to work together, and ASF's own auto-update is turned off so it can't drift from the plugin. When an app update pins newer ones, they're swapped in between sessions, never during one: a session that comes due meanwhile waits a moment for the swap.
 - The **Runs** tab lists every game with its progress, current session and when the next one starts. **Run** plays every remaining session back to back, waiting out the breaks on its own; **Stop** ends it right away (the bot stops playing, progress is kept) and **Stop after this session** lets the current one finish first. Each game's output is shown live.
 
 Runs are background processes, so closing the browser (or the terminal) doesn't stop them. Reopen the page any time to see where they are, or stop them from a terminal with `runsteamunlocker -k`. The page is served on `127.0.0.1` only and only accepts requests from itself. `runsteamunlocker --ui-stop` stops the app; games it started keep running. The computer has to stay on for a run to continue; it's kept awake while a run is going.
@@ -138,7 +141,8 @@ With randomness on, it applies to the delays between achievements and to the gap
   - `state.py` — reads/writes `jsons/config_*.json` and `jsons/progress_*.json`
   - `settings.py` — defaults for `settings.json` and its validation
   - `server.py` — the local app (`--ui`): serves `docs/` and the API it uses to save configs and start, stop and follow runs
-  - `asf_setup.py` — first-run setup: downloads ArchiSteamFarm and the plugin, writes their configs, signs in to Steam
+  - `asf_setup.py` — first-run setup: downloads ArchiSteamFarm and the plugin (and updates them to the pinned versions), writes their configs, signs in to Steam
+  - `updates.py` — checks GitHub for a newer release and updates by running the install script again
   - `paths.py` — where the code and the data live (`UNLOCKER_HOME`)
   - `run_unlocker.py` — CLI entry point
 - `runsteamunlocker` — bash launcher: starts ArchiSteamFarm if needed, then runs the unlocker for a given config

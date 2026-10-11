@@ -16,6 +16,9 @@
 #                       games, ArchiSteamFarm and settings are kept
 #   --source <dir>      install the code from a local folder (for testing)
 #   --app-file <path>   install the app from a local .app, .dmg or .AppImage
+#   --reopen            (used by the app's Check for Updates) close the app
+#                       while it's replaced and open it again afterwards, or
+#                       restart the page's server when there's no app
 set -eu
 
 REPO="sepehrsardooeinasab/steam-auto-unlocker"
@@ -25,7 +28,7 @@ say() { printf '\033[1m==>\033[0m %s\n' "$*"; }
 note() { printf '    %s\n' "$*"; }
 fail() { printf '\033[31mError:\033[0m %s\n' "$*" >&2; exit 1; }
 
-REF="" NO_APP=0 UNINSTALL=0 SOURCE="" APP_FILE=""
+REF="" NO_APP=0 UNINSTALL=0 SOURCE="" APP_FILE="" REOPEN=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --ref) REF="${2:?--ref needs a tag or branch}"; shift 2 ;;
@@ -33,6 +36,7 @@ while [ $# -gt 0 ]; do
         --uninstall) UNINSTALL=1; shift ;;
         --source) SOURCE="${2:?--source needs a folder}"; shift 2 ;;
         --app-file) APP_FILE="${2:?--app-file needs a path}"; shift 2 ;;
+        --reopen) REOPEN=1; shift ;;
         *) fail "Unknown option: $1" ;;
     esac
 done
@@ -86,8 +90,34 @@ fi
 "$PY" -c 'import sys; sys.exit(sys.version_info < (3, 8))' || fail "Python 3.8 or newer is needed ($PY is older)."
 command -v curl >/dev/null || fail "curl is needed."
 
+# With --reopen: the app, once this script closed it, opens again however
+# the script ends (the new app, or the old one if replacing it failed).
+APP_CLOSED=0
+quit_app() {  # its games are separate processes and keep running
+    [ "$REOPEN" -eq 1 ] || return 0
+    if [ "$OS" = Darwin ]; then
+        pkill -f "/$APP_NAME.app/Contents/MacOS/" && APP_CLOSED=1
+    else
+        # The AppImage's launcher, and the app it runs from its mount.
+        pkill -f "$HOME_DIR/$APP_NAME.AppImage|/usr/bin/steam-auto-unlocker" && APP_CLOSED=1
+    fi
+    [ "$APP_CLOSED" -eq 0 ] || sleep 1
+}
+reopen_app() {
+    if [ "$OS" = Darwin ] && [ -d "$(mac_app_dir)/$APP_NAME.app" ]; then
+        open "$(mac_app_dir)/$APP_NAME.app"
+    elif [ "$OS" = Linux ] && [ -x "$HOME_DIR/$APP_NAME.AppImage" ]; then
+        nohup "$HOME_DIR/$APP_NAME.AppImage" >/dev/null 2>&1 &
+    fi
+}
+
 TMP=$(mktemp -d)
-trap 'rm -rf "$TMP"' EXIT INT TERM
+cleanup() {
+    rm -rf "$TMP"
+    if [ "$APP_CLOSED" -eq 1 ]; then reopen_app; fi
+}
+trap cleanup EXIT
+trap 'exit 1' INT TERM
 
 # ---- Version ----------------------------------------------------------------
 RELEASE_JSON="$TMP/release.json"
@@ -153,6 +183,7 @@ PYEOF
 install_mac_app() {  # $1: a .app folder or a .dmg
     dest=$(mac_app_dir)
     mkdir -p "$dest"
+    quit_app
     case "$1" in
         *.dmg)
             # hdiutil's output (including deprecation warnings on newer
@@ -174,8 +205,12 @@ install_mac_app() {  # $1: a .app folder or a .dmg
 }
 
 install_linux_app() {  # $1: an .AppImage
-    cp "$1" "$HOME_DIR/$APP_NAME.AppImage"
-    chmod +x "$HOME_DIR/$APP_NAME.AppImage"
+    quit_app
+    # Copied next to it, then renamed over it: a running AppImage can't be
+    # written to, but it can be replaced.
+    cp "$1" "$HOME_DIR/$APP_NAME.AppImage.new"
+    chmod +x "$HOME_DIR/$APP_NAME.AppImage.new"
+    mv "$HOME_DIR/$APP_NAME.AppImage.new" "$HOME_DIR/$APP_NAME.AppImage"
     cp "$SRC/docs/logo.png" "$HOME_DIR/icon.png"
     mkdir -p "$(dirname "$DESKTOP_FILE")"
     cat > "$DESKTOP_FILE" <<EOF
@@ -260,4 +295,10 @@ UNLOCKER_HOME="$HOME_DIR" PYTHONDONTWRITEBYTECODE=1 "$PY" "$CODE/unlocker/run_un
     || fail "Couldn't set up ArchiSteamFarm (see above). Run the install command again to retry."
 
 # ---- Done -------------------------------------------------------------------
+# Updated from the page without the app: bring the page's server back.
+if [ "$REOPEN" -eq 1 ] && [ -z "$APP_INSTALLED" ]; then
+    UNLOCKER_HOME="$HOME_DIR" PYTHONDONTWRITEBYTECODE=1 \
+        "$PY" "$CODE/unlocker/run_unlocker.py" --ui --no-browser >/dev/null \
+        || note "Couldn't restart the page; open it with runsteamunlocker --ui."
+fi
 say "Done"
