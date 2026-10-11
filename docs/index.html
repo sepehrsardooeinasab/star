@@ -15,29 +15,55 @@
     try { theme = localStorage.getItem("unlock-scheduler-theme"); accent = localStorage.getItem("unlock-scheduler-accent"); } catch (e) {}
     document.documentElement.setAttribute("data-theme", theme || "dark");
     document.documentElement.setAttribute("data-accent", accent || "violet");
+    // In the desktop app (it adds ?desktop=macos|linux), the top bar is
+    // laid out as the window's title bar.
+    var desktop = new URLSearchParams(location.search).get("desktop");
+    if (desktop) document.documentElement.setAttribute("data-desktop", desktop);
   })();
 </script>
 </head>
 <body data-screen="home">
 <div class="glow" aria-hidden="true"></div>
 
-<header class="topbar">
+<header class="topbar" data-tauri-drag-region="deep">
   <a class="brand" href="./">
     <svg viewBox="0 0 20 20" aria-hidden="true"><defs><linearGradient id="brand-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color: var(--input)"/><stop offset="1" style="stop-color: var(--accent)"/></linearGradient></defs><path d="M10 1.5c.6 4.6 3.9 7.9 8.5 8.5-4.6.6-7.9 3.9-8.5 8.5-.6-4.6-3.9-7.9-8.5-8.5 4.6-.6 7.9-3.9 8.5-8.5z" fill="url(#brand-grad)"/></svg>
     <span>Unlock Scheduler</span>
   </a>
+  <div class="screen-switch" id="screen-switch" role="group" aria-label="Screen" hidden>
+    <button type="button" id="switch-schedule" title="Make a schedule">Schedule</button>
+    <button type="button" id="switch-runs" title="Run, stop and follow your games">Runs</button>
+    <button type="button" id="switch-guide" title="Setup, updates and how it works">Settings</button>
+  </div>
   <div class="topbar-right">
     <button class="topbar-pill accent" id="update-btn" type="button" hidden>Update</button>
     <button class="topbar-pill" id="guide-btn" type="button" title="How to set up and use it">Guide</button>
-    <button class="icon-btn" id="accent-toggle" type="button" aria-label="Accent color: violet. Click for the next one." title="Accent color (click to change)"><span class="accent-dot"></span></button>
-    <button class="icon-btn" id="theme-toggle" type="button" aria-label="Switch to light theme" title="Light / dark">
-      <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 9.8A5.8 5.8 0 0 1 6.2 2.5a5.8 5.8 0 1 0 7.3 7.3z" fill="currentColor"/></svg>
-      <svg class="icon-sun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3" fill="currentColor"/><g stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M8 1.2v1.6M8 13.2v1.6M1.2 8h1.6M13.2 8h1.6M3.2 3.2l1.1 1.1M11.7 11.7l1.1 1.1M3.2 12.8l1.1-1.1M11.7 4.3l1.1-1.1"/></g></svg>
-    </button>
+    <div class="appearance">
+      <button class="icon-btn" id="appearance-toggle" type="button" aria-label="Appearance" aria-expanded="false" aria-controls="appearance-menu" title="Appearance">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.2a6.8 6.8 0 1 0 0 13.6c.8 0 1.3-.6 1.3-1.3 0-.4-.1-.6-.4-.9-.2-.3-.4-.6-.4-.9 0-.7.6-1.3 1.3-1.3h1.6a3.4 3.4 0 0 0 3.4-3.4C14.8 3.9 11.8 1.2 8 1.2z" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="4.6" cy="7.4" r="1" fill="currentColor"/><circle cx="6.6" cy="4.6" r="1" fill="currentColor"/><circle cx="10" cy="4.6" r="1" fill="currentColor"/></svg>
+      </button>
+      <div class="appearance-menu" id="appearance-menu" role="dialog" aria-label="Appearance" hidden>
+        <div class="menu-label">Theme</div>
+        <div class="segmented" role="group" aria-label="Theme">
+          <button type="button" data-theme-choice="dark">Dark</button>
+          <button type="button" data-theme-choice="light">Light</button>
+        </div>
+        <div class="menu-label">Accent</div>
+        <div class="swatches" role="group" aria-label="Accent color">
+          <button type="button" class="swatch" data-accent-choice="violet" aria-label="Violet" title="Violet"></button>
+          <button type="button" class="swatch" data-accent-choice="wine" aria-label="Wine" title="Wine"></button>
+          <button type="button" class="swatch" data-accent-choice="blue" aria-label="Blue" title="Blue"></button>
+          <button type="button" class="swatch" data-accent-choice="teal" aria-label="Teal" title="Teal"></button>
+          <button type="button" class="swatch" data-accent-choice="amber" aria-label="Amber" title="Amber"></button>
+        </div>
+      </div>
+    </div>
     <a class="topbar-btn" href="https://github.com/sepehrsardooeinasab/steam-auto-unlocker" target="_blank" rel="noopener">GitHub</a>
   </div>
 </header>
 
+<!-- The page under the top bar; in the app, it alone scrolls. -->
+<div class="page" id="page">
 <section class="hero" aria-labelledby="hero-title">
   <div class="hero-eyebrow"><span>Steam achievement scheduler</span></div>
   <h1 class="hero-title" id="hero-title"><span class="hero-bright">Replay a real player's</span> achievement timeline</h1>
@@ -61,7 +87,7 @@
       <li>Open <b>Steam Auto Unlocker</b>. It walks you through installing ArchiSteamFarm and signing in to Steam.</li>
       <li>On SteamHunters, open a player's achievements for the game, select the whole list and copy it.</li>
       <li>Press <b>New schedule</b>, paste it, enter the game name and App ID under Settings, and save.</li>
-      <li>Open the <b>Runs</b> tab and press <b>Run</b>. It keeps going when you close the window.</li>
+      <li>Open <b>Runs</b> in the top bar and press <b>Run</b>. It keeps going when you close the window.</li>
     </ol>
     <p class="panel-small">Run the same command again any time to update; your games and settings are kept.</p>
   </div>
@@ -75,7 +101,12 @@
       <li class="setup-step" id="step-asf">
         <div class="step-head"><span class="step-mark"></span><b>ArchiSteamFarm</b></div>
         <p class="step-text" id="step-asf-text">Downloads ArchiSteamFarm and its achievement plugin (about 50 MB).</p>
-        <button class="btn-ghost" id="setup-install" type="button">Install</button>
+        <p class="step-text" id="asf-latest-text" hidden></p>
+        <div class="step-actions">
+          <button class="btn-ghost" id="setup-install" type="button">Install</button>
+          <button class="btn-ghost" id="asf-check" type="button" hidden>Check for updates</button>
+          <button class="btn-ghost primary-ghost" id="asf-update-latest" type="button" hidden>Update</button>
+        </div>
       </li>
       <li class="setup-step" id="step-steam">
         <div class="step-head"><span class="step-mark"></span><b>Steam account</b></div>
@@ -91,13 +122,23 @@
           <button class="btn-ghost" type="submit">Continue</button>
         </form>
       </li>
+      <li class="setup-step" id="step-extras" hidden>
+        <div class="step-head"><span class="step-mark"></span><b>Keep awake &amp; notifications</b></div>
+        <p class="step-text" id="awake-text"></p>
+        <p class="step-text" id="notify-text"></p>
+        <div class="install-line" id="notify-install" hidden><code id="notify-cmd"></code><button class="btn-ghost" id="notify-copy" type="button">Copy</button></div>
+        <div class="step-actions">
+          <button class="btn-ghost primary-ghost" id="notify-run" type="button" hidden>Install terminal-notifier</button>
+          <button class="btn-ghost" id="notify-test" type="button">Send a test notification</button>
+        </div>
+      </li>
       <li class="setup-step guide">
         <div class="step-head"><span class="step-mark"></span><b>Make a schedule</b></div>
-        <p class="step-text">On SteamHunters, open a player's achievements for the game, select the whole list and copy it. Press <b>New schedule</b>, paste it, enter the game name and App ID under Settings, then <b>Save to project</b>.</p>
+        <p class="step-text">On SteamHunters, open a player's achievements for the game, select the whole list and copy it. Press <b>New schedule</b>, paste it, enter the game name and App ID on the schedule's Settings tab, then <b>Save to project</b>.</p>
       </li>
       <li class="setup-step guide">
         <div class="step-head"><span class="step-mark"></span><b>Run it</b></div>
-        <p class="step-text">On the <b>Runs</b> tab, press <b>Run</b>. It plays the game in sessions with breaks in between, unlocking at the same pace as the player. Closing the window doesn't stop it.</p>
+        <p class="step-text">Open <b>Runs</b> in the top bar and press <b>Run</b>. It plays the game in sessions with breaks in between, unlocking at the same pace as the player. Closing the window doesn't stop it.</p>
       </li>
     </ol>
     <p class="setup-error" id="setup-error" hidden></p>
@@ -168,10 +209,6 @@ Description text
           <button class="tab" id="nav-csv" type="button" title="Timeline (csv)">
             <span class="icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2.5" y="4" width="15" height="12" rx="1.5"/><line x1="2.5" y1="8.5" x2="17.5" y2="8.5"/><line x1="2.5" y1="12.5" x2="17.5" y2="12.5"/><line x1="8" y1="4" x2="8" y2="16"/></svg></span>
             <span class="label">Timeline</span>
-          </button>
-          <button class="tab" id="nav-runs" type="button" title="Run, stop and follow your games" hidden>
-            <span class="icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><circle cx="10" cy="10" r="7.5"/><path d="M8.3 6.9v6.2l5-3.1z" fill="currentColor"/></svg></span>
-            <span class="label">Runs</span>
           </button>
         </div>
       </nav>
@@ -247,8 +284,23 @@ Description text
         <div class="view-pane" data-view="runs">
           <div class="runs-list" id="runs-list"></div>
           <div class="runs-log">
-            <div class="runs-log-head" id="runs-log-title">Output</div>
+            <div class="runs-log-head">
+              <span id="runs-log-title">Output</span>
+              <div class="segmented runs-pane-switch" role="group" aria-label="Show">
+                <button type="button" data-runs-pane="output" aria-pressed="true">Output</button>
+                <button type="button" data-runs-pane="timeline" aria-pressed="false">Timeline</button>
+              </div>
+            </div>
             <pre class="file-preview" id="runs-log"></pre>
+            <div class="runs-timeline" id="runs-timeline" hidden>
+              <div class="timeline-bar" id="timeline-bar" hidden>
+                <span id="timeline-bar-text"></span>
+                <button class="btn-ghost" id="timeline-edit" type="button">Edit</button>
+                <button class="btn-ghost" id="timeline-cancel" type="button" hidden>Cancel</button>
+                <button class="btn-ghost primary-ghost" id="timeline-save" type="button" hidden>Save</button>
+              </div>
+              <div class="timeline-table" id="timeline-table"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -260,6 +312,7 @@ Description text
       </div>
     </div>
   </main>
+</div>
 </div>
 
 <div class="toast" id="toast"></div>

@@ -296,8 +296,10 @@
   // ui (optional) = {targets, gapActions, edits, originals, breaks,
   // autoBreaks} makes delay_s cells clickable to edit (edited ones are
   // highlighted with an undo button) and adds small add/remove-gap
-  // buttons after the session number / gap label.
-  function rowsToTable(rows, ui) {
+  // buttons after the session number / gap label. achievementClass
+  // (optional) gives each achievement row a class, by its index.
+  function rowsToTable(rows, ui, achievementClass) {
+    var achievement = -1;
     var head = rows[0];
     var body = rows.slice(1);
     var html = '<div class="table-wrap"><table class="csv-table"><thead><tr>';
@@ -338,7 +340,8 @@
         html += '<tr class="' + cls + '"><td colspan="' + CSV_DELAY_COL + '">' + escapeHtml(r[0]) + gapButton(ri) + "</td>" +
           "<td>" + escapeHtml(r[CSV_DELAY_COL]) + "</td>" + delayCell(r, ri) + "</tr>";
       } else {
-        html += "<tr><td>" + escapeHtml(r[0]) + gapButton(ri) + "</td>" +
+        var rowClass = achievementClass ? achievementClass(++achievement) : "";
+        html += "<tr" + (rowClass ? ' class="' + rowClass + '"' : "") + "><td>" + escapeHtml(r[0]) + gapButton(ri) + "</td>" +
           r.slice(1, CSV_DELAY_COL).map(function (c) { return "<td>" + escapeHtml(c) + "</td>"; }).join("") +
           "<td>" + escapeHtml(r[CSV_DELAY_COL]) + "</td>" + delayCell(r, ri) + "</tr>";
       }
@@ -404,11 +407,11 @@
     input: document.getElementById("nav-input"),
     settings: document.getElementById("nav-settings"),
     json: document.getElementById("nav-json"),
-    csv: document.getElementById("nav-csv"),
-    runs: document.getElementById("nav-runs")
+    csv: document.getElementById("nav-csv")
   };
 
   var currentView = "input";
+  var scheduleView = "input";   // the schedule tab to return to from Runs
   var latest = null; // { errors, warnings, config, jsonText, csvText, csvRows, csvTargets, gapActions, originals, autoBreaks, filenames, stats }
   // Manual edits from the Timeline tab: delays ({ach_id: seconds}) and
   // added/removed gaps ({ach_id: true|false}, see splitSessions). While any
@@ -432,7 +435,9 @@
 
   function setView(view) {
     currentView = view;
+    if (view !== "runs") scheduleView = view;
     Object.keys(navButtons).forEach(function (k) { navButtons[k].classList.toggle("active", k === view); });
+    syncScreenSwitch();
     document.querySelectorAll(".view-pane").forEach(function (el) {
       el.classList.toggle("active", el.getAttribute("data-view") === view);
     });
@@ -854,30 +859,47 @@
   els.exportText.addEventListener("focus", noticeLocked);
 
 
-  // ---- theme (dark / light) and accent, from the top bar; each button
-  // switches to the next option on click ----
-  var ACCENTS = ["violet", "wine", "blue", "teal", "amber"];
-  var accentToggle = document.getElementById("accent-toggle");
+  // ---- theme (dark / light) and accent, from the Appearance menu in the
+  // top bar ----
+  var appearanceToggle = document.getElementById("appearance-toggle");
+  var appearanceMenu = document.getElementById("appearance-menu");
 
   function syncThemeControls() {
     var root = document.documentElement;
-    var light = root.getAttribute("data-theme") === "light";
-    document.getElementById("theme-toggle").setAttribute("aria-label", light ? "Switch to dark theme" : "Switch to light theme");
-    accentToggle.setAttribute("aria-label", "Accent color: " + root.getAttribute("data-accent") + ". Click for the next one.");
+    appearanceMenu.querySelectorAll("[data-theme-choice]").forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.getAttribute("data-theme-choice") === root.getAttribute("data-theme")));
+    });
+    appearanceMenu.querySelectorAll("[data-accent-choice]").forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.getAttribute("data-accent-choice") === root.getAttribute("data-accent")));
+    });
   }
 
-  document.getElementById("theme-toggle").addEventListener("click", function () {
-    var next = document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light";
-    document.documentElement.setAttribute("data-theme", next);
-    try { localStorage.setItem("unlock-scheduler-theme", next); } catch (e) {}
+  function setAppearanceOpen(open) {
+    appearanceMenu.hidden = !open;
+    appearanceToggle.setAttribute("aria-expanded", String(open));
+  }
+
+  appearanceToggle.addEventListener("click", function () { setAppearanceOpen(appearanceMenu.hidden); });
+  appearanceMenu.addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (!b) return;
+    var theme = b.getAttribute("data-theme-choice"), accent = b.getAttribute("data-accent-choice");
+    if (theme) {
+      document.documentElement.setAttribute("data-theme", theme);
+      try { localStorage.setItem("unlock-scheduler-theme", theme); } catch (err) {}
+    }
+    if (accent) {
+      document.documentElement.setAttribute("data-accent", accent);
+      try { localStorage.setItem("unlock-scheduler-accent", accent); } catch (err) {}
+    }
     syncThemeControls();
   });
-  accentToggle.addEventListener("click", function () {
-    var current = ACCENTS.indexOf(document.documentElement.getAttribute("data-accent"));
-    var next = ACCENTS[(current + 1) % ACCENTS.length];
-    document.documentElement.setAttribute("data-accent", next);
-    try { localStorage.setItem("unlock-scheduler-accent", next); } catch (e) {}
-    syncThemeControls();
+  // Closes on a click elsewhere or Escape.
+  document.addEventListener("click", function (e) {
+    if (!appearanceMenu.hidden && !e.target.closest(".appearance")) setAppearanceOpen(false);
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !appearanceMenu.hidden) { setAppearanceOpen(false); appearanceToggle.focus(); }
   });
   syncThemeControls();
 
@@ -1083,9 +1105,9 @@
     api("/api/save", {name: name, config: latest.config, csv: latest.csvText, overwrite: overwrite})
       .then(function () {
         resetAll();
-        selectedRun = name;
-        setView("runs");
-        showToast("Saved " + name + " to the project. Press Run to start it.");
+        delete timelines[name];  // re-saved: read its timeline again
+        selectedRun = name;  // picked when Runs is opened
+        showToast("Saved " + name + ". Start it from Runs in the top bar.");
       })
       .catch(function (err) {
         // Asked with a second click rather than a dialog, which the
@@ -1185,7 +1207,7 @@
   function renderRuns() {
     var games = runsData ? runsData.games : [];
     var running = games.filter(function (g) { return g.running; }).length;
-    navButtons.runs.classList.toggle("has-content", running > 0);
+    byId("switch-runs").classList.toggle("has-content", running > 0);
     if (currentView !== "runs") return;
     els.statsStrip.innerHTML = runsData
       ? "<span><b>" + games.length + "</b> game" + (games.length === 1 ? "" : "s") + "</span>" +
@@ -1199,7 +1221,7 @@
     } else if (!runsData) {
       els.runsList.innerHTML = "";
     } else if (!games.length) {
-      els.runsList.innerHTML = emptyHtml("▶", "No games yet. Make a config on the Achievements tab, then Save to project.");
+      els.runsList.innerHTML = emptyHtml("▶", "No games yet. Make one under Schedule, then Save to project.");
     } else {
       if (!games.some(function (g) { return g.name === selectedRun; })) {
         var pick = games.filter(function (g) { return g.running; })[0] || games[0];
@@ -1207,8 +1229,256 @@
       }
       els.runsList.innerHTML = games.map(runCardHtml).join("");
     }
-    els.runsLogTitle.innerHTML = selectedRun ? "Output · <b>" + escapeHtml(selectedRun) + "</b>" : "Output";
+    var paneName = runsPane === "timeline" ? "Timeline" : "Output";
+    els.runsLogTitle.innerHTML = selectedRun ? paneName + " · <b>" + escapeHtml(selectedRun) + "</b>" : paneName;
+    if (runsPane === "timeline") renderTimeline();
   }
+
+  // ---- a game's timeline on Runs: its saved CSV, in the builder's table
+  // (read-only), with what's unlocked so far dimmed ----
+  var runsPane = "output";
+  var timelines = {};      // name -> {rows, config}, or null when there's no CSV
+  var timelineShown = "";  // what's drawn, so polling doesn't redraw it
+
+  // The CSV the builder saves: commas, "quoted" cells with "" inside.
+  function parseCsv(text) {
+    var rows = [], row = [], cell = "", quoted = false;
+    for (var i = 0; i < text.length; i++) {
+      var c = text[i];
+      if (quoted) {
+        if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+        else if (c === '"') quoted = false;
+        else cell += c;
+      } else if (c === '"') quoted = true;
+      else if (c === ",") { row.push(cell); cell = ""; }
+      else if (c === "\n" || c === "\r") {
+        if (c === "\r" && text[i + 1] === "\n") i++;
+        row.push(cell); rows.push(row); row = []; cell = "";
+      } else cell += c;
+    }
+    if (cell || row.length) { row.push(cell); rows.push(row); }
+    return rows;
+  }
+
+  // Editing (unlocked with Edit): the delays of achievements not unlocked
+  // yet, and the breaks before sessions not started, saved back into the
+  // config and CSV. {name, rows, edited: {row: original seconds}}
+  var runEdit = null;
+
+  function runGame() {
+    return ((runsData && runsData.games) || []).filter(function (g) { return g.name === selectedRun; })[0] || {};
+  }
+
+  function doneCount(game) {
+    return game.done != null ? game.done : game.state === "completed" ? Infinity : 0;
+  }
+
+  // Which rows' delay_s can be edited: an achievement after the first of
+  // its session, or a gap, as long as what it delays isn't unlocked yet.
+  function editableRows(rows, done) {
+    var editable = {}, index = -1, pendingGap = null;
+    rows.forEach(function (r, ri) {
+      if (ri === 0) return;
+      if (isLabelRow(r)) {
+        if (/^Gap/.test(r[0])) pendingGap = ri;
+        return;
+      }
+      index++;
+      if (pendingGap !== null && index >= done) editable[pendingGap] = true;
+      pendingGap = null;
+      if (String(r[1]) !== "1" && index >= done) editable[ri] = true;
+    });
+    return editable;
+  }
+
+  function timelineHtml(rows, done, running, editable) {
+    var html = '<div class="table-wrap"><table class="csv-table"><thead><tr>' +
+      rows[0].map(function (h) { return "<th>" + escapeHtml(h) + "</th>"; }).join("") + "</tr></thead><tbody>";
+    var index = -1;
+    function delayCell(r, ri) {
+      var original = runEdit ? runEdit.edited[ri] : undefined;
+      var cls = "delay-cell" + (editable && editable[ri] ? " run-editable" : "") + (original !== undefined ? " edited" : "");
+      return '<td class="' + cls + '" data-row="' + ri + '">' + escapeHtml(r[CSV_DELAY_COL + 1]) +
+        (original !== undefined ? '<button class="undo-edit" type="button" data-run-undo="' + ri +
+          '" title="Undo (was ' + original + 's)">↺</button>' : "") + "</td>";
+    }
+    rows.slice(1).forEach(function (r, i) {
+      var ri = i + 1;
+      if (isLabelRow(r)) {
+        var cls = /^Gap/.test(r[0]) ? "gap-row" : /^Copied from:/.test(r[0]) ? "meta-row" : "session-row";
+        html += '<tr class="' + cls + '"><td colspan="' + CSV_DELAY_COL + '">' + escapeHtml(r[0]) + "</td>" +
+          "<td>" + escapeHtml(r[CSV_DELAY_COL]) + "</td>" + delayCell(r, ri) + "</tr>";
+        return;
+      }
+      index++;
+      var rowClass = index < done ? "done-row" : index === done && running ? "next-row" : "";
+      html += "<tr" + (rowClass ? ' class="' + rowClass + '"' : "") + ">" +
+        r.slice(0, CSV_DELAY_COL + 1).map(function (c) { return "<td>" + escapeHtml(c) + "</td>"; }).join("") +
+        delayCell(r, ri) + "</tr>";
+    });
+    return html + "</tbody></table></div>";
+  }
+
+  function renderTimeline() {
+    var data = selectedRun ? timelines[selectedRun] : undefined;
+    if (data === undefined && selectedRun) loadTimeline(selectedRun);
+    if (data === undefined || data === "loading") return;
+    if (runEdit && runEdit.name !== selectedRun) runEdit = null;
+    var game = runGame(), done = doneCount(game);
+    var rows = runEdit ? runEdit.rows : data && data.rows;
+    var key = [selectedRun, done, !!game.running, !!rows, runEdit ? JSON.stringify(runEdit.rows) : ""].join("|");
+    if (key === timelineShown) return;
+    timelineShown = key;
+
+    var canEdit = !!(data && data.config && rows && rows.length > 1 && game.state !== "completed");
+    byId("timeline-bar").hidden = !canEdit;
+    byId("timeline-edit").hidden = !!runEdit;
+    byId("timeline-cancel").hidden = byId("timeline-save").hidden = !runEdit;
+    byId("timeline-save").disabled = !runEdit || !Object.keys(runEdit.edited).length;
+    byId("timeline-bar-text").textContent = runEdit
+      ? "Click a delay to change it (in seconds). Only what isn't unlocked yet can change."
+      : game.running ? "Locked. Stop the game to edit its timeline." : "Locked.";
+    byId("timeline-edit").disabled = !!game.running;
+
+    byId("timeline-table").innerHTML = rows && rows.length > 1
+      ? timelineHtml(rows, done, game.running, runEdit && editableRows(rows, done))
+      : emptyHtml("☰", "No timeline was saved with this game.");
+  }
+
+  // A session's total is the sum of its achievements' delays.
+  function updateSessionTotals(rows) {
+    var label = null;
+    rows.forEach(function (r, ri) {
+      if (ri === 0) return;
+      if (isLabelRow(r)) {
+        if (/^Session/.test(r[0])) { label = r; r[CSV_DELAY_COL + 1] = 0; }
+        else label = null;
+      } else if (label) {
+        label[CSV_DELAY_COL + 1] += Number(r[CSV_DELAY_COL + 1]) || 0;
+      }
+    });
+    rows.forEach(function (r) {
+      if (/^Session/.test(r[0]) && isLabelRow(r)) r[CSV_DELAY_COL] = roughDurationCsv(r[CSV_DELAY_COL + 1]);
+    });
+  }
+
+  function setRunDelay(ri, seconds) {
+    var r = runEdit.rows[ri];
+    var original = runEdit.edited[ri] !== undefined ? runEdit.edited[ri] : Number(r[CSV_DELAY_COL + 1]);
+    r[CSV_DELAY_COL + 1] = seconds;
+    r[CSV_DELAY_COL] = roughDurationCsv(seconds);
+    if (seconds === original) delete runEdit.edited[ri];
+    else runEdit.edited[ri] = original;
+    updateSessionTotals(runEdit.rows);
+    renderTimeline();
+  }
+
+  // The config with the edited delays: an achievement's own delay, or for
+  // the first of a later session, the gap before it (as the builder does).
+  function editedConfig(config, rows) {
+    var delays = {}, gap = null;
+    rows.forEach(function (r, ri) {
+      if (ri === 0) return;
+      if (isLabelRow(r)) { if (/^Gap/.test(r[0])) gap = Number(r[CSV_DELAY_COL + 1]); return; }
+      var first = String(r[1]) === "1";
+      if (!first) delays[r[3]] = Number(r[CSV_DELAY_COL + 1]);
+      else if (gap !== null) delays[r[3]] = gap;
+      gap = null;
+    });
+    var copy = JSON.parse(JSON.stringify(config));
+    copy.achievements.forEach(function (a) {
+      if (String(a.id) in delays) a.delay = delays[String(a.id)];
+    });
+    return copy;
+  }
+
+  byId("timeline-edit").addEventListener("click", function () {
+    var data = timelines[selectedRun];
+    if (!data || !data.rows) return;
+    runEdit = {name: selectedRun, rows: JSON.parse(JSON.stringify(data.rows)), edited: {}};
+    timelineShown = "";
+    renderTimeline();
+  });
+  byId("timeline-cancel").addEventListener("click", function () {
+    runEdit = null;
+    timelineShown = "";
+    renderTimeline();
+  });
+  byId("timeline-save").addEventListener("click", function () {
+    var data = timelines[selectedRun], name = selectedRun;
+    if (!runEdit || !data || !data.config) return;
+    api("/api/save", {name: name, config: editedConfig(data.config, runEdit.rows),
+                      csv: toCsv(runEdit.rows), overwrite: true})
+      .then(function () {
+        runEdit = null;
+        delete timelines[name];
+        timelineShown = "";
+        renderTimeline();
+        showToast("Saved " + name + ". The next sessions use the new timing.");
+      })
+      .catch(function (err) { showToast("Couldn't save: " + err.message); });
+  });
+
+  byId("timeline-table").addEventListener("click", function (e) {
+    var undo = e.target.closest("[data-run-undo]");
+    if (undo) {
+      e.stopPropagation();  // not the builder's undo
+      var ri = Number(undo.getAttribute("data-run-undo"));
+      setRunDelay(ri, runEdit.edited[ri]);
+      return;
+    }
+    var cell = e.target.closest("td.run-editable");
+    if (!cell || cell.querySelector("input") || !runEdit) return;
+    var ri = Number(cell.getAttribute("data-row"));
+    var input = document.createElement("input");
+    input.type = "text";
+    input.className = "delay-input";
+    input.value = runEdit.rows[ri][CSV_DELAY_COL + 1];
+    cell.textContent = "";
+    cell.appendChild(input);
+    input.focus();
+    input.select();
+    var finished = false;
+    function finish(save) {
+      if (finished) return;
+      finished = true;
+      var seconds = save ? parseDelayInput(input.value) : null;
+      if (save && seconds === null) showToast("Enter a whole number of seconds, e.g. 90");
+      if (seconds === null) { timelineShown = ""; renderTimeline(); return; }
+      setRunDelay(ri, seconds);
+    }
+    input.addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter") finish(true);
+      else if (ev.key === "Escape") finish(false);
+    });
+    input.addEventListener("blur", function () { finish(true); });
+  });
+
+  function loadTimeline(name) {
+    timelines[name] = "loading";
+    api("/api/timeline?name=" + encodeURIComponent(name)).then(function (data) {
+      timelines[name] = data.found ? {rows: parseCsv(data.text), config: data.config} : null;
+    }).catch(function () { timelines[name] = null; }).then(function () {
+      timelineShown = "";
+      if (name === selectedRun && runsPane === "timeline") renderTimeline();
+    });
+  }
+
+  function setRunsPane(pane) {
+    runsPane = pane;
+    document.querySelectorAll("[data-runs-pane]").forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.getAttribute("data-runs-pane") === pane));
+    });
+    els.runsLog.hidden = pane !== "output";
+    byId("runs-timeline").hidden = pane !== "timeline";
+    document.querySelector('.view-pane[data-view="runs"]').setAttribute("data-pane", pane);
+    if (pane === "timeline" && selectedRun && !runEdit) delete timelines[selectedRun];  // re-read: it may have been re-saved
+    timelineShown = "";
+    renderRuns();
+  }
+  document.querySelectorAll("[data-runs-pane]").forEach(function (b) {
+    b.addEventListener("click", function () { setRunsPane(b.getAttribute("data-runs-pane")); });
+  });
 
   function refreshLog() {
     if (!selectedRun) { els.runsLog.textContent = ""; return; }
@@ -1280,7 +1550,8 @@
 
   function enableLocal() {
     local = true;
-    navButtons.runs.hidden = false;
+    byId("screen-switch").hidden = false;
+    syncScreenSwitch();
     els.folderBtn.style.display = "none";
     els.folderStatus.style.display = "none";
     byId("hero-note").textContent = "Games keep running when you close this window.";
@@ -1328,17 +1599,34 @@
     byId("hero-actions").hidden = setupOpen && firstRun;
     byId("hero-note").hidden = setupOpen;
     if (!setupOpen) return;
-    byId("setup-title").textContent = firstRun ? "Finish setting up" : "Setup guide";
+    byId("setup-title").textContent = firstRun ? "Finish setting up" : "Settings";
 
     var installing = d.busy === "install";
     var asfCurrent = asfDone && !d.outdated;
     byId("step-asf").className = "setup-step" + (installing ? " busy" : asfCurrent ? " done" : "");
     byId("step-asf-text").textContent = installing ? (d.message || "Starting…")
-      : asfCurrent ? "Installed" + (d.asf_version ? " (version " + d.asf_version + ")." : ".")
-      : asfDone ? "Version " + d.asf_wanted + " is ready to install. It installs by itself once no game is in a session."
+      : asfCurrent ? "Installed: ArchiSteamFarm " + d.asf_version + " with\nASFAchievementManager " +
+        d.plugin_version + "."
+      : asfDone ? "ArchiSteamFarm " + d.asf_wanted + " with ASFAchievementManager " + d.plugin_wanted +
+        " is ready to install. It installs by itself once no game is in a session."
       : "Downloads ArchiSteamFarm and its achievement plugin (about 50 MB).";
     byId("setup-install").hidden = asfCurrent || installing;
     byId("setup-install").textContent = asfDone ? "Update" : "Install";
+    // Newer than the tried pair, from Check for updates.
+    var latest = d.asf_latest;
+    var checking = d.busy === "asf-check";
+    byId("asf-check").hidden = !asfCurrent || installing;
+    byId("asf-check").disabled = checking;
+    byId("asf-check").textContent = checking ? "Checking…" : "Check for updates";
+    byId("asf-update-latest").hidden = !asfCurrent || installing || !(latest && latest.newer);
+    byId("asf-latest-text").hidden = !asfCurrent || installing || !latest;
+    if (latest) {
+      byId("asf-latest-text").textContent = latest.error ? latest.error
+        : latest.newer ? "ArchiSteamFarm " + latest.asf + " with ASFAchievementManager " + latest.plugin +
+          " is out and they work together. Updating waits for any session that's playing."
+        : "Up to date: no newer pair that work together.";
+      byId("asf-update-latest").textContent = "Update to " + (latest.asf || "");
+    }
 
     var signing = d.busy === "login" || d.busy === "code";
     byId("step-steam").className = "setup-step" + (signing ? " busy" : signedIn ? " done" : "");
@@ -1353,8 +1641,34 @@
     byId("login-form").hidden = !asfDone || signedIn || signing || !!d.needs;
     byId("code-form").hidden = !asfDone || d.signed_in || signing || !d.needs;
 
+    renderExtras(d);
     byId("setup-error").hidden = !d.error;
     byId("setup-error").textContent = d.error || "";
+  }
+
+  // Keep awake & notifications: what this computer has, and how to get
+  // what's missing. Shown once setup is done.
+  function renderExtras(d) {
+    var x = d.extras;
+    byId("step-extras").hidden = !x || !(d.asf && d.plugin);
+    if (!x) return;
+    var awake = x.keep_awake, notes = x.notifications;
+    var mac = awake.tool === "caffeinate" || notes.tool === "terminal-notifier" || notes.tool === "osascript";
+    byId("step-extras").className = "setup-step" + (d.busy === "notifier" ? " busy"
+      : awake.tool && notes.full ? " done" : "");
+    byId("awake-text").textContent = awake.tool
+      ? "Keep awake: on. While a game runs, " + awake.tool + (mac ? " (built into macOS)" : "") +
+        " keeps the computer from sleeping."
+      : "Keep awake: not available. systemd-inhibit (part of systemd) isn't here, so the computer may sleep during a run.";
+    byId("notify-text").textContent = d.busy === "notifier" ? (d.message || "Installing…")
+      : notes.full ? "Notifications: on (" + notes.tool + "). You get one when a session ends, a game is done, or a run stops."
+      : notes.tool === "osascript" ? "Notifications: basic. Install terminal-notifier for the logo, the game's name, and ones that clear themselves."
+      : "Notifications: off. Install notify-send to get one when a session ends, a game is done, or a run stops.";
+    var command = !notes.full && notes.install;
+    byId("notify-install").hidden = !command || d.busy === "notifier";
+    byId("notify-cmd").textContent = command || "";
+    byId("notify-run").hidden = !notes.can_run || !!d.busy;
+    byId("notify-test").hidden = !notes.tool || !!d.busy;
   }
 
   function setupPost(path, body) {
@@ -1364,6 +1678,23 @@
   }
 
   byId("setup-install").addEventListener("click", function () { setupPost("/api/setup/install", {}); });
+  byId("asf-check").addEventListener("click", function () {
+    byId("asf-check").textContent = "Checking…";
+    byId("asf-check").disabled = true;
+    setupPost("/api/setup/asf-check", {});
+  });
+  byId("asf-update-latest").addEventListener("click", function () { setupPost("/api/setup/install", {latest: true}); });
+  byId("notify-run").addEventListener("click", function () { setupPost("/api/setup/install-notifier", {}); });
+  byId("notify-test").addEventListener("click", function () {
+    api("/api/setup/test-notification", {}).then(function () { showToast("Sent. If nothing showed up, check System Settings → Notifications."); })
+      .catch(function (err) { showToast(err.message); });
+  });
+  byId("notify-copy").addEventListener("click", function () {
+    var text = byId("notify-cmd").textContent;
+    (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject())
+      .then(function () { showToast("Copied. Paste it into Terminal."); })
+      .catch(function () { showToast("Select the command and copy it."); });
+  });
   byId("setup-close").addEventListener("click", function () {
     setupOpen = setupAutoClose = false;
     renderSetup();
@@ -1432,23 +1763,22 @@
     }, 2000);
   }
 
+  // In the app, the Guide tab; the public page shows the install steps.
   function showGuide() {
-    showScreen("home");
     if (!local) {
+      showScreen("home");
       byId("hero-install").hidden = false;
       byId("hero-install").scrollIntoView({block: "center"});
       return;
     }
     setupOpen = true;
+    showScreen("guide");
     renderSetup();
     refreshSetup();
   }
 
   byId("guide-btn").addEventListener("click", showGuide);
-  byId("update-btn").addEventListener("click", function () {
-    showGuide();
-    byId("update-row").scrollIntoView({block: "center"});
-  });
+  byId("update-btn").addEventListener("click", showGuide);
   byId("update-check").addEventListener("click", function () { checkUpdates(true); });
   byId("update-now").addEventListener("click", function () {
     api("/api/update", {}).then(function (u) {
@@ -1471,7 +1801,26 @@
   function showScreen(name) {
     document.body.setAttribute("data-screen", name);
     window.scrollTo(0, 0);
+    byId("page").scrollTop = 0;  // in the app, the page scrolls on its own
+    // Leaving the Guide tab closes the panel, unless it's first-run setup,
+    // which stays on the start screen until it's done.
+    if (name !== "guide" && setupOpen && !setupAutoClose) {
+      setupOpen = false;
+      renderSetup();
+    }
+    syncScreenSwitch();
   }
+
+  // Schedule / Runs in the top bar (app only).
+  function syncScreenSwitch() {
+    var work = document.body.getAttribute("data-screen") === "work";
+    byId("switch-schedule").classList.toggle("active", work && currentView !== "runs");
+    byId("switch-runs").classList.toggle("active", work && currentView === "runs");
+    byId("switch-guide").classList.toggle("active", document.body.getAttribute("data-screen") === "guide");
+  }
+  byId("switch-schedule").addEventListener("click", function () { showScreen("work"); setView(scheduleView); });
+  byId("switch-runs").addEventListener("click", function () { showScreen("work"); setView("runs"); });
+  byId("switch-guide").addEventListener("click", showGuide);
 
   byId("hero-new").addEventListener("click", function () { showScreen("work"); setView("input"); });
   byId("hero-run").addEventListener("click", function () {

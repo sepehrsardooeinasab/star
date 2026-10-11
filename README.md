@@ -28,10 +28,10 @@ Prefer to set everything up yourself? See [Setup](#setup) below.
 The app (or `runsteamunlocker --ui`, which opens the same thing in your browser) starts on two buttons: **New schedule** and **Run a game**. On first launch it sets up ArchiSteamFarm and signs in to Steam instead.
 
 - Paste an export and check the timeline as on the public page, then **Save to project** writes the config and CSV straight into `jsons/` and `csvs/`.
-- **Guide** (or **Help > Setup Guide** in the app's menu) shows the setup steps again: update ArchiSteamFarm, sign in with another Steam account, and how to make and run a schedule.
+- The **Settings** tab in the top bar (or **Settings…**, ⌘, / Ctrl+, in the app's menu) shows the setup steps again: the installed ArchiSteamFarm and plugin versions with **Check for newer**, sign in with another Steam account, whether keeping the computer awake and notifications work here (with help installing what's missing), and how to make and run a schedule. Theme and accent are under the palette button.
 - The app checks for a new release when it opens, and from **Check for Updates…** in its menu (the app menu on macOS, **Help** on Linux). **Update now** runs the install command for you: the app closes, updates and opens again. Games waiting between sessions keep going; only a session that's playing has to end first.
 - ArchiSteamFarm and its plugin are pinned to versions known to work together, and ASF's own auto-update is turned off so it can't drift from the plugin. When an app update pins newer ones, they're swapped in between sessions, never during one: a session that comes due meanwhile waits a moment for the swap.
-- The **Runs** tab lists every game with its progress, current session and when the next one starts. **Run** plays every remaining session back to back, waiting out the breaks on its own; **Stop** ends it right away (the bot stops playing, progress is kept) and **Stop after this session** lets the current one finish first. Each game's output is shown live.
+- **Schedule** and **Runs** in the top bar switch between making schedules and running them; saving keeps you on Schedule. **Runs** lists every game with its progress, current session and when the next one starts. **Run** plays every remaining session back to back, waiting out the breaks on its own; **Stop** ends it right away (the bot stops playing, progress is kept) and **Stop after this session** lets the current one finish first. Each game's output is shown live, and **Timeline** shows its schedule with what's already unlocked dimmed: **Edit** unlocks the delays still ahead for changing, **Save** writes them back.
 
 Runs are background processes, so closing the browser (or the terminal) doesn't stop them. Reopen the page any time to see where they are, or stop them from a terminal with `runsteamunlocker -k`. The page is served on `127.0.0.1` only and only accepts requests from itself. `runsteamunlocker --ui-stop` stops the app; games it started keep running. The computer has to stay on for a run to continue; it's kept awake while a run is going.
 
@@ -150,6 +150,7 @@ With randomness on, it applies to the delays between achievements and to the gap
 - `docs/` — the Unlock Scheduler web page (published via GitHub Pages, and the app's interface)
 - `app/` — the desktop app (Tauri): a window that starts the local server and shows the page
 - `install.sh` — the one-line installer; `.github/workflows/release.yml` builds the app for each `v*` tag
+- `tools/check_asf_pins.py` — says whether a newer ArchiSteamFarm + plugin pair can replace the pinned one (the newest ASF in the series the latest plugin is built against); `.github/workflows/asf-versions.yml` runs it weekly and fails when the pins should be bumped
 - `jsons/`, `csvs/`, `archifarm/` — per-machine runtime data (ASF install, bot credentials, generated configs); gitignored, not part of the repo
 - `completed/` — finished games: each game's config and CSV are moved to `completed/<name>/` once every achievement is unlocked (gitignored)
 
