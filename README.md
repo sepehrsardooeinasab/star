@@ -17,6 +17,7 @@ curl -fsSL https://raw.githubusercontent.com/sepehrsardooeinasab/steam-auto-unlo
 It installs the desktop app, the `runsteamunlocker` command, and ArchiSteamFarm with its achievement plugin (downloaded from their official releases and checked against their published checksums). Then open **Steam Auto Unlocker** and sign in to Steam; it asks for the Steam Guard code if needed. Python 3.8+ is the only requirement; on macOS, the installer offers to install it if it's missing. Nothing needs `sudo`.
 
 - Your games, ArchiSteamFarm and settings live in `~/Library/Application Support/Steam Auto Unlocker` (macOS) or `~/.local/share/steam-auto-unlocker` (Linux). Running the command again updates the app and keeps them.
+- The code and the page itself ship inside the app on macOS (`Steam Auto Unlocker.app/Contents/Resources`), and go in `~/.local/lib/steam-auto-unlocker` on Linux or with `--no-app`, kept apart from your data.
 - `... | sh -s -- --uninstall` removes the app, the command and the code, and keeps your data. `--no-app` skips the desktop app.
 - Downloading the macOS app by hand from Releases instead means macOS asks you to allow it once in **System Settings > Privacy & Security**; the install command avoids that.
 
