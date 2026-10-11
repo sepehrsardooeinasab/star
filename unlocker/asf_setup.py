@@ -115,14 +115,14 @@ def status():
 
 
 def _download(url, dest):
-    req = urllib.request.Request(url, headers={"User-Agent": "steam-auto-unlocker"})
+    req = urllib.request.Request(url, headers={"User-Agent": "star"})
     with urllib.request.urlopen(req, timeout=60) as r, open(dest, "wb") as f:
         shutil.copyfileobj(r, f)
 
 
 def _github(path):
     req = urllib.request.Request(f"https://api.github.com/repos/{path}", headers={
-        "User-Agent": "steam-auto-unlocker", "Accept": "application/vnd.github+json"})
+        "User-Agent": "star", "Accept": "application/vnd.github+json"})
     with urllib.request.urlopen(req, timeout=20) as r:
         return json.loads(r.read())
 

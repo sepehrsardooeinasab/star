@@ -16,7 +16,7 @@ Usage: runsteamunlocker [-f] [-w | -in <time>] <config-name>
        runsteamunlocker --auto <config-name>
        runsteamunlocker -t <config-name>
        runsteamunlocker -s <config-name> [all | <session-number>]
-       runsteamunlocker [-h | -a | -ls | -c | -j | -k | -u | --ui-stop | --setup]
+       runsteamunlocker [-h | -a | -ls | -k | -u | --ui-stop | --setup]
 
   <config-name>   Run the unlocker using jsons/config_<config-name>.json.
                   Shows the upcoming session's length and asks to confirm.
@@ -41,8 +41,6 @@ Usage: runsteamunlocker [-f] [-w | -in <time>] <config-name>
                   names from its CSV and what's done / next. Defaults to
                   the current session onward; "all" shows every session,
                   a number just that one. Works for finished games too.
-  -c, --code      Open the project in VS Code.
-  -j, --json      Open the JSON/unlock scheduler builder.
   -u, --ui        Open the app in the browser (starting it in the
                   background if needed): make configs, save them straight
                   into jsons/, and run, stop and follow games. Closing the
@@ -52,14 +50,6 @@ Usage: runsteamunlocker [-f] [-w | -in <time>] <config-name>
                   update them to the versions this release uses), write
                   their configs, and sign in to Steam.
 EOF
-}
-
-open_file() {
-    if [ "$(uname -s)" = "Darwin" ]; then
-        open "$1"
-    else
-        xdg-open "$1"
-    fi
 }
 
 list_configs() {
@@ -152,12 +142,6 @@ case "${1-}" in
         ;;
     -ls|--status)
         exec python3 "$PROJECT_DIR/unlocker/run_unlocker.py" --status
-        ;;
-    -c|--code)
-        code "$PROJECT_DIR"
-        ;;
-    -j|--json)
-        open_file "$PROJECT_DIR/docs/index.html"
         ;;
     -k|--kill)
         kill_all

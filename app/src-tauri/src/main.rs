@@ -7,6 +7,9 @@
 // closing the window — or quitting the app — never stops them.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+#[cfg(target_os = "macos")]
+mod notify;
+
 use std::env;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -26,14 +29,16 @@ fn home_dir() -> PathBuf {
         }
     }
     let user_home = PathBuf::from(env::var("HOME").unwrap_or_default());
-    if cfg!(target_os = "macos") {
-        user_home.join("Library/Application Support/Steam Auto Unlocker")
+    let (root, name, old_name) = if cfg!(target_os = "macos") {
+        (user_home.join("Library/Application Support"), "STAR", "Steam Auto Unlocker")
     } else {
-        env::var("XDG_DATA_HOME")
-            .map(PathBuf::from)
-            .unwrap_or_else(|_| user_home.join(".local/share"))
-            .join("steam-auto-unlocker")
-    }
+        let root = env::var("XDG_DATA_HOME").map(PathBuf::from).unwrap_or_else(|_| user_home.join(".local/share"));
+        (root, "star", "steam-auto-unlocker")
+    };
+    // The install script moves the folder from before the rename; an app
+    // installed by hand keeps using it until then.
+    let (home, old) = (root.join(name), root.join(old_name));
+    if !home.exists() && old.is_dir() { old } else { home }
 }
 
 /// The code and page: UNLOCKER_CODE if set, else the copy inside the app
@@ -47,7 +52,7 @@ fn code_dir(resources: Option<PathBuf>, home: &Path) -> Option<PathBuf> {
         .map(PathBuf::from)
         .into_iter()
         .chain(resources)
-        .chain([user_home.join(".local/lib/steam-auto-unlocker"), home.join("app")])
+        .chain([user_home.join(".local/lib/star"), user_home.join(".local/lib/steam-auto-unlocker"), home.join("app")])
         .find(|dir| dir.join("unlocker/run_unlocker.py").exists())
 }
 
@@ -71,7 +76,7 @@ fn python(home: &Path) -> String {
 /// Starts the server if it isn't running and returns its URL.
 fn start_server(code: Option<PathBuf>, home: &Path) -> Result<String, String> {
     let Some(code) = code else {
-        return Err("Steam Auto Unlocker's files weren't found. Run the install command from the project's page, then open the app again.".to_string());
+        return Err("STAR's files weren't found. Run the install command from the project's page, then open the app again.".to_string());
     };
     let output = Command::new(python(home))
         .arg(code.join("unlocker/run_unlocker.py"))
@@ -171,6 +176,14 @@ fn on_new_window(url: tauri::Url) -> NewWindowResponse<tauri::Wry> {
 }
 
 fn main() {
+    // Runs post their notifications through the app (see notify.rs).
+    #[cfg(target_os = "macos")]
+    {
+        let args: Vec<String> = env::args().skip(1).collect();
+        if args.first().is_some_and(|a| a.starts_with("--notify")) {
+            std::process::exit(notify::run(&args));
+        }
+    }
     tauri::Builder::default()
         .menu(menu)
         .on_menu_event(on_menu)
@@ -189,7 +202,7 @@ fn main() {
             // server's page once it's up.
             let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                 .on_new_window(|url, _| on_new_window(url))
-                .title("Steam Auto Unlocker")
+                .title("STAR")
                 .inner_size(1180.0, 860.0)
                 .min_inner_size(420.0, 560.0);
             // macOS: no separate title bar. The page's top bar takes its
@@ -201,6 +214,10 @@ fn main() {
                 .hidden_title(true)
                 .traffic_light_position(tauri::LogicalPosition::new(WINDOW_BUTTONS.0, WINDOW_BUTTONS.1));
             let window = builder.build()?;
+            // Asks for notification permission now, while the app is open,
+            // so runs don't wait on the prompt.
+            #[cfg(target_os = "macos")]
+            thread::spawn(|| notify::authorize(Duration::from_secs(600)));
             let home = home_dir();
             let code = code_dir(app.path().resource_dir().ok(), &home);
             thread::spawn(move || match start_server(code, &home) {

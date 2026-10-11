@@ -218,7 +218,9 @@
     font-size: 0.8rem;
   }
   .screen-switch button:hover { color: var(--text); }
-  .screen-switch button.active { background: var(--surface-3); color: var(--text); }
+  .screen-switch button.active { background: var(--accent-tint); color: var(--accent); }
+  .screen-switch .switch-home { display: inline-flex; align-items: center; padding: 0.3rem 0.55rem; }
+  .screen-switch .switch-home svg { width: 15px; height: 15px; }
   /* A game is running: a dot on Runs while it's not open. */
   .screen-switch button.has-content:not(.active)::after {
     content: "";
@@ -251,14 +253,6 @@
   :root[data-desktop] .page > .shell { width: 100%; margin-top: auto; margin-bottom: auto; }
   :root[data-desktop] .page > .hero { padding-top: 2.5rem; padding-bottom: 2.5rem; }
   :root[data-desktop] body[data-screen="work"] .page > .shell { padding-top: 1.5rem; padding-bottom: 1.5rem; }
-  /* Runs fills the window's height (the builder's tabs keep one size, so
-     switching them doesn't move anything). */
-  :root[data-desktop] .box[data-view="runs"] { height: calc(100vh - 52px - 3rem); }
-  :root[data-desktop] .box[data-view="runs"] .box-content {
-    height: auto;
-    flex: 1;
-    min-height: calc(var(--pane-box-h) + 5rem);
-  }
   /* Like other apps, the interface itself can't be selected; only what you
      type, the generated files (Schedule, Timeline), the run output and
      commands to copy can. */
@@ -272,7 +266,8 @@
   :root[data-desktop] .appearance-menu { top: calc(100% + 16px); }
   /* The colored line runs under the bar, not above it. */
   :root[data-desktop] body::before { top: 51px; }
-  :root[data-desktop] .topbar .brand span { display: none; }
+  /* In the app, Home (first in the switch) takes the logo's place. */
+  :root[data-desktop] .topbar .brand { display: none; }
   :root[data-desktop] header.topbar {
     position: fixed;
     inset: 0 0 auto;
@@ -290,8 +285,36 @@
   body[data-screen="guide"] .shell,
   body[data-screen="guide"] .hero > :not(#hero-setup),
   body[data-screen="guide"] #setup-close { display: none !important; }
-  body[data-screen="guide"] .hero { padding: 1.5rem 1rem 3rem; }
-  body[data-screen="guide"] .hero-panel { max-width: 40rem; margin: 0 auto; }
+  /* Laid out like the Schedule and Runs box: same width and height, a
+     title bar, the settings in two columns, the app's version as footer. */
+  body[data-screen="guide"] .hero { max-width: var(--max-width); padding: 1.5rem 1rem; }
+  body[data-screen="guide"] #hero-setup {
+    display: flex;
+    flex-direction: column;
+    height: var(--box-h, auto);
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border-radius: 12px;
+    box-shadow: 0 40px 90px -40px color-mix(in srgb, var(--accent) 18%, transparent);
+    overflow: hidden;
+  }
+  body[data-screen="guide"] #hero-setup .panel-head { padding: 1rem 1.3rem; border-bottom: 1px solid var(--border); }
+  body[data-screen="guide"] #hero-setup .setup-steps {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    margin: 0;
+    padding: 1.2rem 1.3rem;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+  }
+  body[data-screen="guide"] #setup-error { margin: 0; padding: 0 1.3rem 0.8rem; }
+  body[data-screen="guide"] #hero-setup .update-row { margin: 0; padding: 0.8rem 1.3rem; }
+  @media (max-width: 900px) {
+    body[data-screen="guide"] #hero-setup .setup-steps { grid-template-columns: minmax(0, 1fr); }
+  }
   /* In the app the Guide tab replaces the Guide button. */
   .screen-switch:not([hidden]) ~ .topbar-right #guide-btn { display: none; }
   /* Narrow windows: the logo alone, so the buttons fit. */
@@ -468,6 +491,7 @@
   .setup-step > button, .setup-form, .step-actions { margin-top: 0.7rem; }
   .setup-step > button, .setup-form button, .step-actions button { padding: 0.45rem 0.95rem; font-size: 0.8rem; }
   .step-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .data-path { display: block; margin-top: 0.5rem; font-size: 0.76rem; word-break: break-all; color: var(--text-dim); }
   .step-actions:not(:has(button:not([hidden]))) { display: none; }
   .step-actions .primary-ghost { border-color: var(--accent); color: var(--accent); }
   .setup-step .install-line { margin-top: 0.6rem; }
@@ -476,7 +500,6 @@
   .setup-error { color: var(--danger); font-size: 0.82rem; }
   .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
   .panel-close { padding: 0.3rem 0.7rem; font-size: 0.76rem; }
-  .setup-step.guide .step-mark { border-style: dashed; }
   .guide-list { margin: 0.9rem 0 0; padding-left: 1.2rem; line-height: 1.5; }
   .guide-list li + li { margin-top: 0.35rem; }
   .update-row {
@@ -604,6 +627,9 @@
   .box[data-view="runs"] .box-footer { display: none; }
   .box[data-view="runs"] .box-header { padding-top: 0; }
   .box[data-view="runs"] .stats-row { margin-top: 0; border-top: 0; }
+  /* Runs takes the builder's height (--box-h, set by the script); its content fills it. */
+  .box[data-view="runs"] { height: var(--box-h, auto); }
+  .box[data-view="runs"] .box-content { height: auto; flex: 1; min-height: 0; }
 
   /* One fixed height on every tab. Inside, the pane's main box (paste
      box, JSON preview, Timeline table) stretches to fill whatever the
@@ -633,7 +659,7 @@
      right (below them on narrow screens). */
   .view-pane[data-view="settings"].active {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
     align-items: start;
     gap: 0 2.25rem;
     overflow-y: auto;
@@ -644,7 +670,18 @@
     border-left: 1px solid var(--border);
     align-self: stretch;
   }
+  /* Achievements: the paste box on the left, what to paste on the right. */
+  .view-pane[data-view="input"].active {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    gap: 0 2.25rem;
+  }
+  .input-help { overflow-y: auto; }
+  .input-help .format-title { margin-top: 1rem; }
+  .input-help pre { white-space: pre-wrap; font-size: 0.76rem; }
   @media (max-width: 900px) {
+    .view-pane[data-view="input"].active { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+    .input-help { max-height: 9rem; }
     .view-pane[data-view="settings"].active { grid-template-columns: minmax(0, 1fr); }
     .settings-help { padding-left: 0; border-left: none; margin-top: 0.7rem; }
   }
@@ -660,8 +697,8 @@
   .view-pane[data-view="runs"][data-pane="timeline"].active {
     grid-template-columns: minmax(12rem, 0.3fr) minmax(0, 1fr);
   }
-  /* Beside a timeline, a game is just its name and progress. */
-  .view-pane[data-view="runs"][data-pane="timeline"] :is(.run-badge, .run-meta, .run-actions) { display: none; }
+  /* Beside a timeline, a game is just its name. */
+  .view-pane[data-view="runs"][data-pane="timeline"] :is(.run-badge, .run-meta, .run-progress, .run-actions) { display: none; }
   @media (max-width: 900px) {
     .view-pane[data-view="runs"].active, .view-pane[data-view="runs"][data-pane="timeline"].active { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }
   }
@@ -1065,7 +1102,6 @@
   }
   /* Only the open tab's help is shown. */
   .hover-help { display: none; }
-  .box[data-view="input"] .hover-help[data-for="input"],
   .box[data-view="csv"] .hover-help[data-for="csv"] { display: block; }
   .hover-help-label {
     display: inline-flex;

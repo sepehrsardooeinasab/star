@@ -1,13 +1,15 @@
 """The optional pieces runs use, for Settings: what keeps the computer awake
 during a run (caffeinate on macOS, systemd-inhibit on Linux) and what shows
-notifications, whether each is there, and how to install what's missing."""
+notifications (built in on macOS, notify-send on Linux), whether each is
+there, and how to install what's missing."""
 import os
 import shutil
 import subprocess
 import sys
+import time
 
 # Apps opened from the Dock or a desktop menu get a minimal PATH, which
-# misses Homebrew's tools (terminal-notifier, brew itself).
+# misses Homebrew's and the user's own tool folders.
 EXTRA_PATH = ["/opt/homebrew/bin", "/usr/local/bin", os.path.expanduser("~/.local/bin")]
 
 
@@ -45,15 +47,9 @@ def status():
     use (None if there's none), whether that's the full experience, and an
     install command (with can_run: whether the app can run it itself)."""
     if sys.platform == "darwin":
-        notifier = shutil.which("terminal-notifier")
         return {
             "keep_awake": {"tool": "caffeinate" if shutil.which("caffeinate") else None, "full": True},
-            "notifications": {
-                "tool": "terminal-notifier" if notifier else "osascript",
-                "full": bool(notifier),
-                "install": None if notifier else "brew install terminal-notifier",
-                "can_run": bool(not notifier and shutil.which("brew")),
-            },
+            "notifications": {"tool": "osascript", "full": True, "install": None, "can_run": False},
         }
     notify_send = shutil.which("notify-send")
     return {
@@ -67,15 +63,27 @@ def status():
     }
 
 
-def install_notifier(report):
-    """Installs terminal-notifier with Homebrew (macOS)."""
-    brew = shutil.which("brew")
-    if not brew:
-        raise RuntimeError("Homebrew isn't installed, so terminal-notifier can't be installed from here.")
-    report("Installing terminal-notifier with Homebrew… (this can take a minute)")
-    result = subprocess.run([brew, "install", "terminal-notifier"], capture_output=True, text=True,
-                            env={**os.environ, "HOMEBREW_NO_AUTO_UPDATE": "1"})
-    if result.returncode != 0:
-        last = (result.stderr or result.stdout).strip().splitlines()[-1:] or ["unknown error"]
-        raise RuntimeError(f"Homebrew couldn't install it: {last[0]}")
-    report("terminal-notifier is installed.")
+
+def test_keep_awake():
+    """Takes keep-awake the way runs do, checks the system really holds it
+    (macOS: pmset's power assertions; Linux: logind's inhibitor list), then
+    lets go. Returns (works, what was found)."""
+    from unlocker.api import start_keep_awake, stop_keep_awake
+    proc = start_keep_awake()
+    if proc is None:
+        return False, "it couldn't be started"
+    try:
+        time.sleep(0.5)
+        if sys.platform == "darwin":
+            out = subprocess.run(["pmset", "-g", "assertions"], capture_output=True, text=True, timeout=10).stdout
+            held = any(f"pid {proc.pid}(" in line and "PreventUserIdleSystemSleep" in line
+                       for line in out.splitlines())
+            return held, "macOS reports caffeinate preventing sleep" if held else "macOS doesn't show it preventing sleep"
+        out = subprocess.run(["systemd-inhibit", "--list", "--no-legend"], capture_output=True, text=True,
+                             timeout=10).stdout
+        held = any("STAR" in line and "sleep" in line for line in out.splitlines())
+        return held, "systemd lists it blocking sleep" if held else "systemd doesn't list it blocking sleep"
+    except (OSError, subprocess.SubprocessError) as e:
+        return False, f"it couldn't be checked ({e})"
+    finally:
+        stop_keep_awake(proc)

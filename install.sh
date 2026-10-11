@@ -1,11 +1,11 @@
 #!/bin/sh
-# Steam Auto Unlocker installer, for macOS and Linux:
+# STAR (Steam Timed Achievement Replayer) installer, for macOS and Linux:
 #
-#   curl -fsSL https://raw.githubusercontent.com/sepehrsardooeinasab/steam-auto-unlocker/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/sepehrsardooeinasab/star/main/install.sh | sh
 #
 # Installs the desktop app, the `runsteamunlocker` command, and
 # ArchiSteamFarm with its achievement plugin. The code and page ship inside
-# the app on macOS and go in ~/.local/lib/steam-auto-unlocker otherwise;
+# the app on macOS and go in ~/.local/lib/star otherwise;
 # your games, ArchiSteamFarm and settings live in a separate data folder.
 # Nothing needs sudo. Running it again updates everything and keeps your data.
 #
@@ -21,8 +21,10 @@
 #                       restart the page's server when there's no app
 set -eu
 
-REPO="sepehrsardooeinasab/steam-auto-unlocker"
-APP_NAME="Steam Auto Unlocker"
+REPO="sepehrsardooeinasab/star"
+APP_NAME="STAR"
+# Its name before 3.04: that app is replaced, and its data folder kept.
+OLD_APP_NAME="Steam Auto Unlocker"
 
 say() { printf '\033[1m==>\033[0m %s\n' "$*"; }
 note() { printf '    %s\n' "$*"; }
@@ -44,20 +46,29 @@ done
 OS=$(uname -s)
 ARCH=$(uname -m)
 case "$OS" in
-    Darwin) HOME_DIR="${UNLOCKER_HOME:-$HOME/Library/Application Support/$APP_NAME}" ;;
-    Linux) HOME_DIR="${UNLOCKER_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/steam-auto-unlocker}" ;;
+    Darwin) DATA_ROOT="$HOME/Library/Application Support" HOME_NAME="$APP_NAME" OLD_HOME_NAME="$OLD_APP_NAME" ;;
+    Linux) DATA_ROOT="${XDG_DATA_HOME:-$HOME/.local/share}" HOME_NAME=star OLD_HOME_NAME=steam-auto-unlocker ;;
     *) fail "Only macOS and Linux are supported." ;;
 esac
+HOME_DIR="${UNLOCKER_HOME:-$DATA_ROOT/$HOME_NAME}"
+# Data from before the rename moves to the new folder. The old path is left
+# as a link to it, so games still running from before keep writing to it.
+OLD_HOME_DIR="$DATA_ROOT/$OLD_HOME_NAME"
+if [ -z "${UNLOCKER_HOME:-}" ] && [ -d "$OLD_HOME_DIR" ] && [ ! -L "$OLD_HOME_DIR" ] && [ ! -e "$HOME_DIR" ]; then
+    mv "$OLD_HOME_DIR" "$HOME_DIR" && ln -s "$HOME_DIR" "$OLD_HOME_DIR"
+fi
 BIN_DIR="${BIN_DIR:-$HOME/.local/bin}"
 # The code when it isn't inside the app (Linux, or --no-app). The Linux app
 # looks for it here too, so it stays put however the app is opened.
-LIB_DIR="${UNLOCKER_CODE:-$HOME/.local/lib/steam-auto-unlocker}"
-DESKTOP_FILE="${XDG_DATA_HOME:-$HOME/.local/share}/applications/steam-auto-unlocker.desktop"
+LIB_DIR="${UNLOCKER_CODE:-$HOME/.local/lib/star}"
+OLD_LIB_DIR="$HOME/.local/lib/steam-auto-unlocker"  # before the rename
+DESKTOP_FILE="${XDG_DATA_HOME:-$HOME/.local/share}/applications/star.desktop"
+OLD_DESKTOP_FILE="${XDG_DATA_HOME:-$HOME/.local/share}/applications/steam-auto-unlocker.desktop"
 
 mac_app_dir() {
     if [ -n "${APP_DIR:-}" ]; then
         echo "$APP_DIR"
-    elif [ -d "/Applications/$APP_NAME.app" ] || [ -w /Applications ]; then
+    elif [ -d "/Applications/$APP_NAME.app" ] || [ -d "/Applications/$OLD_APP_NAME.app" ] || [ -w /Applications ]; then
         echo /Applications
     else
         echo "$HOME/Applications"
@@ -67,11 +78,11 @@ mac_app_dir() {
 if [ "$UNINSTALL" -eq 1 ]; then
     say "Uninstalling"
     rm -f "$BIN_DIR/runsteamunlocker"
-    rm -rf "$LIB_DIR" "$HOME_DIR/app" "$HOME_DIR/python-path"
+    rm -rf "$LIB_DIR" "$OLD_LIB_DIR" "$HOME_DIR/app" "$HOME_DIR/python-path"
     if [ "$OS" = Darwin ]; then
-        rm -rf "$(mac_app_dir)/$APP_NAME.app"
+        rm -rf "$(mac_app_dir)/$APP_NAME.app" "$(mac_app_dir)/$OLD_APP_NAME.app"
     else
-        rm -f "$HOME_DIR/$APP_NAME.AppImage" "$DESKTOP_FILE"
+        rm -f "$HOME_DIR/$APP_NAME.AppImage" "$HOME_DIR/$OLD_APP_NAME.AppImage" "$DESKTOP_FILE" "$OLD_DESKTOP_FILE"
     fi
     note "Kept your games, ArchiSteamFarm and settings in: $HOME_DIR"
     note "Delete that folder too to remove everything."
@@ -96,10 +107,10 @@ APP_CLOSED=0
 quit_app() {  # its games are separate processes and keep running
     [ "$REOPEN" -eq 1 ] || return 0
     if [ "$OS" = Darwin ]; then
-        pkill -f "/$APP_NAME.app/Contents/MacOS/" && APP_CLOSED=1
+        pkill -f "/($APP_NAME|$OLD_APP_NAME).app/Contents/MacOS/" && APP_CLOSED=1
     else
         # The AppImage's launcher, and the app it runs from its mount.
-        pkill -f "$HOME_DIR/$APP_NAME.AppImage|/usr/bin/steam-auto-unlocker" && APP_CLOSED=1
+        pkill -f "$HOME_DIR/($APP_NAME|$OLD_APP_NAME).AppImage|/usr/bin/(star|steam-auto-unlocker)" && APP_CLOSED=1
     fi
     [ "$APP_CLOSED" -eq 0 ] || sleep 1
 }
@@ -139,10 +150,10 @@ if [ -n "$SOURCE" ]; then
     say "Installing the code from $SOURCE"
     SRC="$SOURCE"
 else
-    say "Downloading Steam Auto Unlocker ($REF)"
+    say "Downloading STAR ($REF)"
     curl -fsSL "https://github.com/$REPO/archive/$REF.tar.gz" | tar -xz -C "$TMP" \
         || fail "Couldn't download version $REF."
-    SRC=$(find "$TMP" -mindepth 1 -maxdepth 1 -type d -name 'steam-auto-unlocker-*' | head -n 1)
+    SRC=$(find "$TMP" -mindepth 1 -maxdepth 1 -type d | head -n 1)  # <repo>-<version>
     # A release from before this installer existed can't be set up by it
     # (e.g. while the newest release is still being built): use main.
     if [ -n "$SRC" ] && [ ! -f "$SRC/unlocker/asf_setup.py" ] && [ "$REF" != main ]; then
@@ -151,15 +162,16 @@ else
         REF=main
         curl -fsSL "https://github.com/$REPO/archive/$REF.tar.gz" | tar -xz -C "$TMP" \
             || fail "Couldn't download version $REF."
-        SRC=$(find "$TMP" -mindepth 1 -maxdepth 1 -type d -name 'steam-auto-unlocker-*' | head -n 1)
+        SRC=$(find "$TMP" -mindepth 1 -maxdepth 1 -type d | head -n 1)  # <repo>-<version>
     fi
 fi
-[ -f "$SRC/unlocker/run_unlocker.py" ] || fail "$SRC doesn't look like Steam Auto Unlocker."
+[ -f "$SRC/unlocker/run_unlocker.py" ] || fail "$SRC doesn't look like STAR."
 
 # A running app server would keep serving the old code. It may be any
 # earlier install's: inside the app, in LIB_DIR, or (before 3.01) the data
 # folder's app/.
-for old in "$(mac_app_dir)/$APP_NAME.app/Contents/Resources" "$LIB_DIR" "$HOME_DIR/app"; do
+for old in "$(mac_app_dir)/$APP_NAME.app/Contents/Resources" "$(mac_app_dir)/$OLD_APP_NAME.app/Contents/Resources" \
+           "$LIB_DIR" "$OLD_LIB_DIR" "$HOME_DIR/app"; do
     if [ -f "$old/unlocker/run_unlocker.py" ]; then
         UNLOCKER_HOME="$HOME_DIR" PYTHONDONTWRITEBYTECODE=1 \
             "$PY" "$old/unlocker/run_unlocker.py" --ui-stop >/dev/null 2>&1 || true
@@ -201,6 +213,12 @@ install_mac_app() {  # $1: a .app folder or a .dmg
             cp -R "$1" "$dest/$APP_NAME.app"
             ;;
     esac
+    # The app before its rename: here, and (unless APP_DIR picked a folder)
+    # in the other usual place.
+    rm -rf "$dest/$OLD_APP_NAME.app"
+    if [ -z "${APP_DIR:-}" ]; then
+        rm -rf "/Applications/$OLD_APP_NAME.app" "$HOME/Applications/$OLD_APP_NAME.app" 2>/dev/null || true
+    fi
     APP_INSTALLED="$dest/$APP_NAME.app"
 }
 
@@ -211,13 +229,14 @@ install_linux_app() {  # $1: an .AppImage
     cp "$1" "$HOME_DIR/$APP_NAME.AppImage.new"
     chmod +x "$HOME_DIR/$APP_NAME.AppImage.new"
     mv "$HOME_DIR/$APP_NAME.AppImage.new" "$HOME_DIR/$APP_NAME.AppImage"
+    rm -f "$HOME_DIR/$OLD_APP_NAME.AppImage" "$OLD_DESKTOP_FILE"  # the app before its rename
     cp "$SRC/docs/logo.png" "$HOME_DIR/icon.png"
     mkdir -p "$(dirname "$DESKTOP_FILE")"
     cat > "$DESKTOP_FILE" <<EOF
 [Desktop Entry]
 Type=Application
 Name=$APP_NAME
-Comment=Replay a real player's Steam achievement timeline
+Comment=Steam Timed Achievement Replayer: replay a real player's achievement timeline
 Exec="$HOME_DIR/$APP_NAME.AppImage"
 Icon=$HOME_DIR/icon.png
 Categories=Utility;
@@ -269,6 +288,7 @@ else
 fi
 chmod +x "$CODE/runsteamunlocker"
 rm -rf "$HOME_DIR/app"  # where the code lived before 3.01
+rm -rf "$OLD_LIB_DIR"   # and before the rename to STAR
 # The 3.00 app only looks there, so point it at the code's new place.
 if [ "$REF" = v3.00 ] && [ -n "$APP_INSTALLED" ]; then
     ln -s "$CODE" "$HOME_DIR/app"
@@ -280,7 +300,7 @@ printf '%s\n' "$PY" > "$HOME_DIR/python-path"
 mkdir -p "$BIN_DIR"
 cat > "$BIN_DIR/runsteamunlocker" <<EOF
 #!/bin/sh
-# Installed by Steam Auto Unlocker's install.sh.
+# Installed by STAR's install.sh.
 export UNLOCKER_HOME="$HOME_DIR"
 export PATH="$(dirname "$PY"):\$PATH"
 # Never write __pycache__ into the code (inside the app on macOS).

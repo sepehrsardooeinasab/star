@@ -56,12 +56,12 @@ jobs:
           tauriScript: npx --yes @tauri-apps/cli@2
           args: --target ${{ matrix.target }}
           tagName: ${{ github.ref_name }}
-          releaseName: Steam Auto Unlocker ${{ github.ref_name }}
+          releaseName: STAR ${{ github.ref_name }}
           releaseBody: |
             Install or update on macOS or Linux:
 
             ```sh
-            curl -fsSL https://raw.githubusercontent.com/sepehrsardooeinasab/steam-auto-unlocker/main/install.sh | sh
+            curl -fsSL https://raw.githubusercontent.com/sepehrsardooeinasab/star/main/install.sh | sh
             ```
 
             The files below are what that command installs. Downloading the macOS app by hand instead means macOS asks you to allow it once in System Settings > Privacy & Security.

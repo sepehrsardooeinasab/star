@@ -26,9 +26,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from unlocker import asf_setup, extras, updates
 from unlocker.api import notify
-from unlocker.paths import CODE_DIR
+from unlocker.paths import CODE_DIR, DATA_DIR
 from unlocker.runner import _session_status, config_changed
-from unlocker.settings import SETTINGS
+from unlocker.settings import SETTINGS, SETTINGS_PATH
 from unlocker.state import (
     COMPLETED_DIR,
     CSVS_DIR,
@@ -280,7 +280,8 @@ _setup_lock = threading.Lock()
 
 def setup_state():
     with _setup_lock:
-        return {**asf_setup.status(), **_setup, "extras": extras.status(), "asf_latest": _asf_latest}
+        return {**asf_setup.status(), **_setup, "extras": extras.status(), "asf_latest": _asf_latest,
+                "data_dir": _shown_path(DATA_DIR)}
 
 
 def _setup_update(**fields):
@@ -342,14 +343,35 @@ def asf_check():
     return setup_state()
 
 
-def install_notifier():
-    report = lambda m: _setup_update(message=m)
-    return _setup_task("notifier", lambda: extras.install_notifier(report))
+def test_keep_awake():
+    works, found = extras.test_keep_awake()
+    return {"works": works, "found": found}
 
 
 def test_notification():
     notify("Test", "Notifications work. You'll get one when a session ends or a run stops.")
     return {"sent": True}
+
+
+def _shown_path(path):
+    """path with the home folder as ~, so it doesn't show the user's name."""
+    path, home = path.resolve(), Path.home().resolve()
+    return "~/" + str(path.relative_to(home)) if path.is_relative_to(home) else str(path)
+
+
+def open_data_folder():
+    """Shows the data folder (games, ArchiSteamFarm, settings) in Finder or,
+    on Linux, the desktop's file manager."""
+    opener = "open" if sys.platform == "darwin" else "xdg-open"
+    try:
+        # Both return once the file manager has the request.
+        ok = subprocess.run([opener, str(DATA_DIR)], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL, timeout=10).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        ok = False
+    if not ok:
+        raise AppError(f"Couldn't open the folder. It's at {_shown_path(DATA_DIR)}.", 500)
+    return {"opened": True}
 
 
 def app_update():
@@ -456,7 +478,8 @@ class Handler(SimpleHTTPRequestHandler):
             return super().do_GET()
         query = {k: v[0] for k, v in parse_qs(url.query).items()}
         routes = {
-            "/api/ping": lambda: {"app": APP_ID},
+            "/api/ping": lambda: {"app": APP_ID, "home": str(DATA_DIR.resolve()),
+                                  "code": str(CODE_DIR), "pid": os.getpid()},
             "/api/games": game_states,
             "/api/setup": setup_state,
             "/api/update": lambda: updates.update_state(force=query.get("force") == "1"),
@@ -492,8 +515,9 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/dismiss": lambda: dismiss(name),
             "/api/setup/install": lambda: setup_install(bool(body.get("latest"))),
             "/api/setup/asf-check": asf_check,
-            "/api/setup/install-notifier": install_notifier,
             "/api/setup/test-notification": test_notification,
+            "/api/setup/test-awake": test_keep_awake,
+            "/api/open-folder": open_data_folder,
             "/api/setup/login": lambda: setup_login(body.get("username"), body.get("password")),
             "/api/setup/code": lambda: setup_code(body.get("code")),
             "/api/update": app_update,
@@ -535,18 +559,52 @@ def serve():
 
 
 def _ping():
+    """What the server on our port says about itself, or None if there's
+    none (or it isn't this app's)."""
     try:
         with urllib.request.urlopen(URL + "api/ping", timeout=1) as r:
-            return json.loads(r.read()).get("app") == APP_ID
+            info = json.loads(r.read())
     except (OSError, ValueError):
-        return False
+        return None
+    return info if isinstance(info, dict) and info.get("app") == APP_ID else None
+
+
+def _ours(info):
+    return info.get("home") == str(DATA_DIR.resolve()) and info.get("code") == str(CODE_DIR)
+
+
+def _replace_other_server(info):
+    """The port may be held by another copy's server: an older version for
+    the same data (after an update), which is stopped, or one for other data
+    (a project folder, say), which is left alone and reported."""
+    pid = info.get("pid") if info.get("home") == str(DATA_DIR.resolve()) else None
+    if not info.get("home"):  # before 3.04 it didn't say; this data's lock does
+        pid = (lock_info(SERVER_LOCK) or [None])[0]
+    if pid:
+        os.kill(pid, signal.SIGTERM)
+        deadline = time.monotonic() + 5
+        while _ping():
+            if time.monotonic() > deadline:
+                break
+            time.sleep(0.2)
+        else:
+            return
+    where = info.get("home") or "an older version"
+    print(f"Port {PORT} is used by another copy of STAR (data in {where}). "
+          f"Stop it with runsteamunlocker --ui-stop from that copy, or set a different ui_port "
+          f"in {SETTINGS_PATH}, then try again.")
+    sys.exit(1)
 
 
 def open_app(browser=True):
     """Starts the app in the background if it isn't running, then opens it
     in the browser — or, without browser, just prints its URL (the desktop
     app opens it in its own window)."""
-    if not _ping():
+    info = _ping()
+    if info and not _ours(info):
+        _replace_other_server(info)
+        info = None
+    if not info:
         JSONS_DIR.mkdir(parents=True, exist_ok=True)
         with open(SERVER_LOG, "a") as log:
             subprocess.Popen(
