@@ -108,6 +108,16 @@ else
     curl -fsSL "https://github.com/$REPO/archive/$REF.tar.gz" | tar -xz -C "$TMP" \
         || fail "Couldn't download version $REF."
     SRC=$(find "$TMP" -mindepth 1 -maxdepth 1 -type d -name 'steam-auto-unlocker-*' | head -n 1)
+    # A release from before this installer existed can't be set up by it
+    # (e.g. while the newest release is still being built): use main.
+    if [ -n "$SRC" ] && [ ! -f "$SRC/unlocker/asf_setup.py" ] && [ "$REF" != main ]; then
+        note "$REF is older than this installer; installing the latest code (main) instead."
+        rm -rf "$SRC" "$RELEASE_JSON"
+        REF=main
+        curl -fsSL "https://github.com/$REPO/archive/$REF.tar.gz" | tar -xz -C "$TMP" \
+            || fail "Couldn't download version $REF."
+        SRC=$(find "$TMP" -mindepth 1 -maxdepth 1 -type d -name 'steam-auto-unlocker-*' | head -n 1)
+    fi
 fi
 [ -f "$SRC/unlocker/run_unlocker.py" ] || fail "$SRC doesn't look like Steam Auto Unlocker."
 
