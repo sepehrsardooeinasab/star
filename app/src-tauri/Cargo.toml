@@ -1,6 +1,6 @@
 [package]
 name = "steam-auto-unlocker"
-version = "3.0.2"
+version = "3.0.3"
 description = "Desktop window for Steam Auto Unlocker"
 edition = "2021"
 
