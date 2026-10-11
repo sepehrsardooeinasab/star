@@ -1,5 +1,6 @@
 import json
 import os
+import plistlib
 import re
 import shutil
 import signal
@@ -173,36 +174,64 @@ def stop_keep_awake(proc):
 
 NOTIFY_TITLE = "STAR"
 NOTIFY_ICON = CODE_DIR / "docs" / "logo.png"
+APP_NOTIFY_SINCE = (3, 0, 4)  # the first app with --notify
 NOTIFY_REMOVE_AFTER = 1800  # "done" notifications clear themselves after 30 min
 
 
-def notify(game, message, error=False):
-    """Desktop notification: title "Steam unlocker", the game as subtitle,
-    a different sound for errors. Uses the best tool available and quietly
-    does nothing when there's none — a missing tool never affects a run.
+def _app_binary():
+    """The installed Mac app's binary, which can post notifications as the
+    app: the one this code ships in, else the usual install places."""
+    candidates = [CODE_DIR.parent / "MacOS" / "star"] if CODE_DIR.parent.name == "Contents" else []
+    candidates += [Path(base).expanduser() / "STAR.app/Contents/MacOS/star"
+                   for base in ("/Applications", "~/Applications")]
+    for binary in candidates:
+        try:
+            with open(binary.parent.parent / "Info.plist", "rb") as f:
+                version = plistlib.load(f).get("CFBundleShortVersionString", "")
+        except (OSError, plistlib.InvalidFileException):
+            continue
+        # Older apps don't know --notify: they'd open their window instead.
+        if tuple(int(p) for p in re.findall(r"\d+", version)[:3]) >= APP_NOTIFY_SINCE:
+            return str(binary)
+    return None
 
-    - macOS + terminal-notifier (brew): project logo, and non-error
-      notifications are removed again after NOTIFY_REMOVE_AFTER.
-    - macOS without it: plain osascript notification (no logo, stays in
-      Notification Center).
+
+def _app_notify(app, game, message, error):
+    """Shows it through the app; False if it couldn't (not allowed yet, an
+    older app without --notify, …)."""
+    group = f"steam-unlocker-{game}-{time.time_ns()}"
+    result = subprocess.run([app, "--notify", group, NOTIFY_TITLE, game, message],
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
+    if result.returncode != 0:
+        return False
+    if not error:
+        subprocess.Popen(
+            [sys.executable, "-c",
+             f"import time, subprocess; time.sleep({NOTIFY_REMOVE_AFTER}); "
+             f"subprocess.run([{app!r}, '--notify-remove', {group!r}], timeout=30)"],
+            start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return True
+
+
+def notify(game, message, error=False):
+    """Desktop notification: title "STAR", the game as subtitle.
+    Uses the best tool available and quietly does nothing when there's
+    none — a missing tool never affects a run.
+
+    - macOS + the app: posted as the app's own (its icon and name), and
+      non-error notifications are removed again after NOTIFY_REMOVE_AFTER.
+    - macOS without the app (or before it's allowed to): the built-in one,
+      through osascript, shown as Script Editor's; errors get their own sound.
+      (terminal-notifier isn't used: its notifications don't show on current
+      macOS.)
     - Linux + notify-send: logo; errors are marked critical, others ask to
       expire after NOTIFY_REMOVE_AFTER (some desktops ignore that)."""
     icon = str(NOTIFY_ICON) if NOTIFY_ICON.exists() else None
     try:
-        if sys.platform == "darwin" and shutil.which("terminal-notifier"):
-            group = f"steam-unlocker-{game}-{time.time_ns()}"
-            cmd = ["terminal-notifier", "-title", NOTIFY_TITLE, "-subtitle", game,
-                   "-message", message, "-sound", "Basso" if error else "Glass", "-group", group]
-            if icon:
-                cmd += ["-contentImage", icon]
-            subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
-            if not error:
-                subprocess.Popen(
-                    [sys.executable, "-c",
-                     f"import time, subprocess; time.sleep({NOTIFY_REMOVE_AFTER}); "
-                     f"subprocess.run(['terminal-notifier', '-remove', {group!r}], timeout=30)"],
-                    start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        elif sys.platform == "darwin":
+        app = _app_binary() if sys.platform == "darwin" else None
+        if app and _app_notify(app, game, message, error):
+            return
+        if sys.platform == "darwin":
             # Passed as argv rather than spliced into the script, so quotes
             # in achievement/game names can't break the AppleScript.
             subprocess.run(
