@@ -125,8 +125,6 @@ def game_states():
     session_label = session[1] if session else None
     games, names = [], set()
     for name, _ in list_profiles():
-        if name is None:  # a bare config.json, from before named configs
-            continue
         names.add(name)
         games.append(_game_state(name, session_label))
     # A game an auto run finished has had its config moved to completed/;
@@ -280,7 +278,7 @@ def _setup_task(kind, work):
 
 
 def _anything_running():
-    return any(_running_pid(name) for name, _ in list_profiles() if name)
+    return any(_running_pid(name) for name, _ in list_profiles())
 
 
 def setup_install():

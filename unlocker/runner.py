@@ -227,7 +227,7 @@ def list_status():
     rows = []
     for name, _ in profiles:
         config_path, progress_path = profile_paths(name)
-        label = name or "(default)"
+        label = name
         try:
             config = json.loads(config_path.read_text())
             if config_problems(config):
@@ -276,7 +276,7 @@ def run_auto(game_name):
     as soon as it can (like -w). Stops after the current session when its
     stop-after flag file appears, and right away on SIGTERM (Stop in the
     app, or -k), which the session itself cleans up after."""
-    game_label = game_name or "default"
+    game_label = game_name
     if not acquire_lock(auto_lock_path(game_name), game_label, keep=True):
         print(f"{game_label} is already running: {lock_holder(auto_lock_path(game_name))}.")
         return
@@ -304,13 +304,13 @@ def run_auto(game_name):
         stop_after.unlink(missing_ok=True)
 
 
-def _run(game_name=None, force=False, time_only=False, delay=None, wait_ready=False):
+def _run(game_name, force=False, time_only=False, delay=None, wait_ready=False):
     """delay: seconds to wait before starting (-in). wait_ready: wait until
     the session can actually run — cooldown over and first unlock due — and
     start then (-w). Either way the wait happens after the confirmation
     prompt, under keep-awake, and before ASF is touched."""
     config_path, progress_path = profile_paths(game_name)
-    game_label = game_name or "default"
+    game_label = game_name
 
     # One run per game at a time, held until this process exits — including
     # any -w/-in wait. -t only reads, so it doesn't need it.

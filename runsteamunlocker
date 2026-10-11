@@ -84,15 +84,6 @@ kill_all() {
         pkill -f "$PROJECT_DIR/unlocker/run_unlocker.py"
         found=1
     fi
-    # Keep-awake processes now exit with their run on their own; this
-    # catches any left behind by a force-killed run from an older version.
-    if pgrep -f "caffeinate -d -i -m -s" > /dev/null 2>&1 \
-        || pgrep -f "systemd-inhibit .*--who=Steam unlocker" > /dev/null 2>&1; then
-        echo "Stopping leftover keep-awake..."
-        pkill -f "caffeinate -d -i -m -s" || true
-        pkill -f "systemd-inhibit .*--who=Steam unlocker" || true
-        found=1
-    fi
     if [ "$found" -eq 0 ]; then
         echo "Nothing running."
     fi

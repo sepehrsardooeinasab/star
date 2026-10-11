@@ -12,7 +12,7 @@ from unlocker.timeline import show_timeline
 def choose_game_name():
     profiles = list_profiles()
     if not profiles:
-        print("No config.json files found in jsons/.")
+        print("No configs found in jsons/.")
         sys.exit(1)
 
     if len(profiles) == 1:
@@ -20,7 +20,7 @@ def choose_game_name():
 
     print("Available configs:")
     for i, (name, appid) in enumerate(profiles, 1):
-        print(f"  {i}. {name or '(default)'}  [appid {appid}]")
+        print(f"  {i}. {name}  [appid {appid}]")
 
     while True:
         choice = input(f"Choose a config [1-{len(profiles)}]: ").strip()
