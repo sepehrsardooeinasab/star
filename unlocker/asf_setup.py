@@ -4,12 +4,15 @@ the bot in to Steam (including the Steam Guard code).
 
 ASF and the plugin are pinned to a pair known to work together — the
 plugin is built against a specific ASF version — and every download is
-checked against the SHA512SUMS file published with its release."""
+checked against the SHA512SUMS file published with its release. Which pair
+is installed is recorded, so a new pin (which comes with an app update)
+updates both."""
 import hashlib
 import json
 import os
 import platform
 import shutil
+import subprocess
 import sys
 import tempfile
 import time
@@ -18,8 +21,9 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-from unlocker.api import ASF_BINARY, ASF_DIR, ensure_asf_running
+from unlocker.api import ASF_BINARY, ASF_DIR, asf_running, ensure_asf_running
 from unlocker.settings import SETTINGS
+from unlocker.state import SESSION_LOCK, acquire_lock, lock_info, release_locks
 
 ASF_VERSION = "6.3.10.3"
 PLUGIN_VERSION = "1.1.0.0"
@@ -31,6 +35,7 @@ CONFIG_DIR = ASF_DIR / "config"
 PLUGIN_DIR = ASF_DIR / "plugins" / "ASFAchievementManager"
 BOT_NAME = "bot1"
 BOT_CONFIG = CONFIG_DIR / f"{BOT_NAME}.json"
+VERSIONS_FILE = ASF_DIR / "unlocker-versions.json"
 IPC_URL = f"http://127.0.0.1:{SETTINGS['asf_port']}/Api"
 
 # ASF's EUserInputType: what the bot is waiting for before it can log on.
@@ -54,6 +59,29 @@ def asf_asset():
     raise SetupError(f"ArchiSteamFarm has no build for {system} {machine}.")
 
 
+def installed_versions():
+    """{"asf": ..., "plugin": ...} as installed by this app. Empty for
+    installs from before versions were recorded."""
+    try:
+        return json.loads(VERSIONS_FILE.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def _record_version(part, version):
+    versions = installed_versions()
+    versions[part] = version
+    VERSIONS_FILE.write_text(json.dumps(versions, indent=2) + "\n")
+
+
+def _needs(part):
+    """Whether ASF ("asf") or the plugin ("plugin") is missing or isn't the
+    pinned version."""
+    installed = ASF_BINARY.exists() if part == "asf" else (PLUGIN_DIR / "ASFAchievementManager.dll").exists()
+    wanted = ASF_VERSION if part == "asf" else PLUGIN_VERSION
+    return not installed or installed_versions().get(part) != wanted
+
+
 def status():
     bot = {}
     if BOT_CONFIG.exists():
@@ -61,9 +89,15 @@ def status():
             bot = json.loads(BOT_CONFIG.read_text())
         except (OSError, json.JSONDecodeError):
             pass
+    asf = ASF_BINARY.exists()
+    plugin = (PLUGIN_DIR / "ASFAchievementManager.dll").exists()
     return {
-        "asf": ASF_BINARY.exists(),
-        "plugin": (PLUGIN_DIR / "ASFAchievementManager.dll").exists(),
+        "asf": asf,
+        "plugin": plugin,
+        "asf_version": installed_versions().get("asf") if asf else None,
+        "asf_wanted": ASF_VERSION,
+        # Installed, but not the pinned pair: install() updates it.
+        "outdated": asf and plugin and (_needs("asf") or _needs("plugin")),
         "bot": bool(bot.get("SteamLogin")),
         "account": bot.get("SteamLogin"),
     }
@@ -118,7 +152,9 @@ def write_configs():
     asf = json.loads(asf_json.read_text()) if asf_json.exists() else {}
     # Headless: never block on a terminal prompt (input comes through the
     # API instead). AutoRestart off: the unlocker starts and stops ASF.
-    asf.update({"Headless": True, "AutoRestart": False})
+    # UpdatePeriod 0: ASF never updates itself, since the plugin only works
+    # with the ASF it's built for; install() updates the two together.
+    asf.update({"Headless": True, "AutoRestart": False, "UpdatePeriod": 0})
     asf_json.write_text(json.dumps(asf, indent=2) + "\n")
 
     port = SETTINGS["asf_port"]
@@ -128,30 +164,78 @@ def write_configs():
     (CONFIG_DIR / "IPC.config").write_text(json.dumps(ipc, indent=2) + "\n")
 
 
+def _stop_idle_asf():
+    """Stops ASF when no session is using it (it stays up for a while after
+    one, in case another follows)."""
+    if not asf_running():
+        return
+    stop_asf()
+    deadline = time.monotonic() + 20
+    while asf_running() and time.monotonic() < deadline:
+        time.sleep(0.5)
+    if asf_running():
+        subprocess.run(["pkill", "-f", str(ASF_BINARY)])
+        time.sleep(2)
+
+
+def _extract_plugin(archive):
+    shutil.rmtree(PLUGIN_DIR, ignore_errors=True)  # no files left from the old version
+    PLUGIN_DIR.mkdir(parents=True, exist_ok=True)
+    _extract(archive, PLUGIN_DIR)
+    # Some releases wrap the files in a folder of their own.
+    nested = PLUGIN_DIR / "ASFAchievementManager"
+    if nested.is_dir():
+        for item in nested.iterdir():
+            shutil.move(str(item), PLUGIN_DIR / item.name)
+        nested.rmdir()
+
+
 def install(report=print):
-    """Downloads and installs ASF and the plugin (skipping whichever is
-    already there), then writes the configs."""
-    done = status()
+    """Downloads and installs ASF and the plugin, or updates them to the
+    pinned versions (skipping whichever is already that version), then
+    writes the configs.
+
+    Files are swapped while holding the session lock, so never during a
+    session: if one is playing, the update is skipped (it's tried again
+    later), and a session that comes due meanwhile waits for the swap the
+    way it waits for another game's session."""
+    need_asf, need_plugin = _needs("asf"), _needs("plugin")
+    if not (need_asf or need_plugin):
+        write_configs()
+        report("ArchiSteamFarm is ready.")
+        return
+    if lock_info(SESSION_LOCK):
+        write_configs()
+        report("A game is in a session, so ArchiSteamFarm wasn't updated. "
+               "It's updated after the session, while the app is open.")
+        return
+    updating = ASF_BINARY.exists()
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
-        if not done["asf"]:
-            archive = _verified_download(ASF_RELEASE, asf_asset(), tmp, report)
-            report(f"Installing ArchiSteamFarm {ASF_VERSION}…")
-            ASF_DIR.mkdir(parents=True, exist_ok=True)
-            _extract(archive, ASF_DIR, keep_existing=("config/",))
-            ASF_BINARY.chmod(0o755)
-        if not done["plugin"]:
-            archive = _verified_download(PLUGIN_RELEASE, "ASFAchievementManager.zip", tmp, report)
-            report(f"Installing ASFAchievementManager {PLUGIN_VERSION}…")
-            PLUGIN_DIR.mkdir(parents=True, exist_ok=True)
-            _extract(archive, PLUGIN_DIR)
-            # Some releases wrap the files in a folder of their own.
-            nested = PLUGIN_DIR / "ASFAchievementManager"
-            if nested.is_dir():
-                for item in nested.iterdir():
-                    shutil.move(str(item), PLUGIN_DIR / item.name)
-                nested.rmdir()
-    write_configs()
+        # Downloaded first, so a session waits only for the swap itself.
+        asf_zip = need_asf and _verified_download(ASF_RELEASE, asf_asset(), tmp, report)
+        plugin_zip = need_plugin and _verified_download(
+            PLUGIN_RELEASE, "ASFAchievementManager.zip", tmp, report)
+        if not acquire_lock(SESSION_LOCK, "ArchiSteamFarm update"):
+            write_configs()
+            report("A game's session just started, so ArchiSteamFarm wasn't updated. "
+                   "It's updated after the session, while the app is open.")
+            return
+        try:
+            _stop_idle_asf()
+            if asf_zip:
+                report(f"{'Updating' if updating else 'Installing'} ArchiSteamFarm {ASF_VERSION}…")
+                ASF_DIR.mkdir(parents=True, exist_ok=True)
+                _extract(asf_zip, ASF_DIR, keep_existing=("config/",))
+                ASF_BINARY.chmod(0o755)
+                _record_version("asf", ASF_VERSION)
+            if plugin_zip:
+                report(f"{'Updating' if updating else 'Installing'} ASFAchievementManager {PLUGIN_VERSION}…")
+                _extract_plugin(plugin_zip)
+                _record_version("plugin", PLUGIN_VERSION)
+            write_configs()
+        finally:
+            release_locks()
     report("ArchiSteamFarm is ready.")
 
 
@@ -220,10 +304,10 @@ def stop_asf():
         pass
 
 
-def setup_interactive(login=True):
+def setup_interactive(login=True, report=print):
     """Terminal version of the app's setup: installs ASF and the plugin,
     then (unless login is False) asks for the Steam login and code."""
-    install()
+    install(report)
     if not login:
         return
     current = status()["account"]

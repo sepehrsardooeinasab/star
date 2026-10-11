@@ -48,8 +48,9 @@ Usage: runsteamunlocker [-f] [-w | -in <time>] <config-name>
                   into jsons/, and run, stop and follow games. Closing the
                   browser doesn't stop anything.
   --ui-stop       Stop the app. Games it started keep running.
-  --setup         Download ArchiSteamFarm and its achievement plugin,
-                  write their configs, and sign in to Steam.
+  --setup         Download ArchiSteamFarm and its achievement plugin (or
+                  update them to the versions this release uses), write
+                  their configs, and sign in to Steam.
 EOF
 }
 

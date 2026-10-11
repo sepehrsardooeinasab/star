@@ -13,7 +13,8 @@ use std::process::Command;
 use std::thread;
 use std::time::Duration;
 
-use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::menu::{Menu, MenuEvent, MenuItem, HELP_SUBMENU_ID};
+use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 /// The user's games, ArchiSteamFarm and settings. UNLOCKER_HOME overrides
 /// it, as it does for the Python side.
@@ -91,8 +92,41 @@ fn start_server(code: Option<PathBuf>, home: &Path) -> Result<String, String> {
     }
 }
 
+/// The standard menus, plus Setup Guide under Help and Check for Updates…
+/// (in the app menu on macOS, under Help elsewhere).
+fn menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
+    let menu = Menu::default(app)?;
+    let guide = MenuItem::with_id(app, "setup-guide", "Setup Guide", true, None::<&str>)?;
+    let check = MenuItem::with_id(app, "check-updates", "Check for Updates…", true, None::<&str>)?;
+    if let Some(help) = menu.get(HELP_SUBMENU_ID).and_then(|m| m.as_submenu().cloned()) {
+        help.prepend(&guide)?;
+        #[cfg(not(target_os = "macos"))]
+        help.append(&check)?;
+    }
+    #[cfg(target_os = "macos")]
+    if let Some(app_menu) = menu.items()?.first().and_then(|m| m.as_submenu().cloned()) {
+        app_menu.insert(&check, 1)?; // right after About
+    }
+    Ok(menu)
+}
+
+/// The page does the work: it shows the guide, or checks for an update and
+/// offers to install it. (Before the page has loaded, nothing happens.)
+fn on_menu(app: &AppHandle, event: MenuEvent) {
+    let script = match event.id().as_ref() {
+        "setup-guide" => "window.unlockerShowGuide && unlockerShowGuide()",
+        "check-updates" => "window.unlockerCheckUpdates && unlockerCheckUpdates()",
+        _ => return,
+    };
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.eval(script);
+    }
+}
+
 fn main() {
     tauri::Builder::default()
+        .menu(menu)
+        .on_menu_event(on_menu)
         .setup(|app| {
             // Starts on the bundled "Starting…" page, then moves to the
             // server's page once it's up.
