@@ -23,6 +23,7 @@ from urllib.parse import parse_qs, urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from unlocker.paths import CODE_DIR
 from unlocker.runner import _session_status, config_changed
 from unlocker.settings import SETTINGS
 from unlocker.state import (
@@ -44,8 +45,8 @@ from unlocker.state import (
 
 PORT = SETTINGS["ui_port"]
 URL = f"http://127.0.0.1:{PORT}/"
-DOCS_DIR = PROJECT_DIR / "docs"
-RUN_SCRIPT = PROJECT_DIR / "unlocker" / "run_unlocker.py"
+DOCS_DIR = CODE_DIR / "docs"
+RUN_SCRIPT = CODE_DIR / "unlocker" / "run_unlocker.py"
 SERVER_LOCK = JSONS_DIR / ".app.lock"
 SERVER_LOG = JSONS_DIR / ".app.log"
 APP_ID = "steam-unlocker"

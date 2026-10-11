@@ -3,8 +3,11 @@
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-JSONS_DIR="$PROJECT_DIR/jsons"
-ASF_DIR="$PROJECT_DIR/archifarm"
+# Games, ASF and settings: the project folder, or UNLOCKER_HOME when set
+# (the install script and the app keep them in a per-user folder).
+DATA_DIR="${UNLOCKER_HOME:-$PROJECT_DIR}"
+JSONS_DIR="$DATA_DIR/jsons"
+ASF_DIR="$DATA_DIR/archifarm"
 ASF_BINARY="$ASF_DIR/ArchiSteamFarm"
 
 show_help() {

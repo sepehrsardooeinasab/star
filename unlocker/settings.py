@@ -1,8 +1,8 @@
 import json
 import sys
-from pathlib import Path
+from unlocker.paths import DATA_DIR
 
-SETTINGS_PATH = Path(__file__).resolve().parent.parent / "settings.json"
+SETTINGS_PATH = DATA_DIR / "settings.json"
 
 # Every setting, with its default. settings.json only needs the keys being
 # changed; anything left out keeps the value here.

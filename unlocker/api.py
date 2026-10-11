@@ -8,6 +8,7 @@ import sys
 import time
 from pathlib import Path
 
+from unlocker.paths import CODE_DIR, DATA_DIR
 from unlocker.settings import SETTINGS
 
 API_URL = f"http://127.0.0.1:{SETTINGS['asf_port']}/Api/Command"
@@ -25,8 +26,7 @@ def api_request_args(command):
              "-d", json.dumps({"Command": command})],
             API_HEADERS)
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-ASF_DIR = PROJECT_ROOT / "archifarm"
+ASF_DIR = DATA_DIR / "archifarm"
 ASF_BINARY = ASF_DIR / "ArchiSteamFarm"
 ASF_LOG = ASF_DIR / "log.txt"
 
@@ -168,7 +168,7 @@ def stop_keep_awake(proc):
 
 
 NOTIFY_TITLE = "Steam unlocker"
-NOTIFY_ICON = PROJECT_ROOT / "docs" / "logo.png"
+NOTIFY_ICON = CODE_DIR / "docs" / "logo.png"
 NOTIFY_REMOVE_AFTER = 1800  # "done" notifications clear themselves after 30 min
 
 

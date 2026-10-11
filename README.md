@@ -121,6 +121,7 @@ With randomness on, it applies to the delays between achievements and to the gap
   - `state.py` — reads/writes `jsons/config_*.json` and `jsons/progress_*.json`
   - `settings.py` — defaults for `settings.json` and its validation
   - `server.py` — the local app (`--ui`): serves `docs/` and the API it uses to save configs and start, stop and follow runs
+  - `paths.py` — where the code and the data live (`UNLOCKER_HOME`)
   - `run_unlocker.py` — CLI entry point
 - `runsteamunlocker` — bash launcher: starts ArchiSteamFarm if needed, then runs the unlocker for a given config
 - `runsteamunlocker.zsh-completion` — tab-completion for available configs

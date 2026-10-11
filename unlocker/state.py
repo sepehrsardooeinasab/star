@@ -7,7 +7,9 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-PROJECT_DIR = Path(__file__).resolve().parent.parent
+from unlocker.paths import DATA_DIR
+
+PROJECT_DIR = DATA_DIR
 JSONS_DIR = PROJECT_DIR / "jsons"
 CSVS_DIR = PROJECT_DIR / "csvs"
 COMPLETED_DIR = PROJECT_DIR / "completed"
