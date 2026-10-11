@@ -153,15 +153,167 @@
   .topbar-btn:hover { opacity: 0.88; }
   .topbar-btn:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 
-  .tagline {
+  /* Two screens: the start screen (hero) and the work area (the box). */
+  body[data-screen="home"] .shell { display: none; }
+  body[data-screen="work"] .hero { display: none; }
+  body[data-screen="work"] .shell { padding-top: clamp(1.1rem, 3vh, 1.75rem); }
+
+  /* A thin colored line along the top edge of the window. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0 0 auto;
+    height: 2px;
+    z-index: 30;
+    background: linear-gradient(90deg, var(--hero-a), var(--hero-b), var(--hero-c));
+  }
+  :root { --hero-a: #f2c14e; --hero-b: #f0609e; --hero-c: #9b7bff; }
+
+  .hero {
     position: relative;
     z-index: 1;
-    margin: 0;
-    padding: clamp(1.1rem, 3vh, 1.75rem) 1rem clamp(0.9rem, 2.5vh, 1.4rem);
+    max-width: 52rem;
+    margin: 0 auto;
+    padding: clamp(3rem, 11vh, 7rem) 1rem 3rem;
     text-align: center;
-    font-size: 0.92rem;
+  }
+  .hero-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    max-width: 36rem;
+    margin: 0 auto 1.4rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
     color: var(--text-dim);
   }
+  .hero-eyebrow::before, .hero-eyebrow::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border-strong));
+  }
+  .hero-eyebrow::after { background: linear-gradient(90deg, var(--border-strong), transparent); }
+  .hero-title {
+    margin: 0;
+    font-size: clamp(2.3rem, 6.4vw, 4.3rem);
+    font-weight: 500;
+    line-height: 1.06;
+    letter-spacing: -0.035em;
+    color: var(--text-dim);
+    text-wrap: balance;
+  }
+  .hero-bright { color: var(--text); }
+  .hero-sub {
+    max-width: 34rem;
+    margin: 1.4rem auto 0;
+    font-size: 1.05rem;
+    line-height: 1.55;
+    color: var(--text-dim);
+  }
+  .hero-actions {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.9rem;
+    margin-top: 2.2rem;
+  }
+  .btn-hero {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.95rem 1.5rem;
+    border-radius: 10px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.86rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+  }
+  .btn-hero svg { width: 15px; height: 15px; }
+  .btn-hero:hover { background: var(--surface-3); }
+  .btn-hero.primary {
+    border: 1.5px solid transparent;
+    background:
+      linear-gradient(var(--bg), var(--bg)) padding-box,
+      linear-gradient(90deg, var(--hero-a), var(--hero-b), var(--hero-c)) border-box;
+  }
+  .btn-hero.primary:hover {
+    background:
+      linear-gradient(var(--surface), var(--surface)) padding-box,
+      linear-gradient(90deg, var(--hero-a), var(--hero-b), var(--hero-c)) border-box;
+  }
+  .hero-note { margin: 0.9rem 0 0; font-size: 0.8rem; color: var(--text-dim); }
+  .hero-points {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.5rem 2.2rem;
+    margin: clamp(3rem, 9vh, 5rem) 0 0;
+    padding: 0;
+    list-style: none;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.74rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--placeholder);
+  }
+
+  .hero-panel {
+    max-width: 34rem;
+    margin: 2rem auto 0;
+    padding: 1.2rem 1.3rem;
+    text-align: left;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    font-size: 0.88rem;
+    color: var(--text-dim);
+  }
+  .hero-panel p { margin: 0.5rem 0 0; line-height: 1.5; }
+  .panel-title { color: var(--text); font-weight: 600; font-size: 0.95rem; }
+  .panel-small { font-size: 0.78rem; }
+  .install-line {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.8rem;
+    padding: 0.35rem 0.35rem 0.35rem 0.8rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+  }
+  .install-line code {
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    white-space: nowrap;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.76rem;
+    color: var(--text);
+  }
+  .install-line button { flex: none; padding: 0.4rem 0.8rem; font-size: 0.78rem; }
+
+  .setup-steps { margin: 0.9rem 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.8rem; }
+  .setup-step { padding: 0.8rem 0.9rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; }
+  .step-head { display: flex; align-items: center; gap: 0.55rem; color: var(--text); }
+  .step-head b { font-weight: 500; }
+  .step-mark { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--border-strong); flex: none; }
+  .setup-step.done .step-mark { border-color: var(--accent); background: var(--accent); box-shadow: inset 0 0 0 3px var(--surface-2); }
+  .setup-step.busy .step-mark { border-color: var(--accent); border-right-color: transparent; animation: step-spin 0.8s linear infinite; }
+  @keyframes step-spin { to { transform: rotate(360deg); } }
+  .step-text { font-size: 0.82rem; }
+  .setup-step > button, .setup-form { margin-top: 0.7rem; }
+  .setup-step > button, .setup-form button { padding: 0.45rem 0.95rem; font-size: 0.8rem; }
+  .setup-form { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .setup-form input { flex: 1 1 9rem; width: auto; font-family: var(--font); }
+  .setup-error { color: var(--danger); font-size: 0.82rem; }
+  .hero [hidden] { display: none !important; }
 
   .shell {
     position: relative;
@@ -395,7 +547,7 @@
   .field { margin-bottom: 1.1rem; }
   .field small { display: block; margin-top: 0.3rem; font-size: 0.74rem; color: var(--text-dim); }
 
-  textarea, input[type="text"], input[type="number"] {
+  textarea, input[type="text"], input[type="password"], input[type="number"] {
     width: 100%;
     background: var(--surface-2);
     border: 1px solid var(--border);
@@ -405,7 +557,7 @@
     font-family: "JetBrains Mono", monospace;
     font-size: 0.85rem;
   }
-  input[type="text"] { font-family: var(--font); font-size: 0.9rem; }
+  input[type="text"], input[type="password"] { font-family: var(--font); font-size: 0.9rem; }
   textarea::placeholder, input::placeholder { color: var(--placeholder); }
   /* The pasted export is prose (achievement names/descriptions), not code
      or data — a plain readable face suits it better than the mono font

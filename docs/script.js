@@ -992,7 +992,12 @@
   // stagger) when no folder has been chosen.
   els.downloadBtn.addEventListener("click", function () {
     if (!latest || latest.errors.length) return;
-    if (local) { saveToProject(false); return; }
+    if (local) {
+      var overwrite = isArmed("overwrite");
+      delete armedUntil["overwrite"];
+      saveToProject(overwrite);
+      return;
+    }
 
     var files = [
       {dirParts: ["jsons"], filename: latest.filenames.json, mime: "application/json", content: latest.jsonText},
@@ -1083,8 +1088,11 @@
         showToast("Saved " + name + " to the project. Press Run to start it.");
       })
       .catch(function (err) {
+        // Asked with a second click rather than a dialog, which the
+        // desktop app's window may not show.
         if (err.data && err.data.exists) {
-          if (window.confirm(err.message + " Replace it? Its progress is kept.")) saveToProject(true);
+          armedUntil["overwrite"] = Date.now() + ARM_MS;
+          showToast(err.message + " Click Save again within 4 seconds to replace it (its progress is kept).");
           return;
         }
         showToast("Couldn't save: " + err.message);
@@ -1275,9 +1283,104 @@
     navButtons.runs.hidden = false;
     els.folderBtn.style.display = "none";
     els.folderStatus.style.display = "none";
+    byId("hero-note").textContent = "Games keep running when you close this window.";
+    byId("hero-install").hidden = true;
     render();
     refreshRuns();
+    refreshSetup();
   }
+
+  // ---- first-run setup (local app): install ArchiSteamFarm, sign in ----
+  var setupData = null;
+  var setupOpen = false;   // shown until both steps are done
+  var setupTimer = null;
+
+  function byId(id) { return document.getElementById(id); }
+
+  function refreshSetup() {
+    clearTimeout(setupTimer);
+    api("/api/setup").then(function (d) {
+      if (setupData === null) setupOpen = !(d.asf && d.plugin && d.bot);
+      setupData = d;
+      renderSetup();
+      if (d.busy) setupTimer = setTimeout(refreshSetup, 800);
+    }).catch(function () {});
+  }
+
+  function renderSetup() {
+    var d = setupData;
+    var asfDone = d.asf && d.plugin;
+    if (setupOpen && asfDone && d.signed_in && !d.busy) {
+      setupOpen = false;
+      showToast("All set. Make a schedule, then run it.");
+    }
+    byId("hero-setup").hidden = !setupOpen;
+    byId("hero-actions").hidden = setupOpen;
+    byId("hero-note").hidden = setupOpen;
+    if (!setupOpen) return;
+
+    var installing = d.busy === "install";
+    byId("step-asf").className = "setup-step" + (asfDone ? " done" : installing ? " busy" : "");
+    byId("step-asf-text").textContent = asfDone ? "Installed." : installing ? (d.message || "Starting…")
+      : "Downloads ArchiSteamFarm and its achievement plugin (about 50 MB).";
+    byId("setup-install").hidden = asfDone || installing;
+
+    var signing = d.busy === "login" || d.busy === "code";
+    byId("step-steam").className = "setup-step" + (d.signed_in ? " done" : signing ? " busy" : "");
+    var text = "Sign in with the account to unlock achievements on. It's saved only in ArchiSteamFarm's own config on this computer.";
+    if (!asfDone) text = "After ArchiSteamFarm is installed.";
+    else if (d.signed_in) text = "Signed in as " + d.account + ".";
+    else if (signing) text = d.message || "Signing in…";
+    else if (d.needs === "SteamGuard") text = "Steam emailed you a code. Enter it here.";
+    else if (d.needs === "TwoFactorAuthentication") text = "Enter the code from Steam Guard in the Steam mobile app.";
+    byId("step-steam-text").textContent = text;
+    byId("login-form").hidden = !asfDone || d.signed_in || signing || !!d.needs;
+    byId("code-form").hidden = !asfDone || d.signed_in || signing || !d.needs;
+
+    byId("setup-error").hidden = !d.error;
+    byId("setup-error").textContent = d.error || "";
+  }
+
+  function setupPost(path, body) {
+    api(path, body).then(function (d) { setupData = d; renderSetup(); })
+      .catch(function (err) { showToast(err.message); })
+      .then(function () { setTimeout(refreshSetup, 300); });
+  }
+
+  byId("setup-install").addEventListener("click", function () { setupPost("/api/setup/install", {}); });
+  byId("login-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    setupPost("/api/setup/login", {username: byId("steam-user").value, password: byId("steam-pass").value});
+    byId("steam-pass").value = "";
+  });
+  byId("code-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    setupPost("/api/setup/code", {code: byId("steam-code").value});
+    byId("steam-code").value = "";
+  });
+
+  // ---- start screen ----
+  function showScreen(name) {
+    document.body.setAttribute("data-screen", name);
+    window.scrollTo(0, 0);
+  }
+
+  byId("hero-new").addEventListener("click", function () { showScreen("work"); setView("input"); });
+  byId("hero-run").addEventListener("click", function () {
+    if (local) { showScreen("work"); setView("runs"); return; }
+    // The public page can't run anything; offer the app instead.
+    byId("hero-install").hidden = !byId("hero-install").hidden;
+  });
+  document.querySelector(".topbar .brand").addEventListener("click", function (e) {
+    e.preventDefault();
+    showScreen("home");
+  });
+  byId("copy-install").addEventListener("click", function () {
+    var text = byId("install-cmd").textContent;
+    (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject())
+      .then(function () { showToast("Copied. Paste it into Terminal."); })
+      .catch(function () { showToast("Select the line and copy it."); });
+  });
 
   if (/^https?:$/.test(location.protocol)) {
     api("/api/ping").then(function (data) { if (data.app === "steam-unlocker") enableLocal(); }).catch(function () {});

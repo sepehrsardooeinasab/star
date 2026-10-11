@@ -18,7 +18,7 @@
   })();
 </script>
 </head>
-<body>
+<body data-screen="home">
 <div class="glow" aria-hidden="true"></div>
 
 <header class="topbar">
@@ -36,7 +36,58 @@
   </div>
 </header>
 
-<p class="tagline">SteamHunters export → delay &amp; session config, generated live in your browser</p>
+<section class="hero" aria-labelledby="hero-title">
+  <div class="hero-eyebrow"><span>Steam achievement scheduler</span></div>
+  <h1 class="hero-title" id="hero-title"><span class="hero-bright">Replay a real player's</span> achievement timeline</h1>
+  <p class="hero-sub">Turn a SteamHunters export into realistic sessions and breaks, then let ArchiSteamFarm unlock them on your account at the same pace.</p>
+
+  <div class="hero-actions" id="hero-actions">
+    <button class="btn-hero primary" id="hero-new" type="button">New schedule</button>
+    <button class="btn-hero" id="hero-run" type="button">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6L12.6 8z" fill="currentColor"/></svg>
+      Run a game
+    </button>
+  </div>
+  <p class="hero-note" id="hero-note">Schedules are made right here in your browser.</p>
+
+  <div class="hero-panel" id="hero-install" hidden>
+    <div class="panel-title">Get the app</div>
+    <p>Running games needs the app on your Mac or Linux PC. One line installs it, ArchiSteamFarm and its achievement plugin:</p>
+    <div class="install-line"><code id="install-cmd">curl -fsSL https://raw.githubusercontent.com/sepehrsardooeinasab/steam-auto-unlocker/main/install.sh | sh</code><button class="btn-ghost" id="copy-install" type="button">Copy</button></div>
+    <p class="panel-small">Paste it into Terminal. Needs Python 3, which macOS offers to install the first time if it's missing.</p>
+  </div>
+
+  <div class="hero-panel setup" id="hero-setup" hidden>
+    <div class="panel-title">Finish setting up</div>
+    <ol class="setup-steps">
+      <li class="setup-step" id="step-asf">
+        <div class="step-head"><span class="step-mark"></span><b>ArchiSteamFarm</b></div>
+        <p class="step-text" id="step-asf-text">Downloads ArchiSteamFarm and its achievement plugin (about 50 MB).</p>
+        <button class="btn-ghost" id="setup-install" type="button">Install</button>
+      </li>
+      <li class="setup-step" id="step-steam">
+        <div class="step-head"><span class="step-mark"></span><b>Steam account</b></div>
+        <p class="step-text" id="step-steam-text">Sign in with the account to unlock achievements on. It's saved only in ArchiSteamFarm's own config on this computer.</p>
+        <form class="setup-form" id="login-form" autocomplete="off">
+          <input type="text" id="steam-user" placeholder="Steam username" autocomplete="username">
+          <input type="password" id="steam-pass" placeholder="Password" autocomplete="current-password">
+          <button class="btn-ghost" type="submit">Sign in</button>
+        </form>
+        <form class="setup-form" id="code-form" hidden>
+          <input type="text" id="steam-code" placeholder="Steam Guard code" autocomplete="one-time-code">
+          <button class="btn-ghost" type="submit">Continue</button>
+        </form>
+      </li>
+    </ol>
+    <p class="setup-error" id="setup-error" hidden></p>
+  </div>
+
+  <ul class="hero-points">
+    <li>Realistic sessions</li>
+    <li>Breaks in between</li>
+    <li>Stop and resume anytime</li>
+  </ul>
+</section>
 
 <div class="shell">
   <main class="stage">

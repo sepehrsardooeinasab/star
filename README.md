@@ -8,7 +8,7 @@ Runs on macOS and Linux (not Windows).
 
 ## The app
 
-`runsteamunlocker --ui` opens the whole thing in your browser, served from your own machine:
+The app (or `runsteamunlocker --ui`, which opens the same thing in your browser) starts on two buttons: **New schedule** and **Run a game**. On first launch it sets up ArchiSteamFarm and signs in to Steam instead.
 
 - Paste an export and check the timeline as on the public page, then **Save to project** writes the config and CSV straight into `jsons/` and `csvs/`.
 - The **Runs** tab lists every game with its progress, current session and when the next one starts. **Run** plays every remaining session back to back, waiting out the breaks on its own; **Stop** ends it right away (the bot stops playing, progress is kept) and **Stop after this session** lets the current one finish first. Each game's output is shown live.
