@@ -432,6 +432,7 @@
       el.classList.toggle("active", el.getAttribute("data-view") === view);
     });
     els.boxTitle.textContent = NAV_TITLES[view];
+    document.querySelector(".box").setAttribute("data-view", view);  // shows that tab's help
     render();
   }
 
@@ -546,8 +547,20 @@
       warnings.push(longWaits.length + " achievements wait longer than your session gap limit after your edits: " +
         longWaits.join(", ") + ". They stay in their sessions, so the game keeps running in ASF the whole time.");
     }
-    var zeroSessions = split.durations.filter(function (d) { return d <= 1; }).length;
-    if (zeroSessions) warnings.push(zeroSessions + " session(s) have essentially zero duration (a single achievement).");
+    // A session that lasts no time is either a lone achievement or several
+    // unlocked at the same moment; say which, since both happen.
+    var zeroSingle = 0, zeroTogether = 0;
+    split.durations.forEach(function (d, i) {
+      if (d > 1) return;
+      if (split.sessions[i].length > 1) zeroTogether++; else zeroSingle++;
+    });
+    var zeroSessions = zeroSingle + zeroTogether;
+    if (zeroSessions) {
+      var why = !zeroTogether ? "a single achievement"
+        : !zeroSingle ? "achievements unlocked at the same moment"
+        : zeroSingle + " with a single achievement, " + zeroTogether + " with achievements unlocked at the same moment";
+      warnings.push(zeroSessions + " session(s) have essentially zero duration (" + why + ").");
+    }
 
     var suffix = gameName ? "_" + gameName : "";
 
@@ -632,14 +645,14 @@
 
     // stats strip (shown once we have valid data, regardless of view)
     if (ok) {
-      els.statsStrip.style.display = "flex";
       els.statsStrip.innerHTML =
         "<span><b>" + latest.stats.achievements + " / " + latest.stats.totalAchievements + "</b> achievements</span>" +
         "<span><b>" + latest.stats.sessions + "</b> sessions</span>" +
         "<span>len <b>" + latest.stats.sessionLen + "</b></span>" +
         "<span>gap <b>" + latest.stats.gapRange + "</b></span>";
     } else {
-      els.statsStrip.style.display = "none";
+      // Kept (with a hint) so the bar doesn't change height on paste.
+      els.statsStrip.innerHTML = "<span>Paste an export to see its achievements, sessions and gaps.</span>";
     }
 
     // Download always saves everything together, so it only depends on
@@ -668,8 +681,14 @@
 
     // Notices go under the preview (as under the paste box) so the box
     // sits in the same place on every tab.
-    var warningsHtml = '<div class="notices-below">' + dangerHtml +
-      latest.warnings.map(function (w) { return noticeHtml("warn", w); }).join("") + "</div>";
+    // All warnings share one compact box, a line each, so a long list
+    // doesn't eat the preview's space.
+    var warnBox = latest.warnings.length
+      ? '<div class="notice warn stack">' + latest.warnings.map(function (w) {
+          return "<div>" + escapeHtml(w) + "</div>";
+        }).join("") + "</div>"
+      : "";
+    var warningsHtml = '<div class="notices-below">' + dangerHtml + warnBox + "</div>";
 
     if (fileKey === "json") {
       slot.innerHTML = '<pre class="file-preview">' + highlightJson(latest.jsonText) + "</pre>" + warningsHtml;
@@ -826,6 +845,33 @@
   els.exportText.addEventListener("click", noticeLocked);
   els.exportText.addEventListener("focus", noticeLocked);
 
+
+  // ---- theme (dark / light) and accent, from the top bar; each button
+  // switches to the next option on click ----
+  var ACCENTS = ["violet", "wine", "blue", "teal", "amber"];
+  var accentToggle = document.getElementById("accent-toggle");
+
+  function syncThemeControls() {
+    var root = document.documentElement;
+    var light = root.getAttribute("data-theme") === "light";
+    document.getElementById("theme-toggle").setAttribute("aria-label", light ? "Switch to dark theme" : "Switch to light theme");
+    accentToggle.setAttribute("aria-label", "Accent color: " + root.getAttribute("data-accent") + ". Click for the next one.");
+  }
+
+  document.getElementById("theme-toggle").addEventListener("click", function () {
+    var next = document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("unlock-scheduler-theme", next); } catch (e) {}
+    syncThemeControls();
+  });
+  accentToggle.addEventListener("click", function () {
+    var current = ACCENTS.indexOf(document.documentElement.getAttribute("data-accent"));
+    var next = ACCENTS[(current + 1) % ACCENTS.length];
+    document.documentElement.setAttribute("data-accent", next);
+    try { localStorage.setItem("unlock-scheduler-accent", next); } catch (e) {}
+    syncThemeControls();
+  });
+  syncThemeControls();
 
   // ---------------------------------------------------------------
   // Saving: File System Access API folder (silent, Chromium-only,
