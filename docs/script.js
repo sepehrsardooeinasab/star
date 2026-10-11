@@ -526,9 +526,9 @@
       if (g <= minGapSec) shortGaps.push({session: i + 2, gap: roughDuration(g)});
     });
     if (shortGaps.length === 1) {
-      warnings.push("Session " + shortGaps[0].session + " starts only " + shortGaps[0].gap + " after the previous one (below your min gap).");
+      warnings.push("Session " + shortGaps[0].session + " starts only " + shortGaps[0].gap + " after the previous one (below your \"Warn if break under\" setting).");
     } else if (shortGaps.length) {
-      warnings.push(shortGaps.length + " sessions start sooner after the previous one than your min gap: " +
+      warnings.push(shortGaps.length + " sessions start sooner after the previous one than your \"Warn if break under\" setting: " +
         shortGaps.map(function (s) { return "session " + s.session + " (" + s.gap + ")"; }).join(", ") + ".");
     }
     var longWaits = [];
@@ -541,10 +541,10 @@
       });
     });
     if (longWaits.length === 1) {
-      warnings.push(longWaits[0] + " waits longer than your session gap limit after your edits. It stays in its session, " +
+      warnings.push(longWaits[0] + " waits longer than your \"Session break after\" setting after your edits. It stays in its session, " +
         "so the game keeps running in ASF the whole time.");
     } else if (longWaits.length) {
-      warnings.push(longWaits.length + " achievements wait longer than your session gap limit after your edits: " +
+      warnings.push(longWaits.length + " achievements wait longer than your \"Session break after\" setting after your edits: " +
         longWaits.join(", ") + ". They stay in their sessions, so the game keeps running in ASF the whole time.");
     }
     // A session that lasts no time is either a lone achievement or several

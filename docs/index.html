@@ -105,43 +105,55 @@ Description text
         </div>
 
         <div class="view-pane" data-view="settings">
-          <div class="row2">
-            <div class="field">
-              <label for="appid">App ID</label>
-              <input type="number" id="appid" inputmode="numeric" placeholder="730" value="730">
+          <div class="settings-form">
+            <div class="row2">
+              <div class="field">
+                <label for="game-name">Game name</label>
+                <input type="text" id="game-name" placeholder="CS2">
+              </div>
+              <div class="field">
+                <label for="appid">App ID</label>
+                <input type="number" id="appid" inputmode="numeric" placeholder="730">
+              </div>
             </div>
-            <div class="field">
-              <label for="game-name">Game name</label>
-              <input type="text" id="game-name" placeholder="CS2" value="CS2">
+            <div class="row2">
+              <div class="field">
+                <label for="copied-from">Copied from (optional)</label>
+                <input type="text" id="copied-from" placeholder="Steam ID or name">
+              </div>
+            </div>
+            <div class="row2">
+              <div class="field">
+                <label for="gap-limit">Session break after (hours)</label>
+                <input type="number" id="gap-limit" min="0" step="1" value="3">
+              </div>
+              <div class="field">
+                <label for="cum-limit">Max session length (hours)</label>
+                <input type="number" id="cum-limit" min="0" step="1" value="6">
+              </div>
+            </div>
+            <div class="row2">
+              <div class="field">
+                <label for="min-gap">Warn if break under (hours)</label>
+                <input type="number" id="min-gap" min="0" step="1" value="1">
+              </div>
+              <div class="field">
+                <label>&nbsp;</label>
+                <button class="btn-ghost" id="reset-btn" type="button" style="width:100%">Reset all fields</button>
+              </div>
             </div>
           </div>
-          <div class="field">
-            <label for="copied-from">Copied from (optional)</label>
-            <input type="text" id="copied-from" placeholder="Steam ID or name">
-            <small>The player whose unlock times these are. Saved in the config and CSV.</small>
-          </div>
-          <div class="row2">
-            <div class="field">
-              <label for="gap-limit">Gap limit (hours)</label>
-              <input type="number" id="gap-limit" min="0" step="1" value="3">
-              <small>Gap between unlocks that starts a new session</small>
-            </div>
-            <div class="field">
-              <label for="cum-limit">Cumulative limit (hours)</label>
-              <input type="number" id="cum-limit" min="0" step="1" value="6">
-              <small>Max length before a session force-splits</small>
-            </div>
-          </div>
-          <div class="row2">
-            <div class="field">
-              <label for="min-gap">Min gap (hours)</label>
-              <input type="number" id="min-gap" min="0" step="1" value="1">
-              <small>Warn if two sessions sit closer than this</small>
-            </div>
-            <div class="field">
-              <label>&nbsp;</label>
-              <button class="btn-ghost" id="reset-btn" type="button" style="width:100%">Reset all fields</button>
-            </div>
+          <div class="hint settings-help">
+            <div class="help-title">What each setting does</div>
+            <ul>
+              <li><b>Game name</b>: names the files and is what you pass to <code>runsteamunlocker &lt;name&gt;</code>. Saved in lowercase.</li>
+              <li><b>App ID</b>: the number in the game's store URL (<code>store.steampowered.com/app/<b>730</b></code>).</li>
+              <li><b>Copied from</b>: optional note of whose profile the export came from. Doesn't change the schedule.</li>
+              <li><b>Session break after</b>: a pause in the export longer than this starts a new session. Between sessions the game is closed.</li>
+              <li><b>Max session length</b>: an unlock that would run a session past this starts a new one.</li>
+              <li><b>Warn if break under</b>: only shows a notice for shorter breaks, so you can stretch them on the Timeline tab.</li>
+            </ul>
+            <p>Times are in hours. Changes re-split the sessions right away.</p>
           </div>
         </div>
 
