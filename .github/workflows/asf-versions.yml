@@ -1,0 +1,21 @@
+# Weekly check for a newer ArchiSteamFarm + ASFAchievementManager pair than
+# the one pinned in unlocker/asf_setup.py. When there is one, this run
+# fails, so GitHub emails you; its log says what to change.
+name: ASF versions
+
+on:
+  schedule:
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/check_asf_pins.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
