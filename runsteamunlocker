@@ -16,7 +16,7 @@ Usage: runsteamunlocker [-f] [-w | -in <time>] <config-name>
        runsteamunlocker --auto <config-name>
        runsteamunlocker -t <config-name>
        runsteamunlocker -s <config-name> [all | <session-number>]
-       runsteamunlocker [-h | -a | -ls | -c | -j | -k | -u | --ui-stop]
+       runsteamunlocker [-h | -a | -ls | -c | -j | -k | -u | --ui-stop | --setup]
 
   <config-name>   Run the unlocker using jsons/config_<config-name>.json.
                   Shows the upcoming session's length and asks to confirm.
@@ -48,6 +48,8 @@ Usage: runsteamunlocker [-f] [-w | -in <time>] <config-name>
                   into jsons/, and run, stop and follow games. Closing the
                   browser doesn't stop anything.
   --ui-stop       Stop the app. Games it started keep running.
+  --setup         Download ArchiSteamFarm and its achievement plugin,
+                  write their configs, and sign in to Steam.
 EOF
 }
 
@@ -173,6 +175,9 @@ case "${1-}" in
         ;;
     --ui-stop)
         exec python3 "$PROJECT_DIR/unlocker/run_unlocker.py" --ui-stop
+        ;;
+    --setup)
+        exec python3 "$PROJECT_DIR/unlocker/run_unlocker.py" --setup
         ;;
     -*)
         echo "Unknown option: $1" >&2

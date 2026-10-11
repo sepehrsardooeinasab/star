@@ -44,7 +44,15 @@ if __name__ == "__main__":
     args = sys.argv[1:]
     if "--ui" in args or "--ui-stop" in args:
         from unlocker.server import open_app, stop_app
-        open_app() if "--ui" in args else stop_app()
+        open_app(browser="--no-browser" not in args) if "--ui" in args else stop_app()
+        sys.exit(0)
+    if "--setup" in args or "--install-asf" in args:
+        from unlocker.asf_setup import SetupError, setup_interactive
+        try:
+            setup_interactive(login="--setup" in args)
+        except SetupError as e:
+            print(f"Setup failed: {e}")
+            sys.exit(1)
         sys.exit(0)
     if "--status" in args:
         list_status()

@@ -13,6 +13,7 @@ import re
 import signal
 import subprocess
 import sys
+import threading
 import time
 import urllib.request
 import webbrowser
@@ -23,6 +24,7 @@ from urllib.parse import parse_qs, urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from unlocker import asf_setup
 from unlocker.paths import CODE_DIR
 from unlocker.runner import _session_status, config_changed
 from unlocker.settings import SETTINGS
@@ -244,6 +246,95 @@ def read_log(name):
     return {"text": text}
 
 
+# First-run setup (install ASF, sign in to Steam) runs in the background;
+# the page polls setup_state() for its progress.
+_setup = {"busy": None, "message": "", "error": None, "needs": None, "signed_in": False}
+_setup_lock = threading.Lock()
+
+
+def setup_state():
+    with _setup_lock:
+        return {**asf_setup.status(), **_setup}
+
+
+def _setup_update(**fields):
+    with _setup_lock:
+        _setup.update(fields)
+
+
+def _setup_task(kind, work):
+    with _setup_lock:
+        if _setup["busy"]:
+            raise AppError("Setup is already doing something; wait for it to finish.", 409)
+        _setup.update(busy=kind, error=None, message="")
+
+    def run():
+        try:
+            work()
+        except Exception as e:  # shown on the page; the server keeps going
+            _setup_update(error=str(e) or e.__class__.__name__)
+        finally:
+            _setup_update(busy=None)
+    threading.Thread(target=run, daemon=True).start()
+    return setup_state()
+
+
+def _anything_running():
+    return any(_running_pid(name) for name, _ in list_profiles() if name)
+
+
+def setup_install():
+    return _setup_task("install", lambda: asf_setup.install(report=lambda m: _setup_update(message=m)))
+
+
+def _finish_login(result):
+    if result == "logged_on":
+        _setup_update(needs=None, signed_in=True, message="Signed in to Steam.")
+        if not _anything_running():
+            asf_setup.stop_asf()  # it's started again whenever a game runs
+    elif result in ("SteamGuard", "TwoFactorAuthentication"):
+        _setup_update(needs=result, message="")
+    elif result in ("Login", "Password"):
+        _setup_update(needs=None, error="Steam didn't accept that username or password.")
+    elif result == "timeout":
+        _setup_update(needs=None, error="Steam didn't answer in time. If it asked you to approve "
+                      "the sign-in in the Steam mobile app, do that, then try again.")
+    else:
+        _setup_update(needs=None, error=f"Steam asked for {result}, which the app can't enter yet.")
+
+
+def setup_login(username, password):
+    if not (isinstance(username, str) and username.strip() and isinstance(password, str) and password):
+        raise AppError("Enter your Steam username and password.")
+    if not asf_setup.status()["asf"]:
+        raise AppError("Install ArchiSteamFarm first.", 409)
+    if _anything_running():
+        raise AppError("A game is running. Stop it before changing the Steam account.", 409)
+
+    def work():
+        _setup_update(needs=None, signed_in=False, message="Signing in to Steam…")
+        asf_setup.save_login(username.strip(), password)
+        _finish_login(asf_setup.wait_for_login())
+    return _setup_task("login", work)
+
+
+def setup_code(code):
+    needs = _setup["needs"]
+    if not needs:
+        raise AppError("Steam isn't waiting for a code.", 409)
+    if not (isinstance(code, str) and code.strip()):
+        raise AppError("Enter the code.")
+
+    def work():
+        _setup_update(message="Checking the code…")
+        asf_setup.send_code(needs, code.strip())
+        result = asf_setup.wait_for_login()
+        _finish_login(result)
+        if result == needs:
+            _setup_update(error="That code didn't work. Check it and try again.")
+    return _setup_task("code", work)
+
+
 class Handler(SimpleHTTPRequestHandler):
     # Only this app's own page may call the API: requests must be addressed
     # to it by name (blocks DNS rebinding), and a POST from a browser must
@@ -285,6 +376,7 @@ class Handler(SimpleHTTPRequestHandler):
         routes = {
             "/api/ping": lambda: {"app": APP_ID},
             "/api/games": game_states,
+            "/api/setup": setup_state,
             "/api/log": lambda: read_log(query.get("name")),
         }
         self._route(routes.get(url.path))
@@ -314,6 +406,9 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/stop": lambda: stop_run(name),
             "/api/stop-after": lambda: set_stop_after(name, bool(body.get("on", True))),
             "/api/dismiss": lambda: dismiss(name),
+            "/api/setup/install": setup_install,
+            "/api/setup/login": lambda: setup_login(body.get("username"), body.get("password")),
+            "/api/setup/code": lambda: setup_code(body.get("code")),
         }
         self._route(routes.get(urlparse(self.path).path))
 
@@ -343,9 +438,10 @@ def _ping():
         return False
 
 
-def open_app():
+def open_app(browser=True):
     """Starts the app in the background if it isn't running, then opens it
-    in the browser."""
+    in the browser — or, without browser, just prints its URL (the desktop
+    app opens it in its own window)."""
     if not _ping():
         JSONS_DIR.mkdir(parents=True, exist_ok=True)
         with open(SERVER_LOG, "a") as log:
@@ -360,11 +456,15 @@ def open_app():
                       f"See {SERVER_LOG.relative_to(PROJECT_DIR)}.")
                 sys.exit(1)
             time.sleep(0.2)
-        print(f"Started the app at {URL}")
-        print("It keeps running in the background; stop it with runsteamunlocker --ui-stop.")
-    else:
+        if browser:
+            print(f"Started the app at {URL}")
+            print("It keeps running in the background; stop it with runsteamunlocker --ui-stop.")
+    elif browser:
         print(f"The app is running at {URL}")
-    webbrowser.open(URL)
+    if browser:
+        webbrowser.open(URL)
+    else:
+        print(URL)
 
 
 def stop_app():

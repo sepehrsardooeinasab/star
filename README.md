@@ -121,6 +121,7 @@ With randomness on, it applies to the delays between achievements and to the gap
   - `state.py` — reads/writes `jsons/config_*.json` and `jsons/progress_*.json`
   - `settings.py` — defaults for `settings.json` and its validation
   - `server.py` — the local app (`--ui`): serves `docs/` and the API it uses to save configs and start, stop and follow runs
+  - `asf_setup.py` — first-run setup: downloads ArchiSteamFarm and the plugin, writes their configs, signs in to Steam
   - `paths.py` — where the code and the data live (`UNLOCKER_HOME`)
   - `run_unlocker.py` — CLI entry point
 - `runsteamunlocker` — bash launcher: starts ArchiSteamFarm if needed, then runs the unlocker for a given config
@@ -137,6 +138,7 @@ runsteamunlocker -f <config-name>   # same, but skip the confirmation prompt
 runsteamunlocker -w <config-name>   # confirm now, wait until the session can run, then start it
 runsteamunlocker --auto <config-name>  # run every remaining session back to back, waiting out the breaks
 runsteamunlocker -u / --ui          # open the app in the browser (starts it in the background if needed)
+runsteamunlocker --setup            # download ArchiSteamFarm + plugin, write configs, sign in to Steam
 runsteamunlocker --ui-stop          # stop the app; games it started keep running
 runsteamunlocker -in 2h <config-name>  # confirm now, start in 2h (also 30, 45m, 1h30m)
 runsteamunlocker -t <config-name>   # print the next session's wait/duration and exit, without running
