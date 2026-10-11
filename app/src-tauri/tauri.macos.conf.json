@@ -1,0 +1,9 @@
+{
+  "bundle": {
+    "resources": {
+      "../../unlocker/": "unlocker/",
+      "../../docs/": "docs/",
+      "../../runsteamunlocker": "runsteamunlocker"
+    }
+  }
+}

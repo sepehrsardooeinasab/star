@@ -3,9 +3,11 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/sepehrsardooeinasab/steam-auto-unlocker/main/install.sh | sh
 #
-# Installs the code into a per-user folder, the `runsteamunlocker` command,
-# ArchiSteamFarm with its achievement plugin, and the desktop app. Nothing
-# needs sudo. Running it again updates everything and keeps your games.
+# Installs the desktop app, the `runsteamunlocker` command, and
+# ArchiSteamFarm with its achievement plugin. The code and page ship inside
+# the app on macOS and go in ~/.local/lib/steam-auto-unlocker otherwise;
+# your games, ArchiSteamFarm and settings live in a separate data folder.
+# Nothing needs sudo. Running it again updates everything and keeps your data.
 #
 # Options, passed as `... | sh -s -- <options>`:
 #   --ref <tag|branch>  install that version instead of the latest release
@@ -43,6 +45,9 @@ case "$OS" in
     *) fail "Only macOS and Linux are supported." ;;
 esac
 BIN_DIR="${BIN_DIR:-$HOME/.local/bin}"
+# The code when it isn't inside the app (Linux, or --no-app). The Linux app
+# looks for it here too, so it stays put however the app is opened.
+LIB_DIR="${UNLOCKER_CODE:-$HOME/.local/lib/steam-auto-unlocker}"
 DESKTOP_FILE="${XDG_DATA_HOME:-$HOME/.local/share}/applications/steam-auto-unlocker.desktop"
 
 mac_app_dir() {
@@ -58,7 +63,7 @@ mac_app_dir() {
 if [ "$UNINSTALL" -eq 1 ]; then
     say "Uninstalling"
     rm -f "$BIN_DIR/runsteamunlocker"
-    rm -rf "$HOME_DIR/app" "$HOME_DIR/python-path"
+    rm -rf "$LIB_DIR" "$HOME_DIR/app" "$HOME_DIR/python-path"
     if [ "$OS" = Darwin ]; then
         rm -rf "$(mac_app_dir)/$APP_NAME.app"
     else
@@ -98,7 +103,7 @@ elif [ -n "$REF" ]; then
         || rm -f "$RELEASE_JSON"
 fi
 
-# ---- Code -------------------------------------------------------------------
+# ---- Download ---------------------------------------------------------------
 mkdir -p "$HOME_DIR"
 if [ -n "$SOURCE" ]; then
     say "Installing the code from $SOURCE"
@@ -121,38 +126,15 @@ else
 fi
 [ -f "$SRC/unlocker/run_unlocker.py" ] || fail "$SRC doesn't look like Steam Auto Unlocker."
 
-# A running app server would keep serving the old code.
-if [ -f "$HOME_DIR/app/unlocker/run_unlocker.py" ]; then
-    UNLOCKER_HOME="$HOME_DIR" "$PY" "$HOME_DIR/app/unlocker/run_unlocker.py" --ui-stop >/dev/null 2>&1 || true
-fi
-
-# Only the code: games, ASF and settings live next to it, untouched.
-rm -rf "$HOME_DIR/app.new"
-mkdir -p "$HOME_DIR/app.new"
-for item in unlocker docs runsteamunlocker runsteamunlocker.zsh-completion settings.example.json README.md; do
-    cp -R "$SRC/$item" "$HOME_DIR/app.new/"
+# A running app server would keep serving the old code. It may be any
+# earlier install's: inside the app, in LIB_DIR, or (before 3.01) the data
+# folder's app/.
+for old in "$(mac_app_dir)/$APP_NAME.app/Contents/Resources" "$LIB_DIR" "$HOME_DIR/app"; do
+    if [ -f "$old/unlocker/run_unlocker.py" ]; then
+        UNLOCKER_HOME="$HOME_DIR" PYTHONDONTWRITEBYTECODE=1 \
+            "$PY" "$old/unlocker/run_unlocker.py" --ui-stop >/dev/null 2>&1 || true
+    fi
 done
-find "$HOME_DIR/app.new" -name __pycache__ -type d -prune -exec rm -rf {} +
-rm -rf "$HOME_DIR/app"
-mv "$HOME_DIR/app.new" "$HOME_DIR/app"
-chmod +x "$HOME_DIR/app/runsteamunlocker"
-printf '%s\n' "$PY" > "$HOME_DIR/python-path"
-
-# ---- Command ----------------------------------------------------------------
-mkdir -p "$BIN_DIR"
-cat > "$BIN_DIR/runsteamunlocker" <<EOF
-#!/bin/sh
-# Installed by Steam Auto Unlocker's install.sh.
-export UNLOCKER_HOME="$HOME_DIR"
-export PATH="$(dirname "$PY"):\$PATH"
-exec "$HOME_DIR/app/runsteamunlocker" "\$@"
-EOF
-chmod +x "$BIN_DIR/runsteamunlocker"
-
-# ---- ArchiSteamFarm + plugin ------------------------------------------------
-say "Setting up ArchiSteamFarm"
-UNLOCKER_HOME="$HOME_DIR" "$PY" "$HOME_DIR/app/unlocker/run_unlocker.py" --install-asf \
-    || fail "Couldn't set up ArchiSteamFarm (see above). Run the install command again to retry."
 
 # ---- Desktop app ------------------------------------------------------------
 asset_url() {  # first release asset whose name ends with one of the suffixes
@@ -194,7 +176,7 @@ install_mac_app() {  # $1: a .app folder or a .dmg
 install_linux_app() {  # $1: an .AppImage
     cp "$1" "$HOME_DIR/$APP_NAME.AppImage"
     chmod +x "$HOME_DIR/$APP_NAME.AppImage"
-    cp "$HOME_DIR/app/docs/logo.png" "$HOME_DIR/icon.png"
+    cp "$SRC/docs/logo.png" "$HOME_DIR/icon.png"
     mkdir -p "$(dirname "$DESKTOP_FILE")"
     cat > "$DESKTOP_FILE" <<EOF
 [Desktop Entry]
@@ -233,6 +215,50 @@ if [ "$NO_APP" -eq 0 ]; then
     fi
 fi
 
+# ---- Code -------------------------------------------------------------------
+# On macOS the app carries the code; anywhere else it goes in LIB_DIR.
+CODE=""
+if [ "$OS" = Darwin ] && [ -f "$APP_INSTALLED/Contents/Resources/unlocker/run_unlocker.py" ]; then
+    CODE="$APP_INSTALLED/Contents/Resources"
+    rm -rf "$LIB_DIR"
+else
+    rm -rf "$LIB_DIR.new"
+    mkdir -p "$LIB_DIR.new"
+    for item in unlocker docs runsteamunlocker runsteamunlocker.zsh-completion settings.example.json README.md; do
+        cp -R "$SRC/$item" "$LIB_DIR.new/"
+    done
+    find "$LIB_DIR.new" -name __pycache__ -type d -prune -exec rm -rf {} +
+    rm -rf "$LIB_DIR"
+    mv "$LIB_DIR.new" "$LIB_DIR"
+    CODE="$LIB_DIR"
+fi
+chmod +x "$CODE/runsteamunlocker"
+rm -rf "$HOME_DIR/app"  # where the code lived before 3.01
+# The 3.00 app only looks there, so point it at the code's new place.
+if [ "$REF" = v3.00 ] && [ -n "$APP_INSTALLED" ]; then
+    ln -s "$CODE" "$HOME_DIR/app"
+fi
+mkdir -p "$HOME_DIR"
+printf '%s\n' "$PY" > "$HOME_DIR/python-path"
+
+# ---- Command ----------------------------------------------------------------
+mkdir -p "$BIN_DIR"
+cat > "$BIN_DIR/runsteamunlocker" <<EOF
+#!/bin/sh
+# Installed by Steam Auto Unlocker's install.sh.
+export UNLOCKER_HOME="$HOME_DIR"
+export PATH="$(dirname "$PY"):\$PATH"
+# Never write __pycache__ into the code (inside the app on macOS).
+export PYTHONDONTWRITEBYTECODE=1
+exec "$CODE/runsteamunlocker" "\$@"
+EOF
+chmod +x "$BIN_DIR/runsteamunlocker"
+
+# ---- ArchiSteamFarm + plugin ------------------------------------------------
+say "Setting up ArchiSteamFarm"
+UNLOCKER_HOME="$HOME_DIR" PYTHONDONTWRITEBYTECODE=1 "$PY" "$CODE/unlocker/run_unlocker.py" --install-asf \
+    || fail "Couldn't set up ArchiSteamFarm (see above). Run the install command again to retry."
+
 # ---- Done -------------------------------------------------------------------
 say "Installed"
 if [ -n "$APP_INSTALLED" ]; then
@@ -240,7 +266,9 @@ if [ -n "$APP_INSTALLED" ]; then
 else
     note "Run: runsteamunlocker --ui   (opens the app in your browser)"
 fi
-note "Command line: runsteamunlocker -h    Your data: $HOME_DIR"
+note "Command line: runsteamunlocker -h"
+note "Your games and ArchiSteamFarm: $HOME_DIR"
+note "The code and page: $CODE"
 case ":$PATH:" in
     *":$BIN_DIR:"*) ;;
     *) note "Add $BIN_DIR to your PATH to use the runsteamunlocker command:"
