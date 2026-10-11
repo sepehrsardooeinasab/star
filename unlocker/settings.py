@@ -20,6 +20,10 @@ DEFAULTS = {
     # Same, after a fresh (re)connect. A 10s buffer wasn't enough in practice
     # — it still produced an epoch/offline-looking achievement timestamp once.
     "reconnect_settle_delay": 60,
+    # During a session, how often (in seconds) to check ASF's log for a
+    # reconnect to Steam, which silently drops the game "play" started.
+    # It's also checked right before every unlock.
+    "play_check_interval": 900,
     # Unlocks this close together in the source data count as simultaneous
     # (a 1s delay is usually the same event straddling a second boundary),
     # and are batched into a single aset.
@@ -47,6 +51,7 @@ _TYPES = {
     "bot_connect_timeout": (int,),
     "warm_settle_delay": (int,),
     "reconnect_settle_delay": (int,),
+    "play_check_interval": (int,),
     "simultaneous_max_delay": (int,),
     "asf_shutdown_delay": (int,),
     "stop_other_asf": (bool,),
@@ -85,6 +90,8 @@ def load_settings(path=SETTINGS_PATH):
             _fail(f"{key!r} can't be negative")
     if not 1 <= overrides.get("asf_port", 1) <= 65535:
         _fail("'asf_port' must be between 1 and 65535")
+    if overrides.get("play_check_interval", 1) < 1:
+        _fail("'play_check_interval' must be at least 1")
     if overrides.get("jitter_percent", 0) > 100:
         _fail("'jitter_percent' can't be more than 100")
 

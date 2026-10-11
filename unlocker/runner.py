@@ -10,6 +10,8 @@ from datetime import datetime, timedelta
 from unlocker.api import (
     API_URL,
     api_request_args,
+    asf_log_position,
+    logged_on_since,
     send_command,
     send_aset,
     send_alist,
@@ -40,6 +42,7 @@ from unlocker.state import (
 ASF_SHUTDOWN_DELAY = SETTINGS["asf_shutdown_delay"]
 WARM_SETTLE_DELAY = SETTINGS["warm_settle_delay"]
 RECONNECT_SETTLE_DELAY = SETTINGS["reconnect_settle_delay"]
+PLAY_CHECK_INTERVAL = SETTINGS["play_check_interval"]
 SIMULTANEOUS_MAX_DELAY = SETTINGS["simultaneous_max_delay"]
 JITTER_ENABLED = SETTINGS["jitter_enabled"]
 JITTER_MIN_DELAY = SETTINGS["jitter_min_delay"]
@@ -463,6 +466,7 @@ def _run(game_name=None, force=False, time_only=False, delay=None, wait_ready=Fa
         else:
             print("Bot is now connected to Steam.")
 
+        log_position = asf_log_position()
         send_command(f"play {appid}")
         playing = True
         # Give Steam a moment to actually register the game as running before
@@ -473,6 +477,19 @@ def _run(game_name=None, force=False, time_only=False, delay=None, wait_ready=Fa
         # network blip) needs longer for Steam to consider the session
         # properly "online" than one that was already connected throughout.
         time.sleep(RECONNECT_SETTLE_DELAY if reconnected else WARM_SETTLE_DELAY)
+
+        def ensure_playing():
+            """Sends "play" again if the bot reconnected to Steam since the
+            last one — a reconnect silently stops the game, and an unlock
+            without it running looks offline. Waits the reconnect settle
+            delay afterwards, like the first "play" of a session."""
+            nonlocal log_position
+            if not logged_on_since(log_position):
+                return
+            print(f"Bot reconnected to Steam, starting {game_label} again...")
+            log_position = asf_log_position()
+            send_command(f"play {appid}")
+            time.sleep(RECONNECT_SETTLE_DELAY)
 
         def advance(i, issued_at):
             """Record achievement i as done and schedule (or end) what's next."""
@@ -523,8 +540,19 @@ def _run(game_name=None, force=False, time_only=False, delay=None, wait_ready=Fa
 
             if remaining_delay > 0:
                 print(f"Waiting {remaining_delay}s before unlocking: {ach['id']}...")
-                time.sleep(remaining_delay)
+                # The last check lands a settle delay before the unlock, so a
+                # re-sent "play" and its pause fit inside the wait instead of
+                # pushing the unlock later.
+                wait_until = time.monotonic() + remaining_delay
+                check_until = wait_until - RECONNECT_SETTLE_DELAY
+                while (left := check_until - time.monotonic()) > 0:
+                    time.sleep(min(left, PLAY_CHECK_INTERVAL))
+                    ensure_playing()
+                time.sleep(max(0, wait_until - time.monotonic()))
 
+            # Catches a reconnect in the last moments of the wait. Before
+            # issued_at, so any pause it adds doesn't shorten the next gap.
+            ensure_playing()
             issued_at = datetime.now()
 
             # Achievements that really unlocked together (delay within

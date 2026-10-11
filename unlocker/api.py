@@ -31,6 +31,31 @@ ASF_BINARY = ASF_DIR / "ArchiSteamFarm"
 ASF_LOG = ASF_DIR / "log.txt"
 
 
+def asf_log_position():
+    """Current end of ASF's log, to hand to logged_on_since() later."""
+    try:
+        return ASF_LOG.stat().st_size
+    except OSError:
+        return 0
+
+
+def logged_on_since(position):
+    """True if the bot logged on to Steam again after `position` (from
+    asf_log_position()). Every log-on resets what the bot is playing to
+    GamesPlayedWhileIdle, so a game started with "play" before a reconnect
+    isn't running anymore. A log shorter than `position` was rotated by an
+    ASF restart, which drops the game too."""
+    try:
+        with open(ASF_LOG, "rb") as log:
+            log.seek(0, os.SEEK_END)
+            if log.tell() < position:
+                return True
+            log.seek(position)
+            return b"|OnLoggedOn() Successfully logged on" in log.read()
+    except OSError:
+        return False
+
+
 def _ps(pid, field):
     return subprocess.run(
         ["ps", "-p", pid, "-o", f"{field}="], capture_output=True, text=True).stdout.strip()
