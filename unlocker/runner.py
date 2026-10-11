@@ -80,6 +80,21 @@ def _raise_signalled(signum, frame):
     raise _Signalled(signum)
 
 
+def _stop_playing():
+    """Best-effort cleanup for a run stopped mid-session (Ctrl+C, terminal
+    closed, -k, crash): tells the bot to stop "playing" the game and
+    schedules the usual idle ASF shutdown. One quick attempt rather than
+    send_command's long retry loop, since the user is waiting for it to quit.
+    Prints nothing — after SIGHUP there's no terminal left to print to."""
+    signal.signal(signal.SIGINT, signal.SIG_IGN)  # a second Ctrl+C can't cut it short
+    argv, headers = api_request_args("resume")
+    try:
+        subprocess.run(argv, input=headers, capture_output=True, text=True, timeout=10)
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+    _schedule_asf_shutdown()
+
+
 def _schedule_asf_shutdown(delay_seconds=ASF_SHUTDOWN_DELAY):
     """Detached background timer: after delay_seconds, shuts ArchiSteamFarm
     down entirely — but only if it still looks idle by then, so it isn't
@@ -404,6 +419,9 @@ def _run(game_name=None, force=False, time_only=False, delay=None, wait_ready=Fa
     if keep_awake_proc is not None:
         print(f"Keeping the system awake for {_format_duration(awake_for)}.")
 
+    # True from "play" until the session ends on its own — while it's set, a
+    # run that stops early has to tell the bot to stop playing.
+    playing = False
     try:
         if start_at > datetime.now():
             print(f"Waiting until {start_at:%H:%M} before starting...")
@@ -446,6 +464,7 @@ def _run(game_name=None, force=False, time_only=False, delay=None, wait_ready=Fa
             print("Bot is now connected to Steam.")
 
         send_command(f"play {appid}")
+        playing = True
         # Give Steam a moment to actually register the game as running before
         # the first aset — the first achievement of a session otherwise fires
         # with zero delay, right on top of "play", and unlocks with an epoch
@@ -457,6 +476,7 @@ def _run(game_name=None, force=False, time_only=False, delay=None, wait_ready=Fa
 
         def advance(i, issued_at):
             """Record achievement i as done and schedule (or end) what's next."""
+            nonlocal playing
             progress["last_completed"] = i
             progress["appid"] = appid
 
@@ -466,6 +486,7 @@ def _run(game_name=None, force=False, time_only=False, delay=None, wait_ready=Fa
                 progress["next_unlock_at"] = None
                 progress["session_ends_at"] = (datetime.now() + timedelta(seconds=gap)).isoformat()
                 save_progress(progress_path, progress)
+                playing = False
                 send_command("resume")
                 _schedule_asf_shutdown()
                 print(f"Session complete. Next session in {gap // 3600}h {(gap % 3600) // 60}m.")
@@ -561,17 +582,24 @@ def _run(game_name=None, force=False, time_only=False, delay=None, wait_ready=Fa
                     return
             i = group_end
 
+        playing = False
         send_command("resume")
         _schedule_asf_shutdown()
         print("\nAll achievements unlocked.")
         notify(game_label, "All achievements unlocked.")
         cleanup_profile(game_name)
-    except _Signalled as e:
-        if e.signum == signal.SIGHUP:
+    except (_Signalled, KeyboardInterrupt) as e:
+        # Progress is already on disk (saved after every unlock), so the
+        # next run picks up where this one stopped.
+        if playing:
+            _stop_playing()
+        if isinstance(e, _Signalled) and e.signum == signal.SIGHUP:
             notify(game_label, "Stopped: the terminal running it was closed.", error=True)
         else:
-            print("\nStopped.")
+            print("\nStopped. Progress is saved — run it again to continue.")
     except Exception as e:
+        if playing:
+            _stop_playing()
         notify(game_label, f"Crashed: {e.__class__.__name__}: {e}", error=True)
         raise
     finally:
