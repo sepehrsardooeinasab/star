@@ -24,7 +24,7 @@ from urllib.parse import parse_qs, urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from unlocker import asf_setup, extras, updates
+from unlocker import achievements, asf_setup, extras, updates
 from unlocker.api import notify
 from unlocker.paths import CODE_DIR, DATA_DIR
 from unlocker.runner import _session_status, config_changed
@@ -343,6 +343,28 @@ def asf_check():
     return setup_state()
 
 
+def achievement_numbers(appid):
+    """The game's achievements in aset's numbering, for the builder."""
+    try:
+        appid = int(appid)
+    except (TypeError, ValueError):
+        raise AppError("Enter the game's App ID first.")
+    if appid <= 0:
+        raise AppError("Enter the game's App ID first.")
+    try:
+        return achievements.numbers(appid)
+    except achievements.Problem as e:
+        raise AppError(str(e), 409)
+
+
+def achievements_from_link(url):
+    """A player's unlocked achievements, from a SteamHunters or Steam link."""
+    try:
+        return achievements.from_link(str(url or "").strip())
+    except achievements.Problem as e:
+        raise AppError(str(e), 409)
+
+
 def test_keep_awake():
     works, found = extras.test_keep_awake()
     return {"works": works, "found": found}
@@ -518,6 +540,8 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/setup/test-notification": test_notification,
             "/api/setup/test-awake": test_keep_awake,
             "/api/open-folder": open_data_folder,
+            "/api/achievements/numbers": lambda: achievement_numbers(body.get("appid")),
+            "/api/achievements/link": lambda: achievements_from_link(body.get("url")),
             "/api/setup/login": lambda: setup_login(body.get("username"), body.get("password")),
             "/api/setup/code": lambda: setup_code(body.get("code")),
             "/api/update": app_update,
