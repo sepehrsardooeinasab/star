@@ -1,0 +1,6 @@
+{
+  "identifier": "drag-window",
+  "description": "On macOS the page's top bar is the title bar: dragging it moves the window and a double click zooms it. That's all the page may ask of the app.",
+  "windows": ["main"],
+  "permissions": ["core:window:allow-start-dragging", "core:window:allow-internal-toggle-maximize"]
+}
