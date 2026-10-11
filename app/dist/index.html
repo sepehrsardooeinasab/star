@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Steam Auto Unlocker</title>
+<style>
+  :root { color-scheme: dark; --bg: #151515; --text: #f5f5f5; --dim: #b0b0b0; --danger: #ff9a6e; }
+  @media (prefers-color-scheme: light) {
+    :root { color-scheme: light; --bg: #e4e4e4; --text: #1d1d1d; --dim: #5c5c5c; --danger: #c2410c; }
+  }
+  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif; }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: 2px;
+    background: linear-gradient(90deg, #f2c14e, #f0609e, #9b7bff); }
+  main { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 1rem; padding: 0 1.5rem; text-align: center; }
+  .spinner { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--dim);
+    border-right-color: transparent; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  p { margin: 0; color: var(--dim); }
+  pre { max-width: 40rem; margin: 0; white-space: pre-wrap; text-align: left; color: var(--danger);
+    font: 13px/1.5 ui-monospace, Menlo, monospace; }
+</style>
+</head>
+<body>
+<main id="main">
+  <div class="spinner"></div>
+  <p>Starting…</p>
+</main>
+<script>
+  // Called by the app when the server can't be started.
+  function showError(message) {
+    var main = document.getElementById("main");
+    main.innerHTML = "<p><b style='color:var(--text)'>Couldn't open Steam Auto Unlocker</b></p><pre></pre>";
+    main.querySelector("pre").textContent = message;
+  }
+</script>
+</body>
+</html>

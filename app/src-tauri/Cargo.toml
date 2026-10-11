@@ -1,0 +1,18 @@
+[package]
+name = "steam-auto-unlocker"
+version = "1.0.0"
+description = "Desktop window for Steam Auto Unlocker"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde_json = "1"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+opt-level = "s"

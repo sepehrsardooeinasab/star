@@ -6,6 +6,22 @@ Runs on macOS and Linux (not Windows).
 
 **[Unlock Scheduler](https://sepehrsardooeinasab.github.io/steam-auto-unlocker/)** — paste a SteamHunters achievement export in the browser and it generates a delay/session config for you.
 
+## Install
+
+On macOS or Linux, paste this into a terminal:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/sepehrsardooeinasab/steam-auto-unlocker/main/install.sh | sh
+```
+
+It installs the desktop app, the `runsteamunlocker` command, and ArchiSteamFarm with its achievement plugin (downloaded from their official releases and checked against their published checksums). Then open **Steam Auto Unlocker** and sign in to Steam; it asks for the Steam Guard code if needed. Python 3.8+ is the only requirement; on macOS, the installer offers to install it if it's missing. Nothing needs `sudo`.
+
+- Your games, ArchiSteamFarm and settings live in `~/Library/Application Support/Steam Auto Unlocker` (macOS) or `~/.local/share/steam-auto-unlocker` (Linux). Running the command again updates the app and keeps them.
+- `... | sh -s -- --uninstall` removes the app, the command and the code, and keeps your data. `--no-app` skips the desktop app.
+- Downloading the macOS app by hand from Releases instead means macOS asks you to allow it once in **System Settings > Privacy & Security**; the install command avoids that.
+
+Prefer to set everything up yourself? See [Setup](#setup) below.
+
 ## The app
 
 The app (or `runsteamunlocker --ui`, which opens the same thing in your browser) starts on two buttons: **New schedule** and **Run a game**. On first launch it sets up ArchiSteamFarm and signs in to Steam instead.
@@ -126,7 +142,9 @@ With randomness on, it applies to the delays between achievements and to the gap
   - `run_unlocker.py` — CLI entry point
 - `runsteamunlocker` — bash launcher: starts ArchiSteamFarm if needed, then runs the unlocker for a given config
 - `runsteamunlocker.zsh-completion` — tab-completion for available configs
-- `docs/` — the Unlock Scheduler web page (published via GitHub Pages)
+- `docs/` — the Unlock Scheduler web page (published via GitHub Pages, and the app's interface)
+- `app/` — the desktop app (Tauri): a window that starts the local server and shows the page
+- `install.sh` — the one-line installer; `.github/workflows/release.yml` builds the app for each `v*` tag
 - `jsons/`, `csvs/`, `archifarm/` — per-machine runtime data (ASF install, bot credentials, generated configs); gitignored, not part of the repo
 - `completed/` — finished games: each game's config and CSV are moved to `completed/<name>/` once every achievement is unlocked (gitignored)
 
