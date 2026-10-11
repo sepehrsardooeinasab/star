@@ -7,7 +7,9 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-PROJECT_DIR = Path(__file__).resolve().parent.parent
+from unlocker.paths import DATA_DIR
+
+PROJECT_DIR = DATA_DIR
 JSONS_DIR = PROJECT_DIR / "jsons"
 CSVS_DIR = PROJECT_DIR / "csvs"
 COMPLETED_DIR = PROJECT_DIR / "completed"
@@ -29,20 +31,18 @@ SESSION_LOCK = JSONS_DIR / ".session.lock"
 
 def profile_paths(game_name):
     """config/progress paths for a game, sharing the same jsons/ folder."""
-    if game_name:
-        return (JSONS_DIR / f"config_{game_name}.json",
-                JSONS_DIR / f"progress_{game_name}.json")
-    return JSONS_DIR / "config.json", JSONS_DIR / "progress.json"
+    return (JSONS_DIR / f"config_{game_name}.json",
+            JSONS_DIR / f"progress_{game_name}.json")
 
 
 def list_profiles():
-    """Game names (None for the bare config.json) for every config*.json in jsons/, with their appid."""
+    """Game names for every config_*.json in jsons/, with their appid."""
     if not JSONS_DIR.exists():
         return []
 
     profiles = []
-    for path in sorted(JSONS_DIR.glob("config*.json")):
-        name = path.stem[len("config_"):] if path.stem.startswith("config_") else None
+    for path in sorted(JSONS_DIR.glob("config_*.json")):
+        name = path.stem[len("config_"):]
         try:
             appid = json.loads(path.read_text()).get("appid")
         except (json.JSONDecodeError, OSError):
@@ -137,13 +137,15 @@ def save_progress(path, progress):
 
 
 _held_locks = []  # open lock files, kept referenced so they stay locked
+_kept_locks = []  # same, but left alone by release_locks()
 
 
-def acquire_lock(path, label, block=False):
+def acquire_lock(path, label, block=False, keep=False):
     """Takes an exclusive lock on path, recording label and this PID in it.
     Returns True once held — until this process exits, even if it's killed,
     since the OS drops the lock with the process. Without block, returns
-    False straight away when another process holds it."""
+    False straight away when another process holds it. keep: survive
+    release_locks(), for a lock held across several runs in one process."""
     path.parent.mkdir(parents=True, exist_ok=True)
     f = open(path, "a+")
     try:
@@ -155,7 +157,7 @@ def acquire_lock(path, label, block=False):
     f.truncate()
     f.write(f"{os.getpid()} {label}\n")
     f.flush()
-    _held_locks.append(f)
+    (_kept_locks if keep else _held_locks).append(f)
     return True
 
 
@@ -165,8 +167,8 @@ def release_locks():
         _held_locks.pop().close()
 
 
-def lock_holder(path):
-    """'<label> (PID <pid>)' for the process holding path's lock, or None if
+def lock_info(path):
+    """(pid or None, label) of the process holding path's lock, or None if
     nobody holds it. Read-only: never takes the lock for longer than the
     check itself."""
     if not path.exists():
@@ -177,13 +179,38 @@ def lock_holder(path):
         except BlockingIOError:
             f.seek(0)
             pid, _, label = f.read().strip().partition(" ")
-            return f"{label or '?'} (PID {pid or '?'})"
+            return (int(pid) if pid.isdigit() else None), label
         fcntl.flock(f, fcntl.LOCK_UN)
     return None
 
 
+def lock_holder(path):
+    """'<label> (PID <pid>)' for the process holding path's lock, or None if
+    nobody holds it."""
+    info = lock_info(path)
+    if info is None:
+        return None
+    pid, label = info
+    return f"{label or '?'} (PID {pid or '?'})"
+
+
 def profile_lock_path(game_name):
-    return JSONS_DIR / f".lock_{game_name or 'default'}"
+    return JSONS_DIR / f".lock_{game_name}"
+
+
+# An auto run (--auto, or Run in the app) plays every remaining session of a
+# game back to back. Its lock is held for the whole run, its output goes to
+# the log, and the flag file asks it to stop once the current session ends.
+def auto_lock_path(game_name):
+    return JSONS_DIR / f".auto_{game_name}"
+
+
+def auto_log_path(game_name):
+    return JSONS_DIR / f".run_{game_name}.log"
+
+
+def stop_after_path(game_name):
+    return JSONS_DIR / f".stop_after_{game_name}"
 
 
 def cleanup_profile(game_name):
@@ -192,7 +219,7 @@ def cleanup_profile(game_name):
     completed/<name>/, and deletes its progress file. A game finished
     before gets a dated folder instead, so nothing is overwritten."""
     config_path, progress_path = profile_paths(game_name)
-    name = game_name or "default"
+    name = game_name
 
     dest = COMPLETED_DIR / name
     if dest.exists():

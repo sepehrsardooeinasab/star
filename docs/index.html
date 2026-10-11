@@ -6,21 +6,92 @@
 <title>Unlock Scheduler</title>
 <link rel="icon" type="image/png" href="logo.png">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="style.css">
+<script>
+  // Apply the saved theme and accent (default dark / violet) before the page paints.
+  (function () {
+    var theme = null, accent = null;
+    try { theme = localStorage.getItem("unlock-scheduler-theme"); accent = localStorage.getItem("unlock-scheduler-accent"); } catch (e) {}
+    document.documentElement.setAttribute("data-theme", theme || "dark");
+    document.documentElement.setAttribute("data-accent", accent || "violet");
+  })();
+</script>
 </head>
-<body>
-<div class="grid-texture" aria-hidden="true"></div>
+<body data-screen="home">
+<div class="glow" aria-hidden="true"></div>
 
-
-<header class="masthead">
-  <div class="brand">UNLOCK<span>·</span>SCHEDULER</div>
-  <div class="tagline">SteamHunters export → delay &amp; session config, generated live in your browser.</div>
+<header class="topbar">
+  <a class="brand" href="./">
+    <svg viewBox="0 0 20 20" aria-hidden="true"><defs><linearGradient id="brand-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color: var(--input)"/><stop offset="1" style="stop-color: var(--accent)"/></linearGradient></defs><path d="M10 1.5c.6 4.6 3.9 7.9 8.5 8.5-4.6.6-7.9 3.9-8.5 8.5-.6-4.6-3.9-7.9-8.5-8.5 4.6-.6 7.9-3.9 8.5-8.5z" fill="url(#brand-grad)"/></svg>
+    <span>Unlock Scheduler</span>
+  </a>
+  <div class="topbar-right">
+    <button class="icon-btn" id="accent-toggle" type="button" aria-label="Accent color: violet. Click for the next one." title="Accent color (click to change)"><span class="accent-dot"></span></button>
+    <button class="icon-btn" id="theme-toggle" type="button" aria-label="Switch to light theme" title="Light / dark">
+      <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 9.8A5.8 5.8 0 0 1 6.2 2.5a5.8 5.8 0 1 0 7.3 7.3z" fill="currentColor"/></svg>
+      <svg class="icon-sun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3" fill="currentColor"/><g stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M8 1.2v1.6M8 13.2v1.6M1.2 8h1.6M13.2 8h1.6M3.2 3.2l1.1 1.1M11.7 11.7l1.1 1.1M3.2 12.8l1.1-1.1M11.7 4.3l1.1-1.1"/></g></svg>
+    </button>
+    <a class="topbar-btn" href="https://github.com/sepehrsardooeinasab/steam-auto-unlocker" target="_blank" rel="noopener">GitHub</a>
+  </div>
 </header>
+
+<section class="hero" aria-labelledby="hero-title">
+  <div class="hero-eyebrow"><span>Steam achievement scheduler</span></div>
+  <h1 class="hero-title" id="hero-title"><span class="hero-bright">Replay a real player's</span> achievement timeline</h1>
+  <p class="hero-sub">Turn a SteamHunters export into realistic sessions and breaks, then let ArchiSteamFarm unlock them on your account at the same pace.</p>
+
+  <div class="hero-actions" id="hero-actions">
+    <button class="btn-hero primary" id="hero-new" type="button">New schedule</button>
+    <button class="btn-hero" id="hero-run" type="button">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6L12.6 8z" fill="currentColor"/></svg>
+      Run a game
+    </button>
+  </div>
+  <p class="hero-note" id="hero-note">Schedules are made right here in your browser.</p>
+
+  <div class="hero-panel" id="hero-install" hidden>
+    <div class="panel-title">Get the app</div>
+    <p>Running games needs the app on your Mac or Linux PC. One line installs it, ArchiSteamFarm and its achievement plugin:</p>
+    <div class="install-line"><code id="install-cmd">curl -fsSL https://raw.githubusercontent.com/sepehrsardooeinasab/steam-auto-unlocker/main/install.sh | sh</code><button class="btn-ghost" id="copy-install" type="button">Copy</button></div>
+    <p class="panel-small">Paste it into Terminal. Needs Python 3, which macOS offers to install the first time if it's missing.</p>
+  </div>
+
+  <div class="hero-panel setup" id="hero-setup" hidden>
+    <div class="panel-title">Finish setting up</div>
+    <ol class="setup-steps">
+      <li class="setup-step" id="step-asf">
+        <div class="step-head"><span class="step-mark"></span><b>ArchiSteamFarm</b></div>
+        <p class="step-text" id="step-asf-text">Downloads ArchiSteamFarm and its achievement plugin (about 50 MB).</p>
+        <button class="btn-ghost" id="setup-install" type="button">Install</button>
+      </li>
+      <li class="setup-step" id="step-steam">
+        <div class="step-head"><span class="step-mark"></span><b>Steam account</b></div>
+        <p class="step-text" id="step-steam-text">Sign in with the account to unlock achievements on. It's saved only in ArchiSteamFarm's own config on this computer.</p>
+        <form class="setup-form" id="login-form" autocomplete="off">
+          <input type="text" id="steam-user" placeholder="Steam username" autocomplete="username">
+          <input type="password" id="steam-pass" placeholder="Password" autocomplete="current-password">
+          <button class="btn-ghost" type="submit">Sign in</button>
+        </form>
+        <form class="setup-form" id="code-form" hidden>
+          <input type="text" id="steam-code" placeholder="Steam Guard code" autocomplete="one-time-code">
+          <button class="btn-ghost" type="submit">Continue</button>
+        </form>
+      </li>
+    </ol>
+    <p class="setup-error" id="setup-error" hidden></p>
+  </div>
+
+  <ul class="hero-points">
+    <li>Realistic sessions</li>
+    <li>Breaks in between</li>
+    <li>Stop and resume anytime</li>
+  </ul>
+</section>
 
 <div class="shell">
   <main class="stage">
-    <div class="box">
+    <div class="box" data-view="input">
       <h1 class="visually-hidden" id="box-title">Achievements</h1>
       <nav class="box-header" aria-label="Views">
         <div class="tab-group input">
@@ -34,28 +105,11 @@
             <span class="label">Settings</span>
           </button>
         </div>
-        <div class="stats-strip" id="stats-strip" style="display:none"></div>
-        <div class="tab-group output">
-          <span class="tab-group-label">Output</span>
-          <button class="tab" id="nav-json" type="button" title="Schedule (config.json)">
-            <span class="icon"><svg viewBox="0 0 20 20"><text x="10" y="14.5" text-anchor="middle" font-size="12" font-family="'JetBrains Mono',monospace" fill="currentColor">{ }</text></svg></span>
-            <span class="label">Schedule</span>
-          </button>
-          <button class="tab" id="nav-csv" type="button" title="Timeline (csv)">
-            <span class="icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2.5" y="4" width="15" height="12" rx="1.5"/><line x1="2.5" y1="8.5" x2="17.5" y2="8.5"/><line x1="2.5" y1="12.5" x2="17.5" y2="12.5"/><line x1="8" y1="4" x2="8" y2="16"/></svg></span>
-            <span class="label">Timeline</span>
-          </button>
-        </div>
-      </nav>
-
-      <div class="box-content">
-        <div class="view-pane active" data-view="input">
-          <div class="field">
-            <label for="export-text" class="visually-hidden">Paste export</label>
-            <textarea id="export-text" spellcheck="false" placeholder="Paste the copied SteamHunters achievements page here…"></textarea>
-            <div id="input-alert-slot"></div>
-            <details class="hint">
-              <summary>Expected format</summary>
+        <div class="stats-row">
+          <div class="stats-strip" id="stats-strip"></div>
+          <div class="hover-help" data-for="input" tabindex="0" aria-describedby="help-format">
+            <span class="hover-help-label"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.2v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="4.9" r="0.85" fill="currentColor"/></svg>Expected format</span>
+            <div class="hover-help-panel hint" id="help-format" role="tooltip">
               <pre>Achievement Name
 
 Description text
@@ -66,48 +120,95 @@ Description text
 
 
 (blank line, then next entry — locked ones just skip the timestamp)</pre>
-            </details>
+            </div>
+          </div>
+          <div class="hover-help" data-for="csv" tabindex="0" aria-describedby="help-edit">
+            <span class="hover-help-label"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.2v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="4.9" r="0.85" fill="currentColor"/></svg>How to edit</span>
+            <div class="hover-help-panel hint" id="help-edit" role="tooltip">
+              <ul>
+                <li>Click a <b>delay_s</b> value to change it (in seconds). On a gap row, that's the gap's length.</li>
+                <li><b>+</b> after a session number starts a new session at that achievement; <b>−</b> after a gap label removes the gap.</li>
+                <li>Edited values are highlighted; ↺ or clicking + / − again undoes them.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="tab-group output">
+          <span class="tab-group-label">Output</span>
+          <button class="tab" id="nav-json" type="button" title="Schedule (config.json)">
+            <span class="icon"><svg viewBox="0 0 20 20"><text x="10" y="14.5" text-anchor="middle" font-size="12" font-family="'JetBrains Mono',monospace" fill="currentColor">{ }</text></svg></span>
+            <span class="label">Schedule</span>
+          </button>
+          <button class="tab" id="nav-csv" type="button" title="Timeline (csv)">
+            <span class="icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2.5" y="4" width="15" height="12" rx="1.5"/><line x1="2.5" y1="8.5" x2="17.5" y2="8.5"/><line x1="2.5" y1="12.5" x2="17.5" y2="12.5"/><line x1="8" y1="4" x2="8" y2="16"/></svg></span>
+            <span class="label">Timeline</span>
+          </button>
+          <button class="tab" id="nav-runs" type="button" title="Run, stop and follow your games" hidden>
+            <span class="icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><circle cx="10" cy="10" r="7.5"/><path d="M8.3 6.9v6.2l5-3.1z" fill="currentColor"/></svg></span>
+            <span class="label">Runs</span>
+          </button>
+        </div>
+      </nav>
+
+      <div class="box-content">
+        <div class="view-pane active" data-view="input">
+          <div class="field">
+            <label for="export-text" class="visually-hidden">Paste export</label>
+            <textarea id="export-text" spellcheck="false" placeholder="Paste the copied SteamHunters achievements page here…"></textarea>
+            <div id="input-alert-slot"></div>
           </div>
         </div>
 
         <div class="view-pane" data-view="settings">
-          <div class="row2">
-            <div class="field">
-              <label for="appid">App ID</label>
-              <input type="number" id="appid" inputmode="numeric" placeholder="730" value="730">
+          <div class="settings-form">
+            <div class="row2">
+              <div class="field">
+                <label for="game-name">Game name</label>
+                <input type="text" id="game-name" placeholder="CS2">
+              </div>
+              <div class="field">
+                <label for="appid">App ID</label>
+                <input type="number" id="appid" inputmode="numeric" placeholder="730">
+              </div>
             </div>
-            <div class="field">
-              <label for="game-name">Game name</label>
-              <input type="text" id="game-name" placeholder="CS2" value="CS2">
+            <div class="row2">
+              <div class="field">
+                <label for="copied-from">Copied from (optional)</label>
+                <input type="text" id="copied-from" placeholder="Steam ID or name">
+              </div>
+            </div>
+            <div class="row2">
+              <div class="field">
+                <label for="gap-limit">Session break after (hours)</label>
+                <input type="number" id="gap-limit" min="0" step="1" value="3">
+              </div>
+              <div class="field">
+                <label for="cum-limit">Max session length (hours)</label>
+                <input type="number" id="cum-limit" min="0" step="1" value="6">
+              </div>
+            </div>
+            <div class="row2">
+              <div class="field">
+                <label for="min-gap">Warn if break under (hours)</label>
+                <input type="number" id="min-gap" min="0" step="1" value="1">
+              </div>
+              <div class="field">
+                <label>&nbsp;</label>
+                <button class="btn-ghost" id="reset-btn" type="button" style="width:100%">Reset all fields</button>
+              </div>
             </div>
           </div>
-          <div class="field">
-            <label for="copied-from">Copied from (optional)</label>
-            <input type="text" id="copied-from" placeholder="Steam ID or name">
-            <small>The player whose unlock times these are. Saved in the config and CSV.</small>
-          </div>
-          <div class="row2">
-            <div class="field">
-              <label for="gap-limit">Gap limit (hours)</label>
-              <input type="number" id="gap-limit" min="0" step="1" value="3">
-              <small>Gap between unlocks that starts a new session</small>
-            </div>
-            <div class="field">
-              <label for="cum-limit">Cumulative limit (hours)</label>
-              <input type="number" id="cum-limit" min="0" step="1" value="6">
-              <small>Max length before a session force-splits</small>
-            </div>
-          </div>
-          <div class="row2">
-            <div class="field">
-              <label for="min-gap">Min gap (hours)</label>
-              <input type="number" id="min-gap" min="0" step="1" value="1">
-              <small>Warn if two sessions sit closer than this</small>
-            </div>
-            <div class="field">
-              <label>&nbsp;</label>
-              <button class="btn-ghost" id="reset-btn" type="button" style="width:100%">Reset all fields</button>
-            </div>
+          <div class="hint settings-help">
+            <div class="help-title">What each setting does</div>
+            <ul>
+              <li><b>Game name</b>: names the files and is what you pass to <code>runsteamunlocker &lt;name&gt;</code>. Saved in lowercase.</li>
+              <li><b>App ID</b>: the number in the game's store URL (<code>store.steampowered.com/app/<b>730</b></code>).</li>
+              <li><b>Copied from</b>: optional note of whose profile the export came from. Doesn't change the schedule.</li>
+              <li><b>Session break after</b>: a pause in the export longer than this starts a new session. Between sessions the game is closed.</li>
+              <li><b>Max session length</b>: an unlock that would run a session past this starts a new one.</li>
+              <li><b>Warn if break under</b>: only shows a notice for shorter breaks, so you can stretch them on the Timeline tab.</li>
+            </ul>
+            <p>Times are in hours. Changes re-split the sessions right away.</p>
           </div>
         </div>
 
@@ -116,14 +217,13 @@ Description text
         </div>
         <div class="view-pane" data-view="csv">
           <div id="csv-slot"></div>
-          <details class="hint">
-            <summary>How to edit</summary>
-            <ul>
-              <li>Click a <b>delay_s</b> value to change it (in seconds). On a gap row, that's the gap's length.</li>
-              <li><b>+</b> after a session number starts a new session at that achievement; <b>−</b> after a gap label removes the gap.</li>
-              <li>Edited values are highlighted; ↺ or clicking + / − again undoes them.</li>
-            </ul>
-          </details>
+        </div>
+        <div class="view-pane" data-view="runs">
+          <div class="runs-list" id="runs-list"></div>
+          <div class="runs-log">
+            <div class="runs-log-head" id="runs-log-title">Output</div>
+            <pre class="file-preview" id="runs-log"></pre>
+          </div>
         </div>
       </div>
 

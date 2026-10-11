@@ -1,9 +1,11 @@
 {
   "asf_port": 1243,
   "ipc_password": null,
+  "ui_port": 8788,
   "bot_connect_timeout": 60,
   "warm_settle_delay": 10,
   "reconnect_settle_delay": 60,
+  "play_check_interval": 900,
   "simultaneous_max_delay": 1,
   "asf_shutdown_delay": 300,
   "stop_other_asf": true,

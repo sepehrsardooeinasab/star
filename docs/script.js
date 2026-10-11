@@ -382,6 +382,9 @@
     toast: document.getElementById("toast"),
     jsonSlot: document.getElementById("json-slot"),
     csvSlot: document.getElementById("csv-slot"),
+    runsList: document.getElementById("runs-list"),
+    runsLog: document.getElementById("runs-log"),
+    runsLogTitle: document.getElementById("runs-log-title"),
     inputAlertSlot: document.getElementById("input-alert-slot")
   };
 
@@ -393,14 +396,16 @@
     input: "Achievements",
     settings: "Settings",
     json: "Schedule (config.json)",
-    csv: "Timeline (csv)"
+    csv: "Timeline (csv)",
+    runs: "Runs"
   };
 
   var navButtons = {
     input: document.getElementById("nav-input"),
     settings: document.getElementById("nav-settings"),
     json: document.getElementById("nav-json"),
-    csv: document.getElementById("nav-csv")
+    csv: document.getElementById("nav-csv"),
+    runs: document.getElementById("nav-runs")
   };
 
   var currentView = "input";
@@ -432,7 +437,9 @@
       el.classList.toggle("active", el.getAttribute("data-view") === view);
     });
     els.boxTitle.textContent = NAV_TITLES[view];
+    document.querySelector(".box").setAttribute("data-view", view);  // shows that tab's help
     render();
+    if (view === "runs") refreshRuns();
   }
 
   Object.keys(navButtons).forEach(function (key) {
@@ -525,9 +532,9 @@
       if (g <= minGapSec) shortGaps.push({session: i + 2, gap: roughDuration(g)});
     });
     if (shortGaps.length === 1) {
-      warnings.push("Session " + shortGaps[0].session + " starts only " + shortGaps[0].gap + " after the previous one (below your min gap).");
+      warnings.push("Session " + shortGaps[0].session + " starts only " + shortGaps[0].gap + " after the previous one (below your \"Warn if break under\" setting).");
     } else if (shortGaps.length) {
-      warnings.push(shortGaps.length + " sessions start sooner after the previous one than your min gap: " +
+      warnings.push(shortGaps.length + " sessions start sooner after the previous one than your \"Warn if break under\" setting: " +
         shortGaps.map(function (s) { return "session " + s.session + " (" + s.gap + ")"; }).join(", ") + ".");
     }
     var longWaits = [];
@@ -540,14 +547,26 @@
       });
     });
     if (longWaits.length === 1) {
-      warnings.push(longWaits[0] + " waits longer than your session gap limit after your edits. It stays in its session, " +
+      warnings.push(longWaits[0] + " waits longer than your \"Session break after\" setting after your edits. It stays in its session, " +
         "so the game keeps running in ASF the whole time.");
     } else if (longWaits.length) {
-      warnings.push(longWaits.length + " achievements wait longer than your session gap limit after your edits: " +
+      warnings.push(longWaits.length + " achievements wait longer than your \"Session break after\" setting after your edits: " +
         longWaits.join(", ") + ". They stay in their sessions, so the game keeps running in ASF the whole time.");
     }
-    var zeroSessions = split.durations.filter(function (d) { return d <= 1; }).length;
-    if (zeroSessions) warnings.push(zeroSessions + " session(s) have essentially zero duration (a single achievement).");
+    // A session that lasts no time is either a lone achievement or several
+    // unlocked at the same moment; say which, since both happen.
+    var zeroSingle = 0, zeroTogether = 0;
+    split.durations.forEach(function (d, i) {
+      if (d > 1) return;
+      if (split.sessions[i].length > 1) zeroTogether++; else zeroSingle++;
+    });
+    var zeroSessions = zeroSingle + zeroTogether;
+    if (zeroSessions) {
+      var why = !zeroTogether ? "a single achievement"
+        : !zeroSingle ? "achievements unlocked at the same moment"
+        : zeroSingle + " with a single achievement, " + zeroTogether + " with achievements unlocked at the same moment";
+      warnings.push(zeroSessions + " session(s) have essentially zero duration (" + why + ").");
+    }
 
     var suffix = gameName ? "_" + gameName : "";
 
@@ -632,14 +651,14 @@
 
     // stats strip (shown once we have valid data, regardless of view)
     if (ok) {
-      els.statsStrip.style.display = "flex";
       els.statsStrip.innerHTML =
         "<span><b>" + latest.stats.achievements + " / " + latest.stats.totalAchievements + "</b> achievements</span>" +
         "<span><b>" + latest.stats.sessions + "</b> sessions</span>" +
         "<span>len <b>" + latest.stats.sessionLen + "</b></span>" +
         "<span>gap <b>" + latest.stats.gapRange + "</b></span>";
     } else {
-      els.statsStrip.style.display = "none";
+      // Kept (with a hint) so the bar doesn't change height on paste.
+      els.statsStrip.innerHTML = "<span>Paste an export to see its achievements, sessions and gaps.</span>";
     }
 
     // Download always saves everything together, so it only depends on
@@ -650,7 +669,9 @@
     var dangerHtml = dangers.map(function (d) { return noticeHtml("danger", d); }).join("");
     els.inputAlertSlot.innerHTML = dangerHtml + editsBannerHtml();
     els.downloadBtn.classList.toggle("btn-danger", dangers.length > 0);
-    els.downloadBtn.textContent = dangers.length ? "Download anyway" : "Download All";
+    els.downloadBtn.textContent = local
+      ? (dangers.length ? "Save anyway" : "Save to project")
+      : (dangers.length ? "Download anyway" : "Download All");
     els.downloadBtn.title = dangers.join("\n");
 
     var fileKey = fileKeyForView(currentView);
@@ -668,8 +689,14 @@
 
     // Notices go under the preview (as under the paste box) so the box
     // sits in the same place on every tab.
-    var warningsHtml = '<div class="notices-below">' + dangerHtml +
-      latest.warnings.map(function (w) { return noticeHtml("warn", w); }).join("") + "</div>";
+    // All warnings share one compact box, a line each, so a long list
+    // doesn't eat the preview's space.
+    var warnBox = latest.warnings.length
+      ? '<div class="notice warn stack">' + latest.warnings.map(function (w) {
+          return "<div>" + escapeHtml(w) + "</div>";
+        }).join("") + "</div>"
+      : "";
+    var warningsHtml = '<div class="notices-below">' + dangerHtml + warnBox + "</div>";
 
     if (fileKey === "json") {
       slot.innerHTML = '<pre class="file-preview">' + highlightJson(latest.jsonText) + "</pre>" + warningsHtml;
@@ -827,6 +854,33 @@
   els.exportText.addEventListener("focus", noticeLocked);
 
 
+  // ---- theme (dark / light) and accent, from the top bar; each button
+  // switches to the next option on click ----
+  var ACCENTS = ["violet", "wine", "blue", "teal", "amber"];
+  var accentToggle = document.getElementById("accent-toggle");
+
+  function syncThemeControls() {
+    var root = document.documentElement;
+    var light = root.getAttribute("data-theme") === "light";
+    document.getElementById("theme-toggle").setAttribute("aria-label", light ? "Switch to dark theme" : "Switch to light theme");
+    accentToggle.setAttribute("aria-label", "Accent color: " + root.getAttribute("data-accent") + ". Click for the next one.");
+  }
+
+  document.getElementById("theme-toggle").addEventListener("click", function () {
+    var next = document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("unlock-scheduler-theme", next); } catch (e) {}
+    syncThemeControls();
+  });
+  accentToggle.addEventListener("click", function () {
+    var current = ACCENTS.indexOf(document.documentElement.getAttribute("data-accent"));
+    var next = ACCENTS[(current + 1) % ACCENTS.length];
+    document.documentElement.setAttribute("data-accent", next);
+    try { localStorage.setItem("unlock-scheduler-accent", next); } catch (e) {}
+    syncThemeControls();
+  });
+  syncThemeControls();
+
   // ---------------------------------------------------------------
   // Saving: File System Access API folder (silent, Chromium-only,
   // won't work in a sandboxed iframe) > claude.ai downloads capability
@@ -938,6 +992,12 @@
   // stagger) when no folder has been chosen.
   els.downloadBtn.addEventListener("click", function () {
     if (!latest || latest.errors.length) return;
+    if (local) {
+      var overwrite = isArmed("overwrite");
+      delete armedUntil["overwrite"];
+      saveToProject(overwrite);
+      return;
+    }
 
     var files = [
       {dirParts: ["jsons"], filename: latest.filenames.json, mime: "application/json", content: latest.jsonText},
@@ -989,6 +1049,341 @@
       showToast("Save folder forgotten — downloads go to your browser's default");
     });
     loadFolderHandle().then(function (handle) { if (handle) setFolder(handle); });
+  }
+
+  // ---------------------------------------------------------------
+  // Local app (runsteamunlocker --ui): the same page, served from this
+  // machine, which can also save straight into the project and run games.
+  // Runs are background processes, so this page only shows and controls
+  // them; closing it never stops anything.
+  // ---------------------------------------------------------------
+  var local = false;
+  var runsData = null, runsError = null, runsFetchedAt = 0;
+  var selectedRun = null;
+  var runsTimer = null;
+
+  function api(path, body) {
+    var opts = body === undefined ? {} : {
+      method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)
+    };
+    return fetch(path, opts).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (data) {
+        if (!r.ok) {
+          var err = new Error(data.error || "Request failed (" + r.status + ")");
+          err.data = data;
+          throw err;
+        }
+        return data;
+      });
+    });
+  }
+
+  function saveToProject(overwrite) {
+    var name = els.gameName.value.trim().toLowerCase();
+    api("/api/save", {name: name, config: latest.config, csv: latest.csvText, overwrite: overwrite})
+      .then(function () {
+        resetAll();
+        selectedRun = name;
+        setView("runs");
+        showToast("Saved " + name + " to the project. Press Run to start it.");
+      })
+      .catch(function (err) {
+        // Asked with a second click rather than a dialog, which the
+        // desktop app's window may not show.
+        if (err.data && err.data.exists) {
+          armedUntil["overwrite"] = Date.now() + ARM_MS;
+          showToast(err.message + " Click Save again within 4 seconds to replace it (its progress is kept).");
+          return;
+        }
+        showToast("Couldn't save: " + err.message);
+      });
+  }
+
+  // "2h 10m", "4m", "35s"
+  function fmtDur(seconds) {
+    seconds = Math.max(0, Math.round(seconds));
+    var d = Math.floor(seconds / 86400), h = Math.floor(seconds % 86400 / 3600), m = Math.floor(seconds % 3600 / 60);
+    if (d) return d + "d " + h + "h";
+    if (h) return h + "h " + m + "m";
+    if (m) return m + "m";
+    return seconds + "s";
+  }
+
+  // Clock time `seconds` from now, with the weekday when it isn't today.
+  function fmtAt(seconds) {
+    var at = new Date(Date.now() + seconds * 1000);
+    var time = at.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+    return at.toDateString() === new Date().toDateString()
+      ? time : at.toLocaleDateString([], {weekday: "short"}) + " " + time;
+  }
+
+  // Countdowns come from the last fetch; count them down in between.
+  function left(seconds) {
+    return Math.max(0, seconds - (Date.now() - runsFetchedAt) / 1000);
+  }
+
+  function runCardHtml(g) {
+    var badge = {
+      in_session: ["live", "In session"],
+      waiting: ["wait", g.auto ? "Waiting for next session" : "Waiting"],
+      idle: ["", "Not running"],
+      completed: ["", "Completed"],
+      invalid: ["bad", "Invalid config"]
+    }[g.state];
+    var lines = [];
+    if (g.state === "invalid") {
+      lines.push('<span class="bad">' + escapeHtml(g.error) + "</span>");
+    } else if (g.finished) {
+      lines.push("All achievements unlocked. Its files moved to completed/.");
+    } else if (g.total) {
+      lines.push("<b>" + g.done + " / " + g.total + "</b> achievements" + (g.appid ? " · app " + g.appid : ""));
+      if (g.session) {
+        lines.push("Session <b>" + g.session + " of " + g.sessions + "</b> · " + g.count + " to go, ~" + fmtDur(g.duration));
+        if (g.state === "in_session") {
+          lines.push(g.next_unlock_in == null ? "Unlocking…"
+            : "Next unlock in <b>" + fmtDur(left(g.next_unlock_in)) + "</b>");
+        } else {
+          var wait = left(g.ready_in);
+          lines.push(wait > 0
+            ? "Next session in <b>" + fmtDur(wait) + "</b> (" + fmtAt(wait) + ")"
+            : "Next session can start <b>now</b>");
+        }
+      }
+      if (g.config_changed) {
+        lines.push('<span class="warn">The achievement order changed since it started. Run it once from the terminal to confirm.</span>');
+      }
+      if (g.stop_after) lines.push('<span class="warn">Stops after this session.</span>');
+    }
+
+    var actions = [];
+    function btn(action, label, cls) {
+      var armed = action === "stop" && isArmed("stop:" + g.name);
+      return '<button class="' + (cls || "btn-ghost") + (armed ? " armed" : "") + '" type="button" data-action="' +
+        action + '" data-name="' + escapeHtml(g.name) + '">' + (armed ? "Click again to stop" : label) + "</button>";
+    }
+    if (g.running) {
+      actions.push(btn("stop", "Stop"));
+      if (g.auto && g.state === "in_session") {
+        actions.push(g.stop_after ? btn("keep-going", "Keep going") : btn("stop-after", "Stop after this session"));
+      }
+    } else if (g.finished) {
+      actions.push(btn("dismiss", "Dismiss"));
+    } else if (g.state === "idle" && !g.config_changed) {
+      actions.push(btn("run", g.done ? "Continue" : "Run", "btn-primary"));
+    }
+
+    var pct = g.total ? Math.round(100 * g.done / g.total) : (g.finished ? 100 : 0);
+    return '<div class="run-card' + (g.name === selectedRun ? " selected" : "") + '" data-name="' + escapeHtml(g.name) + '">' +
+      '<div class="run-head"><span class="run-name">' + escapeHtml(g.name) + "</span>" +
+      '<span class="run-badge ' + badge[0] + '">' + badge[1] + "</span></div>" +
+      (lines.length ? '<div class="run-meta">' + lines.join("<br>") + "</div>" : "") +
+      (g.state !== "invalid" ? '<div class="run-progress"><span style="width:' + pct + '%"></span></div>' : "") +
+      (actions.length ? '<div class="run-actions">' + actions.join("") + "</div>" : "") +
+      "</div>";
+  }
+
+  function renderRuns() {
+    var games = runsData ? runsData.games : [];
+    var running = games.filter(function (g) { return g.running; }).length;
+    navButtons.runs.classList.toggle("has-content", running > 0);
+    if (currentView !== "runs") return;
+    els.statsStrip.innerHTML = runsData
+      ? "<span><b>" + games.length + "</b> game" + (games.length === 1 ? "" : "s") + "</span>" +
+        "<span><b>" + running + "</b> running</span>" +
+        (runsData.session ? "<span>in session: <b>" + escapeHtml(runsData.session) + "</b></span>" : "")
+      : "";
+
+    if (runsError) {
+      els.runsList.innerHTML = noticeHtml("danger", "Can't reach the app: " + runsError +
+        ". Start it again with runsteamunlocker --ui.");
+    } else if (!runsData) {
+      els.runsList.innerHTML = "";
+    } else if (!games.length) {
+      els.runsList.innerHTML = emptyHtml("▶", "No games yet. Make a config on the Achievements tab, then Save to project.");
+    } else {
+      if (!games.some(function (g) { return g.name === selectedRun; })) {
+        var pick = games.filter(function (g) { return g.running; })[0] || games[0];
+        selectedRun = pick.name;
+      }
+      els.runsList.innerHTML = games.map(runCardHtml).join("");
+    }
+    els.runsLogTitle.innerHTML = selectedRun ? "Output · <b>" + escapeHtml(selectedRun) + "</b>" : "Output";
+  }
+
+  function refreshLog() {
+    if (!selectedRun) { els.runsLog.textContent = ""; return; }
+    var name = selectedRun;
+    api("/api/log?name=" + encodeURIComponent(name)).then(function (data) {
+      if (name !== selectedRun) return;
+      var pre = els.runsLog;
+      var atBottom = pre.scrollHeight - pre.scrollTop - pre.clientHeight < 40;
+      pre.textContent = data.text || "No output yet. Games run from here write their progress here.";
+      if (atBottom) pre.scrollTop = pre.scrollHeight;
+    }).catch(function () {});
+  }
+
+  function refreshRuns() {
+    if (!local) return;
+    clearTimeout(runsTimer);
+    api("/api/games").then(function (data) {
+      runsData = data;
+      runsError = null;
+      runsFetchedAt = Date.now();
+    }).catch(function (err) {
+      runsError = err.message;
+    }).then(function () {
+      renderRuns();
+      if (currentView === "runs") refreshLog();
+      // Quick while it's being looked at, slow otherwise (just the tab dot).
+      var visible = currentView === "runs" && !document.hidden;
+      runsTimer = setTimeout(refreshRuns, visible ? 3000 : 20000);
+    });
+  }
+
+  function runAction(action, name) {
+    var requests = {
+      run: ["/api/run", {name: name}, "Started " + name + ". You can close this page; it keeps running."],
+      stop: ["/api/stop", {name: name}, "Stopping " + name + "…"],
+      "stop-after": ["/api/stop-after", {name: name, on: true}, name + " will stop after this session."],
+      "keep-going": ["/api/stop-after", {name: name, on: false}, name + " will keep going."],
+      dismiss: ["/api/dismiss", {name: name}, null]
+    };
+    var req = requests[action];
+    if (action === "stop" && !confirmTwice("stop:" + name)) { renderRuns(); return; }
+    api(req[0], req[1]).then(function (data) {
+      showToast(data.stopped && action === "stop-after"
+        ? "Stopped " + name + " (it was between sessions)." : req[2] || "Done.");
+    }).catch(function (err) {
+      showToast(err.message);
+    }).then(function () {
+      setTimeout(refreshRuns, 400);  // let the run start/stop before re-reading
+    });
+  }
+
+  els.runsList.addEventListener("click", function (e) {
+    var button = e.target.closest("button[data-action]");
+    if (button) { runAction(button.getAttribute("data-action"), button.getAttribute("data-name")); return; }
+    var card = e.target.closest(".run-card");
+    if (card && card.getAttribute("data-name") !== selectedRun) {
+      selectedRun = card.getAttribute("data-name");
+      els.runsLog.textContent = "";
+      renderRuns();
+      refreshLog();
+    }
+  });
+
+  // render() redraws the cards for the "click again" labels too.
+  var baseRender = render;
+  render = function () { baseRender(); if (local) renderRuns(); };
+
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) refreshRuns(); });
+
+  function enableLocal() {
+    local = true;
+    navButtons.runs.hidden = false;
+    els.folderBtn.style.display = "none";
+    els.folderStatus.style.display = "none";
+    byId("hero-note").textContent = "Games keep running when you close this window.";
+    byId("hero-install").hidden = true;
+    render();
+    refreshRuns();
+    refreshSetup();
+  }
+
+  // ---- first-run setup (local app): install ArchiSteamFarm, sign in ----
+  var setupData = null;
+  var setupOpen = false;   // shown until both steps are done
+  var setupTimer = null;
+
+  function byId(id) { return document.getElementById(id); }
+
+  function refreshSetup() {
+    clearTimeout(setupTimer);
+    api("/api/setup").then(function (d) {
+      if (setupData === null) setupOpen = !(d.asf && d.plugin && d.bot);
+      setupData = d;
+      renderSetup();
+      if (d.busy) setupTimer = setTimeout(refreshSetup, 800);
+    }).catch(function () {});
+  }
+
+  function renderSetup() {
+    var d = setupData;
+    var asfDone = d.asf && d.plugin;
+    if (setupOpen && asfDone && d.signed_in && !d.busy) {
+      setupOpen = false;
+      showToast("All set. Make a schedule, then run it.");
+    }
+    byId("hero-setup").hidden = !setupOpen;
+    byId("hero-actions").hidden = setupOpen;
+    byId("hero-note").hidden = setupOpen;
+    if (!setupOpen) return;
+
+    var installing = d.busy === "install";
+    byId("step-asf").className = "setup-step" + (asfDone ? " done" : installing ? " busy" : "");
+    byId("step-asf-text").textContent = asfDone ? "Installed." : installing ? (d.message || "Starting…")
+      : "Downloads ArchiSteamFarm and its achievement plugin (about 50 MB).";
+    byId("setup-install").hidden = asfDone || installing;
+
+    var signing = d.busy === "login" || d.busy === "code";
+    byId("step-steam").className = "setup-step" + (d.signed_in ? " done" : signing ? " busy" : "");
+    var text = "Sign in with the account to unlock achievements on. It's saved only in ArchiSteamFarm's own config on this computer.";
+    if (!asfDone) text = "After ArchiSteamFarm is installed.";
+    else if (d.signed_in) text = "Signed in as " + d.account + ".";
+    else if (signing) text = d.message || "Signing in…";
+    else if (d.needs === "SteamGuard") text = "Steam emailed you a code. Enter it here.";
+    else if (d.needs === "TwoFactorAuthentication") text = "Enter the code from Steam Guard in the Steam mobile app.";
+    byId("step-steam-text").textContent = text;
+    byId("login-form").hidden = !asfDone || d.signed_in || signing || !!d.needs;
+    byId("code-form").hidden = !asfDone || d.signed_in || signing || !d.needs;
+
+    byId("setup-error").hidden = !d.error;
+    byId("setup-error").textContent = d.error || "";
+  }
+
+  function setupPost(path, body) {
+    api(path, body).then(function (d) { setupData = d; renderSetup(); })
+      .catch(function (err) { showToast(err.message); })
+      .then(function () { setTimeout(refreshSetup, 300); });
+  }
+
+  byId("setup-install").addEventListener("click", function () { setupPost("/api/setup/install", {}); });
+  byId("login-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    setupPost("/api/setup/login", {username: byId("steam-user").value, password: byId("steam-pass").value});
+    byId("steam-pass").value = "";
+  });
+  byId("code-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    setupPost("/api/setup/code", {code: byId("steam-code").value});
+    byId("steam-code").value = "";
+  });
+
+  // ---- start screen ----
+  function showScreen(name) {
+    document.body.setAttribute("data-screen", name);
+    window.scrollTo(0, 0);
+  }
+
+  byId("hero-new").addEventListener("click", function () { showScreen("work"); setView("input"); });
+  byId("hero-run").addEventListener("click", function () {
+    if (local) { showScreen("work"); setView("runs"); return; }
+    // The public page can't run anything; offer the app instead.
+    byId("hero-install").hidden = !byId("hero-install").hidden;
+  });
+  document.querySelector(".topbar .brand").addEventListener("click", function (e) {
+    e.preventDefault();
+    showScreen("home");
+  });
+  byId("copy-install").addEventListener("click", function () {
+    var text = byId("install-cmd").textContent;
+    (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject())
+      .then(function () { showToast("Copied. Paste it into Terminal."); })
+      .catch(function () { showToast("Select the line and copy it."); });
+  });
+
+  if (/^https?:$/.test(location.protocol)) {
+    api("/api/ping").then(function (data) { if (data.app === "steam-unlocker") enableLocal(); }).catch(function () {});
   }
 
   // ---------------------------------------------------------------

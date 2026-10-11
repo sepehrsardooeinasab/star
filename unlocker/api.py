@@ -8,6 +8,7 @@ import sys
 import time
 from pathlib import Path
 
+from unlocker.paths import CODE_DIR, DATA_DIR
 from unlocker.settings import SETTINGS
 
 API_URL = f"http://127.0.0.1:{SETTINGS['asf_port']}/Api/Command"
@@ -25,10 +26,34 @@ def api_request_args(command):
              "-d", json.dumps({"Command": command})],
             API_HEADERS)
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-ASF_DIR = PROJECT_ROOT / "archifarm"
+ASF_DIR = DATA_DIR / "archifarm"
 ASF_BINARY = ASF_DIR / "ArchiSteamFarm"
 ASF_LOG = ASF_DIR / "log.txt"
+
+
+def asf_log_position():
+    """Current end of ASF's log, to hand to logged_on_since() later."""
+    try:
+        return ASF_LOG.stat().st_size
+    except OSError:
+        return 0
+
+
+def logged_on_since(position):
+    """True if the bot logged on to Steam again after `position` (from
+    asf_log_position()). Every log-on resets what the bot is playing to
+    GamesPlayedWhileIdle, so a game started with "play" before a reconnect
+    isn't running anymore. A log shorter than `position` was rotated by an
+    ASF restart, which drops the game too."""
+    try:
+        with open(ASF_LOG, "rb") as log:
+            log.seek(0, os.SEEK_END)
+            if log.tell() < position:
+                return True
+            log.seek(position)
+            return b"|OnLoggedOn() Successfully logged on" in log.read()
+    except OSError:
+        return False
 
 
 def _ps(pid, field):
@@ -143,7 +168,7 @@ def stop_keep_awake(proc):
 
 
 NOTIFY_TITLE = "Steam unlocker"
-NOTIFY_ICON = PROJECT_ROOT / "docs" / "logo.png"
+NOTIFY_ICON = CODE_DIR / "docs" / "logo.png"
 NOTIFY_REMOVE_AFTER = 1800  # "done" notifications clear themselves after 30 min
 
 

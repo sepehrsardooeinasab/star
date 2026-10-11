@@ -1,8 +1,8 @@
 import json
 import sys
-from pathlib import Path
+from unlocker.paths import DATA_DIR
 
-SETTINGS_PATH = Path(__file__).resolve().parent.parent / "settings.json"
+SETTINGS_PATH = DATA_DIR / "settings.json"
 
 # Every setting, with its default. settings.json only needs the keys being
 # changed; anything left out keeps the value here.
@@ -11,6 +11,8 @@ DEFAULTS = {
     "asf_port": 1243,
     # ASF's IPCPassword (from ASF.json), if one is set. null when there's none.
     "ipc_password": None,
+    # Port of the local app (runsteamunlocker --ui), at http://127.0.0.1:<port>.
+    "ui_port": 8788,
     # How long a command keeps retrying while ASF starts up or the bot
     # (re)connects to Steam, before giving up.
     "bot_connect_timeout": 60,
@@ -20,6 +22,10 @@ DEFAULTS = {
     # Same, after a fresh (re)connect. A 10s buffer wasn't enough in practice
     # — it still produced an epoch/offline-looking achievement timestamp once.
     "reconnect_settle_delay": 60,
+    # During a session, how often (in seconds) to check ASF's log for a
+    # reconnect to Steam, which silently drops the game "play" started.
+    # It's also checked right before every unlock.
+    "play_check_interval": 900,
     # Unlocks this close together in the source data count as simultaneous
     # (a 1s delay is usually the same event straddling a second boundary),
     # and are batched into a single aset.
@@ -44,9 +50,11 @@ DEFAULTS = {
 _TYPES = {
     "asf_port": (int,),
     "ipc_password": (str, type(None)),
+    "ui_port": (int,),
     "bot_connect_timeout": (int,),
     "warm_settle_delay": (int,),
     "reconnect_settle_delay": (int,),
+    "play_check_interval": (int,),
     "simultaneous_max_delay": (int,),
     "asf_shutdown_delay": (int,),
     "stop_other_asf": (bool,),
@@ -83,8 +91,11 @@ def load_settings(path=SETTINGS_PATH):
             _fail(f"{key!r} has the wrong type ({type(value).__name__})")
         if not isinstance(value, bool) and isinstance(value, (int, float)) and value < 0:
             _fail(f"{key!r} can't be negative")
-    if not 1 <= overrides.get("asf_port", 1) <= 65535:
-        _fail("'asf_port' must be between 1 and 65535")
+    for port in ("asf_port", "ui_port"):
+        if not 1 <= overrides.get(port, 1) <= 65535:
+            _fail(f"{port!r} must be between 1 and 65535")
+    if overrides.get("play_check_interval", 1) < 1:
+        _fail("'play_check_interval' must be at least 1")
     if overrides.get("jitter_percent", 0) > 100:
         _fail("'jitter_percent' can't be more than 100")
 

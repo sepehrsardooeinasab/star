@@ -1,0 +1,237 @@
+#!/bin/sh
+# Steam Auto Unlocker installer, for macOS and Linux:
+#
+#   curl -fsSL https://raw.githubusercontent.com/sepehrsardooeinasab/steam-auto-unlocker/main/install.sh | sh
+#
+# Installs the code into a per-user folder, the `runsteamunlocker` command,
+# ArchiSteamFarm with its achievement plugin, and the desktop app. Nothing
+# needs sudo. Running it again updates everything and keeps your games.
+#
+# Options, passed as `... | sh -s -- <options>`:
+#   --ref <tag|branch>  install that version instead of the latest release
+#   --no-app            skip the desktop app (use `runsteamunlocker --ui`)
+#   --uninstall         remove the app, the command and the code; your
+#                       games, ArchiSteamFarm and settings are kept
+#   --source <dir>      install the code from a local folder (for testing)
+#   --app-file <path>   install the app from a local .app, .dmg or .AppImage
+set -eu
+
+REPO="sepehrsardooeinasab/steam-auto-unlocker"
+APP_NAME="Steam Auto Unlocker"
+
+say() { printf '\033[1m==>\033[0m %s\n' "$*"; }
+note() { printf '    %s\n' "$*"; }
+fail() { printf '\033[31mError:\033[0m %s\n' "$*" >&2; exit 1; }
+
+REF="" NO_APP=0 UNINSTALL=0 SOURCE="" APP_FILE=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --ref) REF="${2:?--ref needs a tag or branch}"; shift 2 ;;
+        --no-app) NO_APP=1; shift ;;
+        --uninstall) UNINSTALL=1; shift ;;
+        --source) SOURCE="${2:?--source needs a folder}"; shift 2 ;;
+        --app-file) APP_FILE="${2:?--app-file needs a path}"; shift 2 ;;
+        *) fail "Unknown option: $1" ;;
+    esac
+done
+
+OS=$(uname -s)
+ARCH=$(uname -m)
+case "$OS" in
+    Darwin) HOME_DIR="${UNLOCKER_HOME:-$HOME/Library/Application Support/$APP_NAME}" ;;
+    Linux) HOME_DIR="${UNLOCKER_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/steam-auto-unlocker}" ;;
+    *) fail "Only macOS and Linux are supported." ;;
+esac
+BIN_DIR="${BIN_DIR:-$HOME/.local/bin}"
+DESKTOP_FILE="${XDG_DATA_HOME:-$HOME/.local/share}/applications/steam-auto-unlocker.desktop"
+
+mac_app_dir() {
+    if [ -n "${APP_DIR:-}" ]; then
+        echo "$APP_DIR"
+    elif [ -d "/Applications/$APP_NAME.app" ] || [ -w /Applications ]; then
+        echo /Applications
+    else
+        echo "$HOME/Applications"
+    fi
+}
+
+if [ "$UNINSTALL" -eq 1 ]; then
+    say "Uninstalling"
+    rm -f "$BIN_DIR/runsteamunlocker"
+    rm -rf "$HOME_DIR/app" "$HOME_DIR/python-path"
+    if [ "$OS" = Darwin ]; then
+        rm -rf "$(mac_app_dir)/$APP_NAME.app"
+    else
+        rm -f "$HOME_DIR/$APP_NAME.AppImage" "$DESKTOP_FILE"
+    fi
+    note "Kept your games, ArchiSteamFarm and settings in: $HOME_DIR"
+    note "Delete that folder too to remove everything."
+    exit 0
+fi
+
+# ---- Python 3.8+ ----------------------------------------------------------
+PY=$(command -v python3 || true)
+if [ "$OS" = Darwin ] && [ "$PY" = /usr/bin/python3 ] && ! xcode-select -p >/dev/null 2>&1; then
+    # /usr/bin/python3 is only a placeholder until the developer tools are in.
+    say "Python 3 is needed. macOS will now offer to install it (Command Line Tools)."
+    xcode-select --install >/dev/null 2>&1 || true
+    fail "Once that finishes, run this install command again."
+fi
+[ -n "$PY" ] || fail "Python 3 is needed. Install it with your package manager (e.g. sudo apt install python3), then run this again."
+"$PY" -c 'import sys; sys.exit(sys.version_info < (3, 8))' || fail "Python 3.8 or newer is needed ($PY is older)."
+command -v curl >/dev/null || fail "curl is needed."
+
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT INT TERM
+
+# ---- Version ----------------------------------------------------------------
+RELEASE_JSON="$TMP/release.json"
+if [ -z "$REF" ] && [ -z "$SOURCE" ]; then
+    if curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" -o "$RELEASE_JSON" 2>/dev/null; then
+        REF=$("$PY" -c 'import json,sys; print(json.load(open(sys.argv[1]))["tag_name"])' "$RELEASE_JSON")
+    else
+        REF=main
+        rm -f "$RELEASE_JSON"
+    fi
+elif [ -n "$REF" ]; then
+    curl -fsSL "https://api.github.com/repos/$REPO/releases/tags/$REF" -o "$RELEASE_JSON" 2>/dev/null \
+        || rm -f "$RELEASE_JSON"
+fi
+
+# ---- Code -------------------------------------------------------------------
+mkdir -p "$HOME_DIR"
+if [ -n "$SOURCE" ]; then
+    say "Installing the code from $SOURCE"
+    SRC="$SOURCE"
+else
+    say "Downloading Steam Auto Unlocker ($REF)"
+    curl -fsSL "https://github.com/$REPO/archive/$REF.tar.gz" | tar -xz -C "$TMP" \
+        || fail "Couldn't download version $REF."
+    SRC=$(find "$TMP" -mindepth 1 -maxdepth 1 -type d -name 'steam-auto-unlocker-*' | head -n 1)
+fi
+[ -f "$SRC/unlocker/run_unlocker.py" ] || fail "$SRC doesn't look like Steam Auto Unlocker."
+
+# A running app server would keep serving the old code.
+if [ -f "$HOME_DIR/app/unlocker/run_unlocker.py" ]; then
+    UNLOCKER_HOME="$HOME_DIR" "$PY" "$HOME_DIR/app/unlocker/run_unlocker.py" --ui-stop >/dev/null 2>&1 || true
+fi
+
+# Only the code: games, ASF and settings live next to it, untouched.
+rm -rf "$HOME_DIR/app.new"
+mkdir -p "$HOME_DIR/app.new"
+for item in unlocker docs runsteamunlocker runsteamunlocker.zsh-completion settings.example.json README.md; do
+    cp -R "$SRC/$item" "$HOME_DIR/app.new/"
+done
+find "$HOME_DIR/app.new" -name __pycache__ -type d -prune -exec rm -rf {} +
+rm -rf "$HOME_DIR/app"
+mv "$HOME_DIR/app.new" "$HOME_DIR/app"
+chmod +x "$HOME_DIR/app/runsteamunlocker"
+printf '%s\n' "$PY" > "$HOME_DIR/python-path"
+
+# ---- Command ----------------------------------------------------------------
+mkdir -p "$BIN_DIR"
+cat > "$BIN_DIR/runsteamunlocker" <<EOF
+#!/bin/sh
+# Installed by Steam Auto Unlocker's install.sh.
+export UNLOCKER_HOME="$HOME_DIR"
+export PATH="$(dirname "$PY"):\$PATH"
+exec "$HOME_DIR/app/runsteamunlocker" "\$@"
+EOF
+chmod +x "$BIN_DIR/runsteamunlocker"
+
+# ---- ArchiSteamFarm + plugin ------------------------------------------------
+say "Setting up ArchiSteamFarm"
+UNLOCKER_HOME="$HOME_DIR" "$PY" "$HOME_DIR/app/unlocker/run_unlocker.py" --install-asf \
+    || fail "Couldn't set up ArchiSteamFarm (see above). Run the install command again to retry."
+
+# ---- Desktop app ------------------------------------------------------------
+asset_url() {  # first release asset whose name ends with one of the suffixes
+    [ -f "$RELEASE_JSON" ] || return 0
+    "$PY" - "$RELEASE_JSON" "$@" <<'PYEOF'
+import json, sys
+assets = json.load(open(sys.argv[1])).get("assets", [])
+for suffix in sys.argv[2:]:
+    for a in assets:
+        if a["name"].endswith(suffix):
+            print(a["browser_download_url"])
+            raise SystemExit
+PYEOF
+}
+
+install_mac_app() {  # $1: a .app folder or a .dmg
+    dest=$(mac_app_dir)
+    mkdir -p "$dest"
+    case "$1" in
+        *.dmg)
+            hdiutil attach -nobrowse -readonly -mountpoint "$TMP/dmg" "$1" >/dev/null
+            app=$(find "$TMP/dmg" -maxdepth 1 -name '*.app' | head -n 1)
+            rm -rf "$dest/$APP_NAME.app"
+            cp -R "$app" "$dest/$APP_NAME.app"
+            hdiutil detach "$TMP/dmg" >/dev/null
+            ;;
+        *)
+            rm -rf "$dest/$APP_NAME.app"
+            cp -R "$1" "$dest/$APP_NAME.app"
+            ;;
+    esac
+    APP_INSTALLED="$dest/$APP_NAME.app"
+}
+
+install_linux_app() {  # $1: an .AppImage
+    cp "$1" "$HOME_DIR/$APP_NAME.AppImage"
+    chmod +x "$HOME_DIR/$APP_NAME.AppImage"
+    cp "$HOME_DIR/app/docs/logo.png" "$HOME_DIR/icon.png"
+    mkdir -p "$(dirname "$DESKTOP_FILE")"
+    cat > "$DESKTOP_FILE" <<EOF
+[Desktop Entry]
+Type=Application
+Name=$APP_NAME
+Comment=Replay a real player's Steam achievement timeline
+Exec="$HOME_DIR/$APP_NAME.AppImage"
+Icon=$HOME_DIR/icon.png
+Categories=Utility;
+Terminal=false
+EOF
+    APP_INSTALLED="$HOME_DIR/$APP_NAME.AppImage"
+}
+
+APP_INSTALLED=""
+if [ "$NO_APP" -eq 0 ]; then
+    if [ -n "$APP_FILE" ]; then
+        say "Installing the app from $APP_FILE"
+        if [ "$OS" = Darwin ]; then install_mac_app "$APP_FILE"; else install_linux_app "$APP_FILE"; fi
+    else
+        case "$OS-$ARCH" in
+            Darwin-arm64) url=$(asset_url _aarch64.dmg) ;;
+            Darwin-x86_64) url=$(asset_url _x64.dmg) ;;
+            Linux-x86_64) url=$(asset_url _amd64.AppImage) ;;
+            Linux-aarch64) url=$(asset_url _aarch64.AppImage) ;;
+            *) url="" ;;
+        esac
+        if [ -n "$url" ]; then
+            say "Installing the app"
+            file="$TMP/$(basename "$url")"
+            curl -fsSL "$url" -o "$file" || fail "Couldn't download the app."
+            if [ "$OS" = Darwin ]; then install_mac_app "$file"; else install_linux_app "$file"; fi
+        else
+            note "No desktop app build for this version and computer; use runsteamunlocker --ui instead."
+        fi
+    fi
+fi
+
+# ---- Done -------------------------------------------------------------------
+say "Installed"
+if [ -n "$APP_INSTALLED" ]; then
+    note "Open \"$APP_NAME\" to sign in to Steam and start."
+else
+    note "Run: runsteamunlocker --ui   (opens the app in your browser)"
+fi
+note "Command line: runsteamunlocker -h    Your data: $HOME_DIR"
+case ":$PATH:" in
+    *":$BIN_DIR:"*) ;;
+    *) note "Add $BIN_DIR to your PATH to use the runsteamunlocker command:"
+       note "  echo 'export PATH=\"$BIN_DIR:\$PATH\"' >> ~/.zshrc   (or ~/.bashrc)" ;;
+esac
+if [ "$OS" = Linux ] && [ -n "$APP_INSTALLED" ]; then
+    note "If the app doesn't open, your system may need FUSE for AppImages (e.g. sudo apt install libfuse2)."
+fi
