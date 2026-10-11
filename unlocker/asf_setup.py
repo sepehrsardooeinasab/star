@@ -25,11 +25,12 @@ from unlocker.api import ASF_BINARY, ASF_DIR, asf_running, ensure_asf_running
 from unlocker.settings import SETTINGS
 from unlocker.state import SESSION_LOCK, acquire_lock, lock_info, release_locks
 
+# The pair this release was tried with: installed, and updated to, by
+# itself. A newer pair that's compatible can be installed from Settings.
 ASF_VERSION = "6.3.10.3"
 PLUGIN_VERSION = "1.1.0.0"
-ASF_RELEASE = f"https://github.com/JustArchiNET/ArchiSteamFarm/releases/download/{ASF_VERSION}"
-PLUGIN_RELEASE = (f"https://github.com/CatPoweredPlugins/ASFAchievementManager"
-                  f"/releases/download/{PLUGIN_VERSION}")
+ASF_REPO = "JustArchiNET/ArchiSteamFarm"
+PLUGIN_REPO = "CatPoweredPlugins/ASFAchievementManager"
 
 CONFIG_DIR = ASF_DIR / "config"
 PLUGIN_DIR = ASF_DIR / "plugins" / "ASFAchievementManager"
@@ -74,12 +75,20 @@ def _record_version(part, version):
     VERSIONS_FILE.write_text(json.dumps(versions, indent=2) + "\n")
 
 
-def _needs(part):
-    """Whether ASF ("asf") or the plugin ("plugin") is missing or isn't the
-    pinned version."""
+def _version_key(version):
+    try:
+        return tuple(int(p) for p in version.split("."))
+    except (AttributeError, ValueError):
+        return ()
+
+
+def _needs(part, wanted=None):
+    """Whether ASF ("asf") or the plugin ("plugin") is missing or older than
+    wanted (the pinned version by default). A newer one, installed from
+    Settings, is kept."""
     installed = ASF_BINARY.exists() if part == "asf" else (PLUGIN_DIR / "ASFAchievementManager.dll").exists()
-    wanted = ASF_VERSION if part == "asf" else PLUGIN_VERSION
-    return not installed or installed_versions().get(part) != wanted
+    wanted = wanted or (ASF_VERSION if part == "asf" else PLUGIN_VERSION)
+    return not installed or _version_key(installed_versions().get(part)) < _version_key(wanted)
 
 
 def status():
@@ -95,8 +104,10 @@ def status():
         "asf": asf,
         "plugin": plugin,
         "asf_version": installed_versions().get("asf") if asf else None,
+        "plugin_version": installed_versions().get("plugin") if plugin else None,
         "asf_wanted": ASF_VERSION,
-        # Installed, but not the pinned pair: install() updates it.
+        "plugin_wanted": PLUGIN_VERSION,
+        # Installed, but older than the pinned pair: install() updates it.
         "outdated": asf and plugin and (_needs("asf") or _needs("plugin")),
         "bot": bool(bot.get("SteamLogin")),
         "account": bot.get("SteamLogin"),
@@ -107,6 +118,46 @@ def _download(url, dest):
     req = urllib.request.Request(url, headers={"User-Agent": "steam-auto-unlocker"})
     with urllib.request.urlopen(req, timeout=60) as r, open(dest, "wb") as f:
         shutil.copyfileobj(r, f)
+
+
+def _github(path):
+    req = urllib.request.Request(f"https://api.github.com/repos/{path}", headers={
+        "User-Agent": "steam-auto-unlocker", "Accept": "application/vnd.github+json"})
+    with urllib.request.urlopen(req, timeout=20) as r:
+        return json.loads(r.read())
+
+
+def latest_compatible():
+    """The newest ASF + plugin pair that work together: the latest plugin
+    release, with the newest stable ASF in the series (6.3.x) it's built
+    against. The plugin's source pins ASF as a submodule, and ASF's plugin
+    API holds within a series but not across them. Returns {"asf", "plugin"}
+    or raises SetupError."""
+    try:
+        plugin = _github(f"{PLUGIN_REPO}/releases/latest")
+        plugin_tag = plugin["tag_name"]
+        if "ASFAchievementManager.zip" not in {a["name"] for a in plugin.get("assets", [])}:
+            raise SetupError(f"ASFAchievementManager {plugin_tag} has no download yet.")
+        sha = _github(f"{PLUGIN_REPO}/contents/ArchiSteamFarm?ref={plugin_tag}")["sha"]
+        built_against = None
+        for page in range(1, 6):
+            tags = _github(f"{ASF_REPO}/tags?per_page=100&page={page}")
+            built_against = next((t["name"] for t in tags if t["commit"]["sha"] == sha), None)
+            if built_against or not tags:
+                break
+        if not built_against:
+            raise SetupError(f"Couldn't tell which ArchiSteamFarm ASFAchievementManager {plugin_tag} needs.")
+        series = built_against.split(".")[:2]
+        asset = asf_asset()
+        candidates = [r["tag_name"] for r in _github(f"{ASF_REPO}/releases?per_page=50")
+                      if not r["prerelease"] and not r["draft"]
+                      and r["tag_name"].split(".")[:2] == series
+                      and asset in {a["name"] for a in r.get("assets", [])}]
+    except (urllib.error.URLError, OSError, ValueError, KeyError) as e:
+        raise SetupError(f"Couldn't check GitHub for updates ({e.__class__.__name__}).")
+    if not candidates:
+        raise SetupError(f"No ArchiSteamFarm {'.'.join(series)}.x release found.")
+    return {"asf": max(candidates, key=_version_key), "plugin": plugin_tag}
 
 
 def _verified_download(release, name, workdir, report):
@@ -190,16 +241,19 @@ def _extract_plugin(archive):
         nested.rmdir()
 
 
-def install(report=print):
-    """Downloads and installs ASF and the plugin, or updates them to the
-    pinned versions (skipping whichever is already that version), then
+def install(report=print, versions=None):
+    """Downloads and installs ASF and the plugin, or updates them — to the
+    pinned versions, or to versions ({"asf", "plugin"}, from
+    latest_compatible()) — skipping whichever is already that new, then
     writes the configs.
 
     Files are swapped while holding the session lock, so never during a
     session: if one is playing, the update is skipped (it's tried again
     later), and a session that comes due meanwhile waits for the swap the
     way it waits for another game's session."""
-    need_asf, need_plugin = _needs("asf"), _needs("plugin")
+    asf_version = (versions or {}).get("asf") or ASF_VERSION
+    plugin_version = (versions or {}).get("plugin") or PLUGIN_VERSION
+    need_asf, need_plugin = _needs("asf", asf_version), _needs("plugin", plugin_version)
     if not (need_asf or need_plugin):
         write_configs()
         report("ArchiSteamFarm is ready.")
@@ -213,9 +267,11 @@ def install(report=print):
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         # Downloaded first, so a session waits only for the swap itself.
-        asf_zip = need_asf and _verified_download(ASF_RELEASE, asf_asset(), tmp, report)
+        asf_zip = need_asf and _verified_download(
+            f"https://github.com/{ASF_REPO}/releases/download/{asf_version}", asf_asset(), tmp, report)
         plugin_zip = need_plugin and _verified_download(
-            PLUGIN_RELEASE, "ASFAchievementManager.zip", tmp, report)
+            f"https://github.com/{PLUGIN_REPO}/releases/download/{plugin_version}",
+            "ASFAchievementManager.zip", tmp, report)
         if not acquire_lock(SESSION_LOCK, "ArchiSteamFarm update"):
             write_configs()
             report("A game's session just started, so ArchiSteamFarm wasn't updated. "
@@ -224,15 +280,15 @@ def install(report=print):
         try:
             _stop_idle_asf()
             if asf_zip:
-                report(f"{'Updating' if updating else 'Installing'} ArchiSteamFarm {ASF_VERSION}…")
+                report(f"{'Updating' if updating else 'Installing'} ArchiSteamFarm {asf_version}…")
                 ASF_DIR.mkdir(parents=True, exist_ok=True)
                 _extract(asf_zip, ASF_DIR, keep_existing=("config/",))
                 ASF_BINARY.chmod(0o755)
-                _record_version("asf", ASF_VERSION)
+                _record_version("asf", asf_version)
             if plugin_zip:
-                report(f"{'Updating' if updating else 'Installing'} ASFAchievementManager {PLUGIN_VERSION}…")
+                report(f"{'Updating' if updating else 'Installing'} ASFAchievementManager {plugin_version}…")
                 _extract_plugin(plugin_zip)
-                _record_version("plugin", PLUGIN_VERSION)
+                _record_version("plugin", plugin_version)
             write_configs()
         finally:
             release_locks()

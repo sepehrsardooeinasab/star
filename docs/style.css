@@ -1,11 +1,11 @@
   /* Theme (data-theme: dark | light) and accent (data-accent) are set on
-     <html> by the switcher in the top bar. The input side is always blue;
+     <html> by the Appearance menu in the top bar. The input side is always blue;
      the accent colors the output side, links, focus and the glow. Errors
      and warnings keep their own colors. */
   :root {
     color-scheme: dark;
-    --bg: #151515;
-    --surface: #1c1c1c;
+    --bg: #0d0d0d;
+    --surface: #1d1d1d;
     --surface-2: #242424;
     --surface-3: #2d2d2d;
     --border: #323232;
@@ -23,7 +23,7 @@
     --warn: #e0ad5f;
     --warn-bg: rgba(224, 173, 95, 0.1);
     --shadow: rgba(0, 0, 0, 0.55);
-    --max-width: 1120px;
+    --max-width: 1240px;
     --font: "Inter", system-ui, sans-serif;
     /* Height of each tab's main box (paste box, JSON preview, Timeline
        table), so switching tabs keeps them the same size and place. */
@@ -135,11 +135,53 @@
   }
   .icon-btn:hover { background: var(--surface-2); }
   .icon-btn svg { width: 15px; height: 15px; }
-  #theme-toggle .icon-sun { display: none; }
-  :root[data-theme="light"] #theme-toggle .icon-sun { display: block; }
-  :root[data-theme="light"] #theme-toggle .icon-moon { display: none; }
 
-  .accent-dot { width: 13px; height: 13px; border-radius: 50%; background: var(--accent); }
+  .icon-btn[aria-expanded="true"] { background: var(--surface-2); }
+
+  /* Appearance: theme and accent, in a small menu under its button. */
+  .appearance { position: relative; }
+  .appearance-menu {
+    position: absolute;
+    top: calc(100% + 0.4rem);
+    right: 0;
+    width: 13.5rem;
+    padding: 0.75rem;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    box-shadow: 0 10px 30px var(--shadow);
+  }
+  .appearance-menu[hidden] { display: none; }
+  .menu-label { margin: 0 0 0.4rem; font-size: 0.72rem; color: var(--text-dim); }
+  .menu-label + .segmented, .menu-label + .swatches { margin-bottom: 0.75rem; }
+  .swatches:last-child { margin-bottom: 0; }
+  .segmented { display: flex; gap: 2px; padding: 2px; border: 1px solid var(--border-strong); border-radius: 8px; }
+  .segmented button {
+    flex: 1;
+    padding: 0.3rem 0;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+  }
+  .segmented button:hover { color: var(--text); }
+  .segmented button[aria-pressed="true"] { background: var(--surface-3); color: var(--text); }
+  .swatches { display: flex; justify-content: space-between; }
+  .swatch {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border-radius: 50%;
+    border: 2px solid var(--surface);
+    box-shadow: 0 0 0 1px var(--border-strong);
+  }
+  .swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--text); }
+  .swatch[data-accent-choice="violet"] { background: #b6a2ff; }
+  .swatch[data-accent-choice="wine"]   { background: #d4677f; }
+  .swatch[data-accent-choice="blue"]   { background: #6fa8ff; }
+  .swatch[data-accent-choice="teal"]   { background: #3fcfb8; }
+  .swatch[data-accent-choice="amber"]  { background: #f0b45a; }
 
   /* Text buttons in the top bar: the guide, and an update when there is one. */
   .topbar-pill {
@@ -155,8 +197,106 @@
   .topbar-pill:hover { background: var(--surface-2); }
   .topbar-pill.accent { border-color: var(--accent); color: var(--accent); }
   .topbar-pill[hidden] { display: none; }
+  /* Schedule / Runs, in the app: two screens of the same box. */
+  .screen-switch {
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    margin-right: auto;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--surface);
+  }
+  .screen-switch[hidden] { display: none; }
+  .screen-switch button {
+    position: relative;
+    padding: 0.3rem 0.8rem;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+  }
+  .screen-switch button:hover { color: var(--text); }
+  .screen-switch button.active { background: var(--surface-3); color: var(--text); }
+  /* A game is running: a dot on Runs while it's not open. */
+  .screen-switch button.has-content:not(.active)::after {
+    content: "";
+    position: absolute;
+    top: 0.3rem;
+    right: 0.3rem;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--output);
+  }
+  /* In the desktop app the window already says its name, so the logo
+     stands alone, and the bar never moves, like a title bar: fixed to the
+     top (the page scrolls under it) with no elastic bounce. On macOS it is
+     the title bar: full width, the window buttons centred in it and room
+     for them on the left (dragging it moves the window). */
+  /* Only the page under the bar scrolls (so its scrollbar starts below the
+     bar, which stays outside it), with no bounce, and a screen shorter than
+     the window sits in its middle. */
+  :root[data-desktop], :root[data-desktop] body { height: 100%; overflow: hidden; }
+  :root[data-desktop] .page {
+    position: fixed;
+    inset: 52px 0 0;
+    overflow-y: auto;
+    overscroll-behavior: none;
+    display: flex;
+    flex-direction: column;
+  }
+  :root[data-desktop] .page > .hero,
+  :root[data-desktop] .page > .shell { width: 100%; margin-top: auto; margin-bottom: auto; }
+  :root[data-desktop] .page > .hero { padding-top: 2.5rem; padding-bottom: 2.5rem; }
+  :root[data-desktop] body[data-screen="work"] .page > .shell { padding-top: 1.5rem; padding-bottom: 1.5rem; }
+  /* Runs fills the window's height (the builder's tabs keep one size, so
+     switching them doesn't move anything). */
+  :root[data-desktop] .box[data-view="runs"] { height: calc(100vh - 52px - 3rem); }
+  :root[data-desktop] .box[data-view="runs"] .box-content {
+    height: auto;
+    flex: 1;
+    min-height: calc(var(--pane-box-h) + 5rem);
+  }
+  /* Like other apps, the interface itself can't be selected; only what you
+     type, the generated files (Schedule, Timeline), the run output and
+     commands to copy can. */
+  :root[data-desktop] body { -webkit-user-select: none; user-select: none; cursor: default; }
+  :root[data-desktop] :is(input, textarea, .file-preview, .csv-table, code) {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+  :root[data-desktop] :is(.file-preview, code) { cursor: text; }
+  /* The Appearance menu opens below the bar and its colored line. */
+  :root[data-desktop] .appearance-menu { top: calc(100% + 16px); }
+  /* The colored line runs under the bar, not above it. */
+  :root[data-desktop] body::before { top: 51px; }
+  :root[data-desktop] .topbar .brand span { display: none; }
+  :root[data-desktop] header.topbar {
+    position: fixed;
+    inset: 0 0 auto;
+    height: 52px;
+    padding-top: 0;
+    padding-bottom: 0;
+    background: var(--bg);
+  }
+  :root[data-desktop="macos"] header.topbar {
+    padding: 0 1rem 0 92px;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  /* The Guide tab (app only): just the setup panel. */
+  body[data-screen="guide"] .shell,
+  body[data-screen="guide"] .hero > :not(#hero-setup),
+  body[data-screen="guide"] #setup-close { display: none !important; }
+  body[data-screen="guide"] .hero { padding: 1.5rem 1rem 3rem; }
+  body[data-screen="guide"] .hero-panel { max-width: 40rem; margin: 0 auto; }
+  /* In the app the Guide tab replaces the Guide button. */
+  .screen-switch:not([hidden]) ~ .topbar-right #guide-btn { display: none; }
   /* Narrow windows: the logo alone, so the buttons fit. */
   @media (max-width: 520px) { .topbar .brand span { display: none; } }
+  @media (max-width: 600px) { .screen-switch:not([hidden]) ~ .topbar-right .topbar-btn { display: none; } }
 
   .topbar-btn {
     background: var(--text);
@@ -324,9 +464,13 @@
   .setup-step.done .step-mark { border-color: var(--accent); background: var(--accent); box-shadow: inset 0 0 0 3px var(--surface-2); }
   .setup-step.busy .step-mark { border-color: var(--accent); border-right-color: transparent; animation: step-spin 0.8s linear infinite; }
   @keyframes step-spin { to { transform: rotate(360deg); } }
-  .step-text { font-size: 0.82rem; }
-  .setup-step > button, .setup-form { margin-top: 0.7rem; }
-  .setup-step > button, .setup-form button { padding: 0.45rem 0.95rem; font-size: 0.8rem; }
+  .step-text { font-size: 0.82rem; white-space: pre-line; }
+  .setup-step > button, .setup-form, .step-actions { margin-top: 0.7rem; }
+  .setup-step > button, .setup-form button, .step-actions button { padding: 0.45rem 0.95rem; font-size: 0.8rem; }
+  .step-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .step-actions:not(:has(button:not([hidden]))) { display: none; }
+  .step-actions .primary-ghost { border-color: var(--accent); color: var(--accent); }
+  .setup-step .install-line { margin-top: 0.6rem; }
   .setup-form { display: flex; flex-wrap: wrap; gap: 0.5rem; }
   .setup-form input { flex: 1 1 9rem; width: auto; font-family: var(--font); }
   .setup-error { color: var(--danger); font-size: 0.82rem; }
@@ -455,6 +599,11 @@
     color: var(--text-dim);
   }
   .box-header .stats-strip b { color: var(--output); font-weight: 600; }
+  /* The Runs screen: just its stats, no schedule tabs or Save button. */
+  .box[data-view="runs"] .tab-group,
+  .box[data-view="runs"] .box-footer { display: none; }
+  .box[data-view="runs"] .box-header { padding-top: 0; }
+  .box[data-view="runs"] .stats-row { margin-top: 0; border-top: 0; }
 
   /* One fixed height on every tab. Inside, the pane's main box (paste
      box, JSON preview, Timeline table) stretches to fill whatever the
@@ -507,8 +656,14 @@
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
     gap: 1rem;
   }
+  /* The timeline needs the room more than the game list does. */
+  .view-pane[data-view="runs"][data-pane="timeline"].active {
+    grid-template-columns: minmax(12rem, 0.3fr) minmax(0, 1fr);
+  }
+  /* Beside a timeline, a game is just its name and progress. */
+  .view-pane[data-view="runs"][data-pane="timeline"] :is(.run-badge, .run-meta, .run-actions) { display: none; }
   @media (max-width: 900px) {
-    .view-pane[data-view="runs"].active { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }
+    .view-pane[data-view="runs"].active, .view-pane[data-view="runs"][data-pane="timeline"].active { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }
   }
   .runs-list { display: flex; flex-direction: column; gap: 0.6rem; min-height: 0; overflow-y: auto; }
   .runs-list .empty-hint, .runs-list .notice { margin: 0; }
@@ -563,7 +718,44 @@
   .run-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
   .run-actions button { padding: 0.42rem 0.85rem; font-size: 0.8rem; }
   .runs-log { display: flex; flex-direction: column; min-height: 0; }
-  .runs-log-head { font-size: 0.78rem; color: var(--text-dim); margin-bottom: 0.45rem; }
+  .runs-log-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    margin-bottom: 0.45rem;
+  }
+  .runs-pane-switch { flex: none; }
+  .runs-pane-switch button { padding: 0.2rem 0.7rem; font-size: 0.75rem; }
+  .runs-log [hidden] { display: none !important; }
+  /* A game's timeline on Runs: the builder's table, read-only, with what's
+     already unlocked dimmed. */
+  .runs-timeline, .timeline-table { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  .runs-timeline .empty-hint { margin: auto; }
+  /* Long achievement names wrap, so the table fits beside the game list. */
+  .runs-timeline table.csv-table td:nth-child(3) { white-space: normal; min-width: 8rem; }
+  .timeline-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.76rem;
+    color: var(--text-dim);
+  }
+  .timeline-bar span { flex: 1; }
+  .timeline-bar button { padding: 0.25rem 0.75rem; font-size: 0.76rem; }
+  .timeline-bar .primary-ghost { border-color: var(--accent); color: var(--accent); }
+  td.delay-cell.run-editable { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+  td.delay-cell.run-editable:hover { color: var(--accent); }
+  /* Selected text in the tables and previews, in the theme's accent. */
+  table.csv-table ::selection, pre.file-preview::selection, pre.file-preview ::selection {
+    background: color-mix(in srgb, var(--accent) 32%, transparent);
+    color: inherit;
+  }
+  table.csv-table tr.done-row td { opacity: 0.45; }
+  table.csv-table tr.next-row td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
   .runs-log-head b { color: var(--text); font-weight: 500; }
   .runs-log pre { white-space: pre-wrap; word-break: break-word; }
 

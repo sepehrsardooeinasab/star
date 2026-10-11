@@ -1,0 +1,7 @@
+{
+  "identifier": "drag-window-page",
+  "description": "The same, for the page once it's served by the app's local server.",
+  "windows": ["main"],
+  "remote": { "urls": ["http://127.0.0.1:*/*"] },
+  "permissions": ["core:window:allow-start-dragging", "core:window:allow-internal-toggle-maximize"]
+}

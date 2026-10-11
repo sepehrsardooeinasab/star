@@ -24,11 +24,13 @@ from urllib.parse import parse_qs, urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from unlocker import asf_setup, updates
+from unlocker import asf_setup, extras, updates
+from unlocker.api import notify
 from unlocker.paths import CODE_DIR
 from unlocker.runner import _session_status, config_changed
 from unlocker.settings import SETTINGS
 from unlocker.state import (
+    COMPLETED_DIR,
     CSVS_DIR,
     DEFAULT_PROGRESS,
     JSONS_DIR,
@@ -234,6 +236,28 @@ def dismiss(name):
     return {"dismissed": name}
 
 
+def read_timeline(name):
+    """The game's timeline CSV as saved with its config: in csvs/, or for a
+    finished game, in its newest completed/ folder. Saving an edited one
+    goes through save_game()."""
+    name = _check_name(name)
+    finished = sorted(list(COMPLETED_DIR.glob(f"{name}/{name}.csv"))
+                      + list(COMPLETED_DIR.glob(f"{name}_*/{name}.csv")),
+                      key=lambda p: p.stat().st_mtime, reverse=True)
+    # The config too, for editing the timeline (a finished game's isn't).
+    config = None
+    config_path = profile_paths(name)[0]
+    if config_path.exists():
+        try:
+            config = json.loads(config_path.read_text())
+        except (OSError, json.JSONDecodeError):
+            pass
+    for path in [CSVS_DIR / f"{name}.csv"] + finished:
+        if path.is_file():
+            return {"text": path.read_text(errors="replace"), "found": True, "config": config}
+    return {"text": "", "found": False, "config": config}
+
+
 def read_log(name):
     path = auto_log_path(_check_name(name))
     if not path.exists():
@@ -256,7 +280,7 @@ _setup_lock = threading.Lock()
 
 def setup_state():
     with _setup_lock:
-        return {**asf_setup.status(), **_setup}
+        return {**asf_setup.status(), **_setup, "extras": extras.status(), "asf_latest": _asf_latest}
 
 
 def _setup_update(**fields):
@@ -285,8 +309,47 @@ def _anything_running():
     return any(_running_pid(name) for name, _ in list_profiles())
 
 
-def setup_install():
-    return _setup_task("install", lambda: asf_setup.install(report=lambda m: _setup_update(message=m)))
+def setup_install(latest=False):
+    """Installs or updates ASF and the plugin: to the pinned pair, or with
+    latest, to the newest compatible pair found by asf_check()."""
+    versions = None
+    if latest:
+        if not (_asf_latest and _asf_latest.get("newer")):
+            raise AppError("Check for an ArchiSteamFarm update first.", 409)
+        versions = {"asf": _asf_latest["asf"], "plugin": _asf_latest["plugin"]}
+    report = lambda m: _setup_update(message=m)
+    return _setup_task("install", lambda: asf_setup.install(report=report, versions=versions))
+
+
+# The last check for a newer ASF + plugin pair (from Settings).
+_asf_latest = None
+
+
+def asf_check():
+    """Asks GitHub for the newest ASF + plugin pair that work together, and
+    whether it's newer than what's installed."""
+    global _asf_latest
+    try:
+        latest = asf_setup.latest_compatible()
+    except asf_setup.SetupError as e:
+        _asf_latest = {"error": str(e)}
+        return setup_state()
+    installed = asf_setup.installed_versions()
+    key = asf_setup._version_key
+    newer = (key(latest["asf"]) > key(installed.get("asf"))
+             or key(latest["plugin"]) > key(installed.get("plugin")))
+    _asf_latest = {**latest, "newer": newer}
+    return setup_state()
+
+
+def install_notifier():
+    report = lambda m: _setup_update(message=m)
+    return _setup_task("notifier", lambda: extras.install_notifier(report))
+
+
+def test_notification():
+    notify("Test", "Notifications work. You'll get one when a session ends or a run stops.")
+    return {"sent": True}
 
 
 def app_update():
@@ -398,6 +461,7 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/setup": setup_state,
             "/api/update": lambda: updates.update_state(force=query.get("force") == "1"),
             "/api/log": lambda: read_log(query.get("name")),
+            "/api/timeline": lambda: read_timeline(query.get("name")),
         }
         self._route(routes.get(url.path))
 
@@ -426,7 +490,10 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/stop": lambda: stop_run(name),
             "/api/stop-after": lambda: set_stop_after(name, bool(body.get("on", True))),
             "/api/dismiss": lambda: dismiss(name),
-            "/api/setup/install": setup_install,
+            "/api/setup/install": lambda: setup_install(bool(body.get("latest"))),
+            "/api/setup/asf-check": asf_check,
+            "/api/setup/install-notifier": install_notifier,
+            "/api/setup/test-notification": test_notification,
             "/api/setup/login": lambda: setup_login(body.get("username"), body.get("password")),
             "/api/setup/code": lambda: setup_code(body.get("code")),
             "/api/update": app_update,
@@ -460,6 +527,7 @@ def serve():
     if not acquire_lock(SERVER_LOCK, "app", keep=True):
         print("The app is already running.")
         return
+    extras.extend_path()  # Homebrew's tools, for this server and its runs
     server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     print(f"Serving {URL} (started {datetime.now():%a %H:%M}).")
     threading.Thread(target=_keep_asf_current, daemon=True).start()
