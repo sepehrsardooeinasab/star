@@ -28,6 +28,8 @@ Prefer to set everything up yourself? See [Manual setup](#manual-setup) below.
 The app starts on two buttons: **New schedule** and **Run a game**. On first launch it sets up ArchiSteamFarm and signs in to Steam instead.
 
 - Paste an export and check the timeline as on the public page, then **Save to project** writes the config and CSV into the data folder (`jsons/` and `csvs/`).
+- In the app, the paste can be in any sort, or just a link to a player's achievements (SteamHunters `steamhunters.com/id/<player>/apps/<appid>/achievements` or Steam `steamcommunity.com/id/<player>/stats/<appid>/achievements`; their game details need to be public). A link brings exact unlock times from Steam and fills in the game name, App ID and player.
+- `aset` unlocks an achievement by its number in the plugin's list (`alist`), the game's own order. The app asks ArchiSteamFarm for that list and matches each achievement to its number by name. Where a game reuses a name (Bongo Cat has four "Item Collector"s), it tells them apart by description, using your own Steam profile's achievements (game details public) to learn each number's description; it warns when names repeat, and stops rather than guess if ArchiSteamFarm and Steam disagree. On the public page, numbers come from the pasted order, so the paste needs SteamHunters' default sort.
 - The **Settings** tab in the top bar (or **Settings…**, ⌘, / Ctrl+, in the app's menu) shows the installed ArchiSteamFarm and plugin versions with **Check for updates**, the Steam account (**Use another account**), whether keeping the computer awake and notifications work here (**Test keep awake**, **Send a test notification**, and help installing what's missing on Linux), and the data folder (**Show in Finder**). Theme and accent are under the palette button.
 - The app checks for a new release when it opens, and from **Check for Updates…** in its menu (the app menu on macOS, **Help** on Linux). **Update now** runs the install command for you: the app closes, updates and opens again. Games waiting between sessions keep going; only a session that's playing has to end first.
 - ArchiSteamFarm and its plugin are pinned to versions known to work together, and ASF's own auto-update is turned off so it can't drift from the plugin. When an app update pins newer ones, they're swapped in between sessions, never during one: a session that comes due meanwhile waits a moment for the swap.
@@ -97,7 +99,7 @@ Only needed without the install command, e.g. when running straight from a clone
 ### 2. Generate a config from SteamHunters
 
 - On [SteamHunters](https://steamhunters.com), in settings enable **show hidden achievements**, and prefer showing time in seconds.
-- Open the page for the game you own and want achievements unlocked for. Find a player with a legitimate, completed profile for it, and use the default sort (normal in-game achievement order, not grouped).
+- Open the page for the game you own and want achievements unlocked for. Find a player with a legitimate, completed profile for it, and use the default sort (normal in-game achievement order, not grouped). The app accepts any sort, or just the page's link.
 - Select and copy the achievement list text, from the first achievement through the last.
 - Paste it into the [Unlock Scheduler](https://sepehrsardooeinasab.github.io/star/), generate the config, and save the resulting file into `jsons/`.
 
@@ -171,6 +173,7 @@ With randomness on, it applies to the delays between achievements and to the gap
   - `state.py` — reads/writes `jsons/config_*.json` and `jsons/progress_*.json`
   - `settings.py` — defaults for `settings.json` and its validation
   - `server.py` — the local app (`--ui`): serves `docs/` and the API it uses to save configs and start, stop and follow runs
+  - `achievements.py` — the builder's achievement numbers (from the plugin's `alist`, matched with Steam's public stats) and reading a player's achievements from a link
   - `asf_setup.py` — first-run setup: downloads ArchiSteamFarm and the plugin (and updates them to the pinned versions), writes their configs, signs in to Steam
   - `updates.py` — checks GitHub for a newer release and updates by running the install script again
   - `paths.py` — where the code and the data live (`UNLOCKER_HOME`)

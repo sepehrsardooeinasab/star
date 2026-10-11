@@ -205,7 +205,10 @@ def write_configs():
     # API instead). AutoRestart off: the unlocker starts and stops ASF.
     # UpdatePeriod 0: ASF never updates itself, since the plugin only works
     # with the ASF it's built for; install() updates the two together.
-    asf.update({"Headless": True, "AutoRestart": False, "UpdatePeriod": 0})
+    # The plugin's names in English, matching Steam's, so the builder can
+    # match achievements to their numbers by name.
+    asf.update({"Headless": True, "AutoRestart": False, "UpdatePeriod": 0,
+                "Rudokhvist.AchievementsCulture": "en-US"})
     asf_json.write_text(json.dumps(asf, indent=2) + "\n")
 
     port = SETTINGS["asf_port"]

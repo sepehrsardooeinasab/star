@@ -51,7 +51,7 @@
       idx++;
       totalCount++;
 
-      var unlockTime = null, points = null, percent = null;
+      var unlockTime = null, points = null, percent = null, description = "";
       for (var i = idx; i < block.length; i++) {
         var s = block[i].match(STATS_RE);
         if (s && percent === null) {
@@ -61,11 +61,13 @@
         }
         var m = block[i].match(TIME_RE);
         if (m) { unlockTime = parseTimestamp(m); break; }
+        if (i === idx && percent === null) description = block[i];  // the line under the name
       }
       entries.push({name: achName, points: points, percent: percent});
 
       if (unlockTime !== null) {
-        achievements.push({ach_name: achName, ach_id: orderIndex, unlock_time: unlockTime});
+        achievements.push({ach_name: achName, ach_id: orderIndex, unlock_time: unlockTime,
+                           description: description, order: orderIndex});
       }
     });
 
@@ -114,6 +116,111 @@
     if (isMonotonic(known("percent"), byNumber)) return "percentage";
     if (isMonotonic(known("points"), byNumber)) return "points";
     return null;
+  }
+
+  // ---- achievement numbers (app only) ----
+  // aset unlocks an achievement by its number in the plugin's list, which
+  // is the game's own order. In the app those numbers come from
+  // ArchiSteamFarm itself (see unlocker/achievements.py), and achievements
+  // are matched to them by name; where a game reuses a name, by
+  // description, or by Steam's ID for a link. So the paste can be in any
+  // sort, or be a link to a player's achievements.
+  var LINK_RE = /^https?:\/\/(www\.)?(steamhunters\.com|steamcommunity\.com)\/\S+$/i;
+  var linkSources = {};   // url -> {status: "loading" | "ok" | "error", data, message}
+  var numberings = {};    // appid -> {status, data, message, at}
+
+  function pastedLink(text) {
+    var t = String(text || "").trim();
+    return LINK_RE.test(t) ? t : null;
+  }
+
+  function gameSlug(name) {
+    return String(name || "").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "");
+  }
+
+  function loadLink(url) {
+    if (linkSources[url]) return linkSources[url];
+    linkSources[url] = {status: "loading"};
+    api("/api/achievements/link", {url: url}).then(function (d) {
+      linkSources[url] = {status: "ok", data: d};
+      if (pastedLink(els.exportText.value) === url) {
+        if (!els.appid.value && d.appid) els.appid.value = d.appid;
+        if (!els.gameName.value && d.game) els.gameName.value = gameSlug(d.game);
+        if (!els.copiedFrom.value && d.player) els.copiedFrom.value = d.player;
+      }
+    }).catch(function (err) {
+      linkSources[url] = {status: "error", message: err.message};
+    }).then(scheduleRecompute);
+    return linkSources[url];
+  }
+
+  // Asked once the App ID has stayed the same for a moment, so typing one
+  // doesn't check every partial number. A failed check is tried again on
+  // the next change, after a moment.
+  var numbersTimer = null, numbersWanted = null;
+  function loadNumbers(appid) {
+    var n = numberings[appid];
+    if (n && (n.status !== "error" || Date.now() - n.at < 5000)) return n;
+    if (numbersWanted !== appid) {
+      numbersWanted = appid;
+      clearTimeout(numbersTimer);
+      numbersTimer = setTimeout(function () {
+        numberings[appid] = {status: "loading"};
+        api("/api/achievements/numbers", {appid: appid}).then(function (d) {
+          numberings[appid] = {status: "ok", data: d};
+        }).catch(function (err) {
+          numberings[appid] = {status: "error", message: err.message, at: Date.now()};
+        }).then(function () {
+          if (numbersWanted === appid) numbersWanted = null;
+          scheduleRecompute();
+        });
+      }, 1200);
+    }
+    return {status: "loading"};
+  }
+
+  function sameText(a, b) {
+    return String(a || "").replace(/\s+/g, " ").trim().toLowerCase() === String(b || "").replace(/\s+/g, " ").trim().toLowerCase();
+  }
+
+  // Sets each achievement's ach_id to its number. Matched in pasted order,
+  // so achievements that can't be told apart at all keep that order.
+  function assignNumbers(list, numbered) {
+    var byApi = {}, used = {};
+    numbered.forEach(function (n) { if (n.apiname) byApi[n.apiname] = n; });
+    var result = {missing: [], shared: {}, byOrder: {}, restricted: []};
+    list.slice().sort(function (a, b) { return a.order - b.order; }).forEach(function (a) {
+      var same = numbered.filter(function (n) { return sameText(n.name, a.ach_name); });
+      if (same.length > 1) result.shared[same[0].name] = same.length;
+      var match = a.apiname && byApi[a.apiname];
+      if (!match) {
+        var free = same.filter(function (n) { return !used[n.number]; });
+        if (free.length > 1 && a.description) {
+          var described = free.filter(function (n) { return sameText(n.description, a.description); });
+          if (described.length) free = described;
+        }
+        if (free.length > 1) result.byOrder[same[0].name] = true;
+        match = free[0];
+      }
+      if (!match) { result.missing.push(a.ach_name); a.ach_id = null; return; }
+      used[match.number] = true;
+      a.ach_id = match.number;
+      if (match.restricted) result.restricted.push(a.ach_name);
+    });
+    return result;
+  }
+
+  function sharedNamesMsg(match, linked) {
+    var names = Object.keys(match.shared);
+    if (!names.length) return null;
+    var list = names.map(function (n) { return "\u201c" + n + "\u201d (\u00d7" + match.shared[n] + ")"; }).join(", ");
+    var byOrder = Object.keys(match.byOrder);
+    if (byOrder.length) {
+      return "This game has achievements that share a name: " + list + ". Some of them also share a description, " +
+        "so nothing tells them apart: they were matched in the order they were pasted. Check them on the Timeline tab.";
+    }
+    return "This game has achievements that share a name: " + list + ". Each was matched to its own number by " +
+      (linked ? "Steam's ID for it." : "its description.");
   }
 
   function addDelays(list) {
@@ -518,14 +625,69 @@
     var cumLimitSec = (parseFloat(els.cumLimit.value) || 0) * 3600;
     var minGapSec = (parseFloat(els.minGap.value) || 0) * 3600;
 
+    // A link: the player's achievements come from Steam (app only).
+    var link = pastedLink(els.exportText.value);
+    var linked = null;
+    if (link && !local) {
+      latest = {errors: ["Links work in the STAR app. Here, copy the page's text and paste it instead."], inputNotice: "danger"};
+      return;
+    }
+    if (link) {
+      var source = loadLink(link);
+      if (source.status === "loading") {
+        latest = {errors: ["Reading the achievements from Steam\u2026"], pending: true};
+        return;
+      }
+      if (source.status === "error") { latest = {errors: [source.message], inputNotice: "danger"}; return; }
+      linked = source.data;
+    }
+
     var errors = [];
     if (!appidVal || appidVal <= 0) errors.push("Enter a valid numeric App ID in Settings.");
     if (!gameName) errors.push("Enter a game name in Settings.");
 
-    var parsed = parseExport(els.exportText.value || "");
+    var parsed = linked ? {
+      list: linked.achievements.map(function (a, i) {
+        return {ach_name: a.name, ach_id: null, unlock_time: a.unlock_time * 1000,
+                description: a.description, apiname: a.apiname, order: i};
+      }).sort(function (a, b) { return a.unlock_time - b.unlock_time; }),
+      sortedBy: null, totalCount: linked.total
+    } : parseExport(els.exportText.value || "");
     if (parsed.list.length === 0) errors.push("No unlocked achievements with a valid timestamp were found in the pasted text.");
 
     if (errors.length) { latest = {errors: errors}; return; }
+
+    // Numbers from ArchiSteamFarm (app only); see assignNumbers.
+    var numberDangers = [], numberWarnings = [];
+    if (local) {
+      var numbering = loadNumbers(appidVal);
+      if (numbering.status === "loading") {
+        latest = {errors: ["Checking the achievement numbers with ArchiSteamFarm\u2026"], pending: true};
+        return;
+      }
+      if (numbering.status === "ok") {
+        var match = assignNumbers(parsed.list, numbering.data.achievements);
+        parsed.list = parsed.list.filter(function (a) { return a.ach_id; });
+        parsed.sortedBy = null;  // numbers no longer depend on the paste's order
+        if (match.missing.length) {
+          numberDangers.push("Not in this game's achievements, so left out: " + match.missing.join(", ") +
+            ". Check the App ID, or that the paste is from this game.");
+        }
+        var shared = sharedNamesMsg(match, !!linked);
+        if (shared) numberWarnings.push(shared);
+        if (match.restricted.length) {
+          numberWarnings.push("Steam only lets the game itself unlock " + match.restricted.join(", ") +
+            ", so aset will skip " + (match.restricted.length === 1 ? "it." : "them."));
+        }
+        if (parsed.list.length === 0) { latest = {errors: numberDangers, inputNotice: "danger"}; return; }
+      } else if (linked) {
+        latest = {errors: ["Couldn't get the achievement numbers: " + numbering.message], inputNotice: "danger"};
+        return;
+      } else {
+        numberDangers.push("Couldn't check the achievement numbers with ArchiSteamFarm: " + numbering.message +
+          " Until then, numbers come from the pasted order, so the paste needs the default sort.");
+      }
+    }
 
     var withDelays = addDelays(parsed.list);
 
@@ -542,10 +704,10 @@
     // Unlike the warnings below, a re-sorted paste makes every ach_id
     // wrong, so it's surfaced loudly (red Download button, input-pane
     // notice) rather than only as a notice in the output tabs.
-    var dangers = [];
+    var dangers = numberDangers.slice();
     if (parsed.sortedBy) dangers.push(sortedByMsg(parsed.sortedBy));
 
-    var warnings = [];
+    var warnings = numberWarnings.slice();
     if (simultaneous.length) warnings.push(simultaneous.length + " timestamp(s) have multiple achievements unlocking together.");
     // Problems that can hit many sessions/achievements are listed in one
     // notice each rather than one notice per hit.
@@ -680,7 +842,8 @@
         "<span>gap <b>" + latest.stats.gapRange + "</b></span>";
     } else {
       // Kept (with a hint) so the bar doesn't change height on paste.
-      els.statsStrip.innerHTML = "<span>Paste an export to see its achievements, sessions and gaps.</span>";
+      els.statsStrip.innerHTML = "<span>" + escapeHtml(latest && latest.pending ? latest.errors[0]
+        : "Paste an export to see its achievements, sessions and gaps.") + "</span>";
     }
 
     // Download always saves everything together, so it only depends on
@@ -689,7 +852,10 @@
 
     var dangers = ok ? latest.dangers : [];
     var dangerHtml = dangers.map(function (d) { return noticeHtml("danger", d); }).join("");
-    els.inputAlertSlot.innerHTML = dangerHtml + editsBannerHtml();
+    // Problems with the paste itself (a link, the numbers) show under it too.
+    var inputHtml = latest && !ok && latest.inputNotice
+      ? latest.errors.map(function (m) { return noticeHtml(latest.inputNotice, m); }).join("") : "";
+    els.inputAlertSlot.innerHTML = dangerHtml + inputHtml + editsBannerHtml();
     els.downloadBtn.classList.toggle("btn-danger", dangers.length > 0);
     els.downloadBtn.textContent = local
       ? (dangers.length ? "Save anyway" : "Save to project")
@@ -704,8 +870,8 @@
 
     if (!latest || latest.errors.length) {
       var msgs = latest ? latest.errors : ["Paste an export first."];
-      slot.innerHTML = msgs.map(function (m) { return noticeHtml("danger", m); }).join("") +
-        emptyHtml("{ }", "Fix the issue above to generate this file.");
+      slot.innerHTML = msgs.map(function (m) { return noticeHtml(latest && latest.pending ? "info" : "danger", m); }).join("") +
+        emptyHtml("{ }", latest && latest.pending ? "This fills in when it's done." : "Fix the issue above to generate this file.");
       return;
     }
 
@@ -1573,6 +1739,9 @@
     els.folderStatus.style.display = "none";
     byId("hero-note").textContent = "Games keep running when you close this window.";
     byId("hero-install").hidden = true;
+    document.body.classList.add("local");
+    els.exportText.placeholder = "Paste the copied SteamHunters achievements page here, or a link to a player's achievements\u2026";
+    recompute();
     render();
     refreshRuns();
     refreshSetup();
