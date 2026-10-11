@@ -260,20 +260,4 @@ UNLOCKER_HOME="$HOME_DIR" PYTHONDONTWRITEBYTECODE=1 "$PY" "$CODE/unlocker/run_un
     || fail "Couldn't set up ArchiSteamFarm (see above). Run the install command again to retry."
 
 # ---- Done -------------------------------------------------------------------
-say "Installed"
-if [ -n "$APP_INSTALLED" ]; then
-    note "Open \"$APP_NAME\" to sign in to Steam and start."
-else
-    note "Run: runsteamunlocker --ui   (opens the app in your browser)"
-fi
-note "Command line: runsteamunlocker -h"
-note "Your games and ArchiSteamFarm: $HOME_DIR"
-note "The code and page: $CODE"
-case ":$PATH:" in
-    *":$BIN_DIR:"*) ;;
-    *) note "Add $BIN_DIR to your PATH to use the runsteamunlocker command:"
-       note "  echo 'export PATH=\"$BIN_DIR:\$PATH\"' >> ~/.zshrc   (or ~/.bashrc)" ;;
-esac
-if [ "$OS" = Linux ] && [ -n "$APP_INSTALLED" ]; then
-    note "If the app doesn't open, your system may need FUSE for AppImages (e.g. sudo apt install libfuse2)."
-fi
+say "Done"
