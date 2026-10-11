@@ -26,9 +26,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from unlocker import asf_setup, extras, updates
 from unlocker.api import notify
-from unlocker.paths import CODE_DIR
+from unlocker.paths import CODE_DIR, DATA_DIR
 from unlocker.runner import _session_status, config_changed
-from unlocker.settings import SETTINGS
+from unlocker.settings import SETTINGS, SETTINGS_PATH
 from unlocker.state import (
     COMPLETED_DIR,
     CSVS_DIR,
@@ -456,7 +456,8 @@ class Handler(SimpleHTTPRequestHandler):
             return super().do_GET()
         query = {k: v[0] for k, v in parse_qs(url.query).items()}
         routes = {
-            "/api/ping": lambda: {"app": APP_ID},
+            "/api/ping": lambda: {"app": APP_ID, "home": str(DATA_DIR.resolve()),
+                                  "code": str(CODE_DIR), "pid": os.getpid()},
             "/api/games": game_states,
             "/api/setup": setup_state,
             "/api/update": lambda: updates.update_state(force=query.get("force") == "1"),
@@ -535,18 +536,52 @@ def serve():
 
 
 def _ping():
+    """What the server on our port says about itself, or None if there's
+    none (or it isn't this app's)."""
     try:
         with urllib.request.urlopen(URL + "api/ping", timeout=1) as r:
-            return json.loads(r.read()).get("app") == APP_ID
+            info = json.loads(r.read())
     except (OSError, ValueError):
-        return False
+        return None
+    return info if isinstance(info, dict) and info.get("app") == APP_ID else None
+
+
+def _ours(info):
+    return info.get("home") == str(DATA_DIR.resolve()) and info.get("code") == str(CODE_DIR)
+
+
+def _replace_other_server(info):
+    """The port may be held by another copy's server: an older version for
+    the same data (after an update), which is stopped, or one for other data
+    (a project folder, say), which is left alone and reported."""
+    pid = info.get("pid") if info.get("home") == str(DATA_DIR.resolve()) else None
+    if not info.get("home"):  # before 3.04 it didn't say; this data's lock does
+        pid = (lock_info(SERVER_LOCK) or [None])[0]
+    if pid:
+        os.kill(pid, signal.SIGTERM)
+        deadline = time.monotonic() + 5
+        while _ping():
+            if time.monotonic() > deadline:
+                break
+            time.sleep(0.2)
+        else:
+            return
+    where = info.get("home") or "an older version"
+    print(f"Port {PORT} is used by another copy of STAR (data in {where}). "
+          f"Stop it with runsteamunlocker --ui-stop from that copy, or set a different ui_port "
+          f"in {SETTINGS_PATH}, then try again.")
+    sys.exit(1)
 
 
 def open_app(browser=True):
     """Starts the app in the background if it isn't running, then opens it
     in the browser — or, without browser, just prints its URL (the desktop
     app opens it in its own window)."""
-    if not _ping():
+    info = _ping()
+    if info and not _ours(info):
+        _replace_other_server(info)
+        info = None
+    if not info:
         JSONS_DIR.mkdir(parents=True, exist_ok=True)
         with open(SERVER_LOG, "a") as log:
             subprocess.Popen(
