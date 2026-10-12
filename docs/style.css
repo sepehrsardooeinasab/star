@@ -4,12 +4,12 @@
      and warnings keep their own colors. */
   :root {
     color-scheme: dark;
-    --bg: #0d0d0d;
-    --surface: #1d1d1d;
-    --surface-2: #242424;
-    --surface-3: #2d2d2d;
-    --border: #323232;
-    --border-strong: #474747;
+    --bg: #1c1c1e;
+    --surface: #262628;
+    --surface-2: #2d2d30;
+    --surface-3: #363639;
+    --border: #3a3a3d;
+    --border-strong: #515154;
     --text: #f5f5f5;
     --text-dim: #b0b0b0;
     --placeholder: #858585;
