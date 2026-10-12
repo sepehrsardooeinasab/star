@@ -1636,10 +1636,15 @@
   function summaryHtml(g) {
     if (!g) return "";
     var title = '<div class="run-summary-title">' + escapeHtml(gameTitle(g)) + "</div>";
+    // A small arrow opens the schedule's info (App ID, where it came from)
+    // under the summary.
+    var more = '<button class="summary-more" type="button" data-run-info aria-expanded="' + !!runInfoOpen + '" title="' +
+      (runInfoOpen ? "Hide" : "Show") + ' App ID and where it came from" aria-label="Schedule info">' +
+      '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5 8 10l3.5-3.5"/></svg></button>';
     if (g.state === "invalid") {
-      return title + '<div class="run-summary-line"><span class="bad">' + escapeHtml(g.error || "The config has a problem.") + "</span></div>";
+      return title + '<div class="run-summary-line"><span class="bad">' + escapeHtml(g.error || "The config has a problem.") + "</span>" + more + "</div>";
     }
-    if (g.finished || g.state === "completed") return title + '<div class="run-summary-line">All achievements unlocked</div>';
+    if (g.finished || g.state === "completed") return title + '<div class="run-summary-line">All achievements unlocked' + more + "</div>";
     var parts = [];
     function part(label, value) {
       parts.push('<div class="summary-part"><span class="summary-label">' + label + '</span><span class="summary-value">' +
@@ -1658,6 +1663,7 @@
       var wait = waitLeft(g);
       part(g.running ? "Starts" : "Playable", wait > 0 ? escapeHtml(fmtAt(wait)) : g.running ? "Starting…" : "Now");
     }
+    parts[parts.length - 1] = parts[parts.length - 1].replace(/<\/div>$/, more + "</div>");
     return title + '<div class="summary-bar">' + parts.join("") + "</div>" +
       (g.config_changed ? '<div class="run-summary-line"><span class="warn">The achievement order changed: run it once from the terminal to confirm.</span></div>' : "");
   }
@@ -1784,6 +1790,7 @@
     var shown = selectedGame();
     byId("run-summary").innerHTML = runsError ? "" : summaryHtml(shown);
     byId("run-info").innerHTML = runsError ? "" : infoHtml(shown);
+    byId("run-info").hidden = !runInfoOpen || !shown;
     renderTimeline();
   }
 
@@ -2101,11 +2108,15 @@
     });
   }
 
-  // Info and Log: shown under the summary when asked for.
-  byId("run-info-btn").addEventListener("click", function () {
-    var open = byId("run-info").hidden;
-    byId("run-info").hidden = !open;
-    this.setAttribute("aria-expanded", String(open));
+  // The schedule's info, shown under the summary when its arrow is open.
+  var runInfoOpen = false;
+  byId("run-summary").addEventListener("click", function (e) {
+    var button = e.target.closest("[data-run-info]");
+    if (!button) return;
+    runInfoOpen = !runInfoOpen;
+    byId("run-info").hidden = !runInfoOpen;
+    button.setAttribute("aria-expanded", String(runInfoOpen));
+    button.title = (runInfoOpen ? "Hide" : "Show") + " App ID and where it came from";
   });
   // Full timeline: every session, in the space the log takes otherwise.
   var runFull = false;

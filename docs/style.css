@@ -1821,6 +1821,29 @@
   }
   .summary-part { display: flex; flex-direction: column; gap: 0.1rem; padding: 0.45rem 0.8rem; border-left: 1px solid var(--border); min-width: 0; }
   .summary-part:first-child { border-left: 0; }
+  /* The info arrow, at the right of the last part (Playable). */
+  .summary-part:last-child { position: relative; padding-right: 2.4rem; }
+  .summary-more {
+    position: absolute;
+    right: 0.55rem;
+    top: 50%;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    margin-top: -12px;
+    padding: 0;
+    color: var(--text-dim);
+    background: none;
+    border: 1px solid var(--border-strong);
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  .summary-more:hover { color: var(--text); background: var(--surface-3); }
+  .summary-more svg { width: 14px; height: 14px; transition: transform 0.15s ease; }
+  .summary-more[aria-expanded="true"] { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
+  .summary-more[aria-expanded="true"] svg { transform: rotate(180deg); }
+  .run-summary-line .summary-more { position: static; display: inline-grid; margin: 0 0 0 0.6rem; vertical-align: middle; }
   .summary-label { font-size: 0.7rem; font-weight: 500; color: var(--text-dim); }
   .summary-value { font-size: 0.86rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
   .summary-note { font-weight: 400; color: var(--text-dim); }
