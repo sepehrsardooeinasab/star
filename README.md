@@ -1,10 +1,8 @@
 # STAR
 
-**Steam Timed Achievement Replayer.** Paces out Steam achievement unlocks for a game through [ArchiSteamFarm](https://github.com/JustArchiNET/ArchiSteamFarm) (ASF), spreading them across realistic delays and sessions instead of firing them all at once.
+**Steam Timed Achievement Replayer.** Replays a real player's achievement timeline on your Steam account: the same achievements, in the same order, with the same gaps between them and the same play sessions and breaks. The unlocking itself goes through [ArchiSteamFarm](https://github.com/JustArchiNET/ArchiSteamFarm) (ASF) and its [ASFAchievementManager](https://github.com/CatPoweredPlugins/ASFAchievementManager) plugin.
 
-Runs on macOS and Linux (not Windows).
-
-**[Unlock Scheduler](https://sepehrsardooeinasab.github.io/star/)** — paste a SteamHunters achievement export in the browser and it generates a delay/session config for you.
+A desktop app for macOS and Linux (not Windows). The schedule builder also runs in the browser as the **[Unlock Scheduler](https://sepehrsardooeinasab.github.io/star/)**.
 
 ## Install
 
@@ -14,43 +12,57 @@ On macOS or Linux, paste this into a terminal:
 curl -fsSL https://raw.githubusercontent.com/sepehrsardooeinasab/star/main/install.sh | sh
 ```
 
-It installs the desktop app and ArchiSteamFarm with its achievement plugin (downloaded from their official releases and checked against their published checksums). Then open **STAR** and sign in to Steam; it asks for the Steam Guard code if needed. Python 3.8+ is the only requirement; on macOS, the installer offers to install it if it's missing. Nothing needs `sudo`. It also adds the `runsteamunlocker` command, which you don't need with the app (see [Command line](#command-line)).
+It installs the **STAR** app and ArchiSteamFarm with its achievement plugin (from their official releases, checked against their published checksums). Open STAR and sign in to Steam; it asks for the Steam Guard code if needed.
 
-- Your games, ArchiSteamFarm and settings live in `~/Library/Application Support/STAR` (macOS) or `~/.local/share/star` (Linux). Updating from before the rename moves them there. Running the command again updates the app and keeps them.
-- The code and the page itself ship inside the app on macOS (`STAR.app/Contents/Resources`), and go in `~/.local/lib/star` on Linux or with `--no-app`, kept apart from your data.
-- `... | sh -s -- --uninstall` removes the app, the command and the code, and keeps your data. `--no-app` skips the desktop app.
-- Downloading the macOS app by hand from Releases instead means macOS asks you to allow it once in **System Settings > Privacy & Security**; the install command avoids that.
+- Python 3.8+ is the only requirement. On macOS, the installer offers to install it if it's missing. Nothing needs `sudo`.
+- Run the same command again to update; the app can also do it for you (**Check for Updates…**). Your games and settings are kept.
+- `... | sh -s -- --uninstall` removes the app and keeps your data.
+- Downloading the macOS app by hand from Releases instead means macOS asks you to allow it once in **System Settings → Privacy & Security**; the install command avoids that.
 
-Prefer to set everything up yourself? See [Manual setup](#manual-setup) below.
+## Using the app
 
-## The app
+The app opens on **New schedule** and **Run a game**. The top bar (or the **Go** menu, ⌘1–⌘3) switches between Home, **Schedule**, **Runs** and **Settings**.
 
-The app starts on two buttons: **New schedule** and **Run a game**. On first launch it sets up ArchiSteamFarm and signs in to Steam instead.
+### 1. Make a schedule
 
-- Paste an export and check the timeline as on the public page, then **Save to project** writes the config and CSV into the data folder (`jsons/` and `csvs/`).
-- In the app, the paste can be in any sort, or just a link to a player's achievements (SteamHunters `steamhunters.com/id/<player>/apps/<appid>/achievements` or Steam `steamcommunity.com/id/<player>/stats/<appid>/achievements`; their game details need to be public). A link brings exact unlock times from Steam and fills in the game name, App ID and player.
-- `aset` unlocks an achievement by its number in the plugin's list (`alist`), the game's own order. The app asks ArchiSteamFarm for that list and matches each achievement to its number by name. Where a game reuses a name (Bongo Cat has four "Item Collector"s), it tells them apart by description, using your own Steam profile's achievements (game details public) to learn each number's description; it warns when names repeat, and stops rather than guess if ArchiSteamFarm and Steam disagree. On the public page, numbers come from the pasted order, so the paste needs SteamHunters' default sort.
-- The **Settings** tab in the top bar (or **Settings…**, ⌘, / Ctrl+, in the app's menu) shows the installed ArchiSteamFarm and plugin versions with **Check for updates**, the Steam account (**Use another account**), whether keeping the computer awake and notifications work here (**Test keep awake**, **Send a test notification**, and help installing what's missing on Linux), and the data folder (**Show in Finder**). Theme and accent are under the palette button.
-- The app checks for a new release when it opens, and from **Check for Updates…** in its menu (the app menu on macOS, **Help** on Linux). **Update now** runs the install command for you: the app closes, updates and opens again. Games waiting between sessions keep going; only a session that's playing has to end first.
-- ArchiSteamFarm and its plugin are pinned to versions known to work together, and ASF's own auto-update is turned off so it can't drift from the plugin. When an app update pins newer ones, they're swapped in between sessions, never during one: a session that comes due meanwhile waits a moment for the swap.
-- **Schedule** and **Runs** in the top bar switch between making schedules and running them; saving keeps you on Schedule. **Runs** lists every game with its progress, current session and when the next one starts. **Run** plays every remaining session back to back, waiting out the breaks on its own; **Stop** ends it right away (the bot stops playing, progress is kept) and **Stop after this session** lets the current one finish first. Each game's output is shown live, and **Timeline** shows its schedule with what's already unlocked dimmed: **Edit** unlocks the delays still ahead for changing, **Save** writes them back.
+Paste into **Schedule** either:
 
-Runs are background processes, so closing the app doesn't stop them; open it again any time to see where they are. The app's page is served on `127.0.0.1` only and only accepts requests from itself. The computer has to stay on for a run to continue; it's kept awake while a run is going.
+- **A link** to a player's achievements for the game, from SteamHunters (`steamhunters.com/id/<player>/apps/<appid>/achievements`) or Steam (`steamcommunity.com/id/<player>/stats/<appid>/achievements`). The exact unlock times come straight from Steam, so the player's profile must be public.
+- **The page itself**: on SteamHunters, open the player's achievements for the game, select the whole page (⌘A / Ctrl+A), copy and paste. Turn on **Show hidden achievements** in SteamHunters' settings first, or hidden ones come without a name. Any sort or grouping works.
 
-## How it works
+The game's name and App ID fill themselves in where they can. Check the sessions, breaks and timeline, then **Save schedule**.
 
-1. On **Schedule**, paste a SteamHunters achievement export (or use the public [Unlock Scheduler](https://sepehrsardooeinasab.github.io/star/)), check the sessions and breaks, and **Save to project**: that writes `jsons/config_<name>.json` and its CSV.
-2. On **Runs**, press **Run**. It makes sure ArchiSteamFarm is running, then walks the achievement list, calling `aset <appid> <achievement>` through ASF's local API with the configured delays between unlocks and breaks between sessions.
-3. Progress is saved to `jsons/progress_<name>.json`, so a run can be stopped and resumed without re-unlocking or losing its place. Once every achievement is unlocked, the game's config and CSV move to `completed/<name>/`.
+To unlock an achievement, the plugin needs its number in the game (`aset <appid> <number>`). The app asks ArchiSteamFarm for the game's list and matches each achievement by name. Where a game reuses a name (Bongo Cat has four "Item Collector"s), it tells them apart by description; it warns when names repeat, and stops rather than guess when ArchiSteamFarm and Steam disagree.
+
+### 2. Run it
+
+On **Runs**, select a game and press **Run** (or **Continue**) in the bar above the list:
+
+- It plays the game's **next session**, first waiting for its break to end if needed. Pick **All** (next to **Next**) to play every remaining session back to back, waiting out the breaks.
+- **Start** delays the first session: in 30 minutes up to 4 hours, or **Other…** for any time (`45m`, `1h30m`, or a clock time like `23:30`).
+- While it runs, the same button is **Stop** (the bot stops playing, progress is kept), and **Next** / **All** switches between stopping after the current session and playing on.
+- **One game runs at a time.** The running game is pinned to the top of the list.
+
+The tabs on the right show the selected game's **Details** (progress, session, when it can play), its **Activity** as it runs, and its **Timeline**, with what's already unlocked dimmed; **Edit** changes the delays still ahead.
+
+Runs keep going when the window is closed; open the app any time to see where they are. The computer has to stay on, and it's kept awake while a run is going.
+
+### 3. Settings
+
+**Settings** (⌘,) shows the ArchiSteamFarm and plugin versions with **Check for updates**, the Steam account (**Use another account**), tests for keeping the computer awake and notifications, and the data folder (**Show in Finder**). Theme and accent are under the palette button.
+
+ArchiSteamFarm and the plugin are pinned to versions known to work together, and ASF's own auto-update is off so it can't drift from the plugin. **Check for updates** offers the newest ASF in the series the latest plugin is built for; newer series need a new plugin first. Updates are swapped in between sessions, never during one.
+
+## Good to know
+
+- **Your data** (schedules, progress, finished games, ArchiSteamFarm, settings) lives in `~/Library/Application Support/STAR` (macOS) or `~/.local/share/star` (Linux). Copy it to back up or move to another computer. Finished games move to `completed/` inside it.
+- **Notifications** come when a session finishes, when every achievement is done, and when a run stops unexpectedly. On macOS they show as **Script Editor**'s (allow it in System Settings → Notifications if nothing appears): notifications under STAR's own name and icon need an app signed with a paid Apple Developer ID, which STAR isn't. On Linux they need `notify-send` (`libnotify-bin` on Debian/Ubuntu, `libnotify` on Fedora/Arch).
+- **Keeping awake:** macOS uses the built-in `caffeinate`; Linux uses `systemd-inhibit`, and a closed laptop lid may still suspend it, depending on your desktop.
+- **Privacy:** the app's page is served on `127.0.0.1` only, and only answers the app itself. Your Steam login is saved only in ArchiSteamFarm's own config on this computer.
 
 ## Command line
 
-The app covers everyday use. The `runsteamunlocker` command the installer adds runs the same code, and is there for:
-
-- computers without the app (installed with `--no-app`, or a Linux machine with no app build): `runsteamunlocker --ui` opens the same interface in the browser;
-- computers without a screen, such as a Linux box reached over SSH;
-- when something's wrong: `runsteamunlocker -k` stops ArchiSteamFarm and every running game even if the app won't open, and `--ui-stop` stops a stuck app server;
-- a few extras: starting later (`-in 2h`), or printing the next session's timing for scripts (`-t`).
+The installer also adds `runsteamunlocker`, which runs the same code. You don't need it with the app; it's there for computers without a screen (a Linux box over SSH), without the app (`--no-app`; `--ui` opens the interface in the browser), or when something's wrong (`-k` stops ArchiSteamFarm and every run, `--ui-stop` stops a stuck app server). Games are named by their file name (`jsons/config_<name>.json`).
 
 ```sh
 runsteamunlocker <config-name>      # run the unlocker using jsons/config_<config-name>.json
@@ -96,12 +108,11 @@ Only needed without the install command, e.g. when running straight from a clone
   - In the bot's config (`archifarm/config/bot1.json`), set `"FarmingEnabled": false` to stop card farming.
   - In `archifarm/config/ASF.json`, set `"AutoRestart": false` to stop ASF from auto-restarting, and `"Headless": true` so it never blocks on an interactive prompt when `runsteamunlocker` starts it in the background.
 
-### 2. Generate a config from SteamHunters
+### 2. Make a schedule
 
-- On [SteamHunters](https://steamhunters.com), in settings enable **show hidden achievements**, and prefer showing time in seconds.
-- Open the page for the game you own and want achievements unlocked for. Find a player with a legitimate, completed profile for it, and use the default sort (normal in-game achievement order, not grouped). The app accepts any sort, or just the page's link.
-- Select and copy the achievement list text, from the first achievement through the last.
-- Paste it into the [Unlock Scheduler](https://sepehrsardooeinasab.github.io/star/), generate the config, and save the resulting file into `jsons/`.
+- On [SteamHunters](https://steamhunters.com), in settings enable **show hidden achievements**, and show times with seconds.
+- Open the achievements of a player with a legitimate, completed profile for the game, in the default sort (the game's own order, not grouped). The app accepts any sort, or just the page's link.
+- Select the whole page, copy it, and paste it into the [Unlock Scheduler](https://sepehrsardooeinasab.github.io/star/). Save the config it makes into `jsons/`.
 
 This step is manual because SteamHunters has no public API for per-player achievement data and blocks automated access (Cloudflare-protected, `robots.txt` disallows crawlers) — the Unlock Scheduler exists specifically to make pasted, human-copied text quick to turn into a config.
 
@@ -121,20 +132,6 @@ source "/path/to/star/runsteamunlocker.zsh-completion"
 Put these lines in `~/.zshrc` — or, if you use oh-my-zsh, in a file under `~/.oh-my-zsh/custom/` instead, since anything there is auto-sourced. The completion script is zsh-specific; skip the `source` line under bash.
 
 ## Details
-
-### Notifications
-
-Runs send a desktop notification when a session finishes, when every achievement is done, and when a run stops unexpectedly: an ASF error, a crash, or the terminal being closed. Stopping it yourself with Ctrl-C or `-k` doesn't send one. Notifications never affect a run. If no notification tool is available, they're skipped.
-
-- **macOS:** nothing to install. With the app (3.0.4 or later), notifications come from **STAR**, with its icon; it asks for permission the first time it opens. "Done" notifications remove themselves after 30 minutes, while errors stay until you dismiss them. Without the app, or until it's allowed, the built-in notifications are used instead: they're shown as coming from **Script Editor** (allow it in System Settings → Notifications if nothing appears) and errors get their own sound. (terminal-notifier isn't used any more: its notifications don't show on current macOS.)
-- **Linux:** needs `notify-send`. Install `libnotify-bin` on Debian/Ubuntu, or `libnotify` on Fedora/Arch. Errors are marked critical. "Done" notifications ask to expire after 30 minutes, though some desktops (e.g. GNOME) ignore that. Sounds depend on your desktop.
-
-### Keeping the system awake
-
-While a session runs (including any `-w` / `-in` wait before it), the unlocker keeps the computer from sleeping so delays aren't stretched by a suspended machine.
-
-- **macOS:** uses the built-in `caffeinate`. Nothing to install.
-- **Linux:** uses `systemd-inhibit` (part of systemd) to hold a sleep/idle inhibitor. If it's missing or can't take the inhibitor (e.g. no logind session), the run goes ahead without it. Closing a laptop lid may still suspend it, depending on your desktop's lid settings.
 
 ### Settings (optional)
 
@@ -162,7 +159,7 @@ With randomness on, it applies to the delays between achievements and to the gap
 
 - **Config check:** before anything else, the config is checked for a valid `appid` and, on every achievement, a whole-number `id` (no duplicates), a `delay` of 0 or more and a true/false `new_session`. A broken config stops with a list of what's wrong, instead of failing partway through a session.
 - **Config changed:** progress is saved as a position in the config's achievement list, together with a fingerprint of that list's order. If the order changes later (e.g. you regenerate the config from another player), you're asked before continuing, and `-f` refuses. Editing delays or session breaks doesn't count as a change. `-ls` and `-s` show the same warning.
-- **One run at a time:** the same game can't run twice at once. While a session is talking to ASF, other games wait too, since ASF can only play one game at a time. Running another game then is refused, while `-w` / `-in` wait for the first session to finish. `-ls` shows a running game as `running now`. A game running with `--auto` (or from the app) is locked for its whole run, breaks included. The locks are released automatically when a run exits, even if it's killed.
+- **One game at a time:** while a game is running, breaks included, starting any other game (or the same one again) is refused until it's stopped or finished. The locks are released automatically when a run exits, even if it's killed.
 - **Safe progress saves:** progress is written to a temporary file and then swapped in, so stopping a run mid-save can't corrupt it.
 
 ## Layout

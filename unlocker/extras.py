@@ -69,7 +69,7 @@ def test_keep_awake():
     (macOS: pmset's power assertions; Linux: logind's inhibitor list), then
     lets go. Returns (works, what was found)."""
     from unlocker.api import start_keep_awake, stop_keep_awake
-    proc = start_keep_awake()
+    proc = start_keep_awake(force=True)
     if proc is None:
         return False, "it couldn't be started"
     try:

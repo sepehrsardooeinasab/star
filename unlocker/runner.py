@@ -28,6 +28,7 @@ from unlocker.state import (
     acquire_lock,
     auto_lock_path,
     cleanup_profile,
+    hold_game_lock,
     config_fingerprint,
     config_problems,
     list_profiles,
@@ -269,33 +270,45 @@ def run(*args, **kwargs):
         release_locks()
 
 
-def run_auto(game_name):
+def run_auto(game_name, once=False, delay=None):
     """Plays every remaining session of a game back to back: runs one,
     waits out the break, runs the next, until the game is done. Each
     session is a normal run(), confirmed up front (like -f) and started
-    as soon as it can (like -w). Stops after the current session when its
+    as soon as it can (like -w), or no sooner than delay seconds from now
+    for the first one. Stops after the current session when its
     stop-after flag file appears, and right away on SIGTERM (Stop in the
-    app, or -k), which the session itself cleans up after."""
+    app, or -k), which the session itself cleans up after. once: just the
+    next session, which is the flag set from the start (Keep going in the
+    app clears it)."""
     game_label = game_name
     if not acquire_lock(auto_lock_path(game_name), game_label, keep=True):
         print(f"{game_label} is already running: {lock_holder(auto_lock_path(game_name))}.")
         return
+    other = hold_game_lock(game_label, keep=True)
+    if other:
+        print(f"{other} is running. Only one game runs at a time; stop it first.")
+        return
     stop_after = stop_after_path(game_name)
-    stop_after.unlink(missing_ok=True)
+    if once:
+        stop_after.touch()
+    else:
+        stop_after.unlink(missing_ok=True)
     # Also set by each run, but a signal can land between runs too.
     signal.signal(signal.SIGHUP, _raise_signalled)
     signal.signal(signal.SIGTERM, _raise_signalled)
 
-    print(f"Running every remaining session of {game_label}, started {datetime.now():%a %H:%M}.")
+    what = "the next session" if once else "every remaining session"
+    print(f"Running {what} of {game_label}, started {datetime.now():%a %H:%M}.")
     try:
         while True:
-            outcome = run(game_name, force=True, wait_ready=True)
+            outcome = run(game_name, force=True, wait_ready=True, delay=delay)
+            delay = None
             if outcome != "session_done":
                 break
             if stop_after.exists():
                 stop_after.unlink(missing_ok=True)
-                print("Stopped after this session, as asked. Progress is saved.")
-                notify(game_label, "Stopped after the session, as asked.")
+                print("Stopped after this session. Progress is saved; run it again for the next one.")
+                notify(game_label, "Session done. Run it again for the next one.")
                 break
             print()
     except _Signalled:
@@ -317,6 +330,13 @@ def _run(game_name, force=False, time_only=False, delay=None, wait_ready=False):
     if not time_only and not acquire_lock(profile_lock_path(game_name), game_label):
         print(f"{game_label} is already running: {lock_holder(profile_lock_path(game_name))}.")
         return "busy"
+    # And one game at a time, so a second game can't start during this
+    # one's breaks either.
+    if not time_only:
+        other = hold_game_lock(game_label)
+        if other:
+            print(f"{other} is running. Only one game runs at a time; stop it first.")
+            return "busy"
 
     config = load_config(config_path)
     achievements = config["achievements"]
@@ -412,7 +432,8 @@ def _run(game_name, force=False, time_only=False, delay=None, wait_ready=False):
         print("Session can be run now.")
 
     if wait_ready:
-        start_at = max(ready_at, now)
+        # With a delay too (the app's "Start in"): whichever is later.
+        start_at = max(ready_at, now + timedelta(seconds=delay or 0))
     elif delay is not None:
         start_at = now + timedelta(seconds=delay)
     else:

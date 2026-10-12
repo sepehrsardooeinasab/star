@@ -28,6 +28,10 @@ DEFAULT_PROGRESS = {
 # only "play" one game at a time.
 SESSION_LOCK = JSONS_DIR / ".session.lock"
 
+# Held by whichever game is running, for its whole run (breaks included):
+# only one game runs at a time.
+GAME_LOCK = JSONS_DIR / ".game.lock"
+
 
 def profile_paths(game_name):
     """config/progress paths for a game, sharing the same jsons/ folder."""
@@ -182,6 +186,19 @@ def lock_info(path):
             return (int(pid) if pid.isdigit() else None), label
         fcntl.flock(f, fcntl.LOCK_UN)
     return None
+
+
+def hold_game_lock(game_label, keep=False):
+    """Takes GAME_LOCK for this game, or returns the other running game's
+    label. Already held by this process (an auto run's next session) counts
+    as taken."""
+    info = lock_info(GAME_LOCK)
+    if info and info[0] == os.getpid():
+        return None
+    if acquire_lock(GAME_LOCK, game_label, keep=keep):
+        return None
+    info = lock_info(GAME_LOCK)
+    return (info and info[1]) or "another game"
 
 
 def lock_holder(path):

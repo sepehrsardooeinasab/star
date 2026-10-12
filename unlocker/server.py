@@ -7,6 +7,7 @@ Runs are separate background processes (run_unlocker.py --auto), so closing
 the browser — or stopping this server — never stops a run. Everything the
 page shows is read back from the files runs already keep (configs, progress,
 locks, logs), so reopening the page picks up exactly where things are."""
+import csv
 import json
 import os
 import re
@@ -17,7 +18,7 @@ import threading
 import time
 import urllib.request
 import webbrowser
-from datetime import datetime
+from datetime import datetime, timedelta
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -25,6 +26,7 @@ from urllib.parse import parse_qs, urlparse
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from unlocker import achievements, asf_setup, extras, updates
+from unlocker import settings as settings_module
 from unlocker.api import notify
 from unlocker.paths import CODE_DIR, DATA_DIR
 from unlocker.runner import _session_status, config_changed
@@ -33,6 +35,7 @@ from unlocker.state import (
     COMPLETED_DIR,
     CSVS_DIR,
     DEFAULT_PROGRESS,
+    GAME_LOCK,
     JSONS_DIR,
     PROJECT_DIR,
     SESSION_LOCK,
@@ -69,10 +72,37 @@ class AppError(Exception):
         self.extra = extra
 
 
+def _starts_path(name):
+    """When a run started with a delay starts its first session (ISO)."""
+    return JSONS_DIR / f".starts_{name}"
+
+
 def _seconds_until(iso):
     if not iso:
         return None
     return max(0, int((datetime.fromisoformat(iso) - datetime.now()).total_seconds()))
+
+
+def _title(config):
+    """The game's name: the one saved with it, else Steam's."""
+    return ((config.get("game") if isinstance(config.get("game"), str) else None)
+            or achievements.app_title(config["appid"]))
+
+
+def _finished_config(name):
+    """The config of a game a run finished, from its newest completed/
+    folder, or None."""
+    paths = sorted(list(COMPLETED_DIR.glob(f"{name}/config_{name}.json"))
+                   + list(COMPLETED_DIR.glob(f"{name}_*/config_{name}.json")),
+                   key=lambda p: p.stat().st_mtime, reverse=True)
+    for path in paths:
+        try:
+            config = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not config_problems(config):
+            return config
+    return None
 
 
 def _game_state(name, session_label):
@@ -105,6 +135,7 @@ def _game_state(name, session_label):
     game.update(
         appid=config["appid"],
         copied_from=config.get("copied_from"),
+        title=_title(config),
         total=total,
         done=min(progress["last_completed"] + 1, total),
         config_changed=config_changed(config, progress))
@@ -119,6 +150,11 @@ def _game_state(name, session_label):
                 duration=duration, ready_in=wait)
     if in_session:
         game["next_unlock_in"] = _seconds_until(progress["next_unlock_at"])
+    elif running:
+        try:
+            game["starts_in"] = _seconds_until(_starts_path(name).read_text().strip()) or None
+        except (OSError, ValueError):
+            pass
     return game
 
 
@@ -134,11 +170,53 @@ def game_states():
     for log in JSONS_DIR.glob(".run_*.log"):
         name = log.name[len(".run_"):-len(".log")]
         if name not in names:
-            games.append({"name": name, "state": "completed", "running": False,
-                          "auto": False, "in_session": False, "stop_after": False,
-                          "has_log": True, "finished": True})
+            game = {"name": name, "state": "completed", "running": False,
+                    "auto": False, "in_session": False, "stop_after": False,
+                    "has_log": True, "finished": True}
+            config = _finished_config(name)
+            if config:
+                game.update(appid=config["appid"], copied_from=config.get("copied_from"),
+                            title=_title(config), total=len(config["achievements"]),
+                            done=len(config["achievements"]))
+            games.append(game)
     games.sort(key=lambda g: g["name"])
     return {"games": games, "session": session_label}
+
+
+def run_settings():
+    """The settings the app edits: each one's value (settings.json's, else
+    the default) and default."""
+    try:
+        overrides = settings_module.read_overrides()
+    except ValueError as e:
+        raise AppError(f"settings.json is {e}. Fix it or delete it.")
+    return {"settings": [{"key": key, "value": overrides.get(key, settings_module.DEFAULTS[key]),
+                          "default": settings_module.DEFAULTS[key]}
+                         for key in settings_module.APP_EDITABLE + settings_module.APP_TOGGLES]}
+
+
+def save_run_settings(values):
+    """Writes the app's settings into settings.json, keeping its other keys
+    and leaving out any that are back at their default. Runs started after
+    this use them."""
+    editable = settings_module.APP_EDITABLE + settings_module.APP_TOGGLES
+    if not isinstance(values, dict) or any(k not in editable for k in values):
+        raise AppError("Unknown setting.")
+    try:
+        overrides = settings_module.read_overrides()
+    except ValueError as e:
+        raise AppError(f"settings.json is {e}. Fix it or delete it.")
+    overrides.update(values)
+    found = settings_module.problems(overrides)
+    if found:
+        raise AppError(found[0][0].upper() + found[0][1:] + ".")
+    kept = {k: v for k, v in overrides.items()
+            if k not in editable or v != settings_module.DEFAULTS[k]}
+    if kept:
+        SETTINGS_PATH.write_text(json.dumps(kept, indent=2) + "\n")
+    else:
+        SETTINGS_PATH.unlink(missing_ok=True)
+    return run_settings()
 
 
 def _check_name(name):
@@ -163,10 +241,11 @@ def save_game(name, config, csv_text, overwrite=False):
     if not isinstance(csv_text, str):
         raise AppError("Missing the timeline CSV.")
     config_path, _ = profile_paths(name)
+    title = config.get("game") if isinstance(config.get("game"), str) and config.get("game") else name
     if _running_pid(name):
-        raise AppError(f"{name} is running. Stop it before replacing its config.", 409)
+        raise AppError(f"{title} is running. Stop it before replacing its schedule.", 409)
     if config_path.exists() and not overwrite:
-        raise AppError(f"config_{name}.json already exists.", 409, exists=True)
+        raise AppError(f"{title} is already saved (as {name}).", 409, exists=True)
     JSONS_DIR.mkdir(parents=True, exist_ok=True)
     CSVS_DIR.mkdir(parents=True, exist_ok=True)
     config_path.write_text(json.dumps(config, indent=2) + "\n")
@@ -174,20 +253,33 @@ def save_game(name, config, csv_text, overwrite=False):
     return {"saved": name}
 
 
-def start_run(name):
+def start_run(name, every=False, delay=None):
+    """Runs the game's next session, or with every, all of them back to
+    back; delay: minutes to wait before the first one starts."""
     name = _check_name(name)
+    if delay is not None and (not isinstance(delay, int) or isinstance(delay, bool)
+                              or not 0 <= delay <= 24 * 60):
+        raise AppError("Start in: a number of minutes, up to a day.")
     if not profile_paths(name)[0].exists():
         raise AppError(f"There's no config for {name}.", 404)
     if _running_pid(name):
         raise AppError(f"{name} is already running.", 409)
+    other = lock_info(GAME_LOCK)
+    if other:
+        raise AppError(f"{other[1] or 'Another game'} is running. Only one game runs "
+                       "at a time; stop it first.", 409)
     if _setup["busy"] == "install":
         raise AppError("ArchiSteamFarm is being installed or updated. Try again once it's done.", 409)
     if updates.updating():
         raise AppError("The app is updating. Try again once it has reopened.", 409)
     JSONS_DIR.mkdir(parents=True, exist_ok=True)
+    _starts_path(name).unlink(missing_ok=True)
+    if delay:
+        _starts_path(name).write_text((datetime.now() + timedelta(minutes=delay)).isoformat())
     with open(auto_log_path(name), "w") as log:
         proc = subprocess.Popen(
-            [sys.executable, "-u", str(RUN_SCRIPT), name, "--auto"],
+            [sys.executable, "-u", str(RUN_SCRIPT), name, "--auto"]
+            + ([] if every else ["--once"]) + (["-in", str(delay)] if delay else []),
             cwd=str(PROJECT_DIR), stdin=subprocess.DEVNULL, stdout=log,
             stderr=subprocess.STDOUT, start_new_session=True)
     # Wait until it holds its lock, so the next status already shows it
@@ -212,18 +304,14 @@ def stop_run(name):
 
 
 def set_stop_after(name, on):
-    """Asks an auto run to stop once its current session ends. Between
-    sessions nothing is playing, so it just stops now."""
+    """Makes a run stop once its current (or, between sessions, its next)
+    session ends, or with on=False, play every session again."""
     name = _check_name(name)
     if not on:
         stop_after_path(name).unlink(missing_ok=True)
         return {"stop_after": False}
     if not lock_info(auto_lock_path(name)):
         raise AppError(f"{name} isn't running from the app.", 409)
-    session = lock_info(SESSION_LOCK)
-    if not (session and session[1] == name):
-        stop_run(name)
-        return {"stopped": name}
     stop_after_path(name).touch()
     return {"stop_after": True}
 
@@ -233,6 +321,7 @@ def dismiss(name):
     if _running_pid(name):
         raise AppError(f"{name} is running.", 409)
     auto_log_path(name).unlink(missing_ok=True)
+    _starts_path(name).unlink(missing_ok=True)
     return {"dismissed": name}
 
 
@@ -252,10 +341,31 @@ def read_timeline(name):
             config = json.loads(config_path.read_text())
         except (OSError, json.JSONDecodeError):
             pass
+    if config is None:
+        config = _finished_config(name)
     for path in [CSVS_DIR / f"{name}.csv"] + finished:
         if path.is_file():
             return {"text": path.read_text(errors="replace"), "found": True, "config": config}
-    return {"text": "", "found": False, "config": config}
+    return {"text": "", "found": False, "config": config, "known": _old_names(name)}
+
+
+def _old_names(name):
+    """Achievement names and the player's times by id, from the folder an
+    older version saved instead of one CSV (csvs/<name>/merged.csv, or
+    for a finished game, completed/<name>/<name>/merged.csv)."""
+    known = {}
+    folders = [CSVS_DIR / name] + sorted(COMPLETED_DIR.glob(f"{name}/{name}"))
+    for path in [folder / "merged.csv" for folder in folders]:
+        try:
+            with open(path, newline="", errors="replace") as f:
+                for row in csv.DictReader(f):
+                    if row.get("ach_id"):
+                        known[row["ach_id"]] = [row.get("ach_name") or "", row.get("unlock_time") or ""]
+        except (OSError, csv.Error):
+            continue
+        if known:
+            break
+    return known
 
 
 def read_log(name):
@@ -354,7 +464,7 @@ def achievement_numbers(appid):
     try:
         return achievements.numbers(appid)
     except achievements.Problem as e:
-        raise AppError(str(e), 409)
+        raise AppError(str(e), 409, title=e.title)
 
 
 def achievements_from_link(url):
@@ -362,7 +472,7 @@ def achievements_from_link(url):
     try:
         return achievements.from_link(str(url or "").strip())
     except achievements.Problem as e:
-        raise AppError(str(e), 409)
+        raise AppError(str(e), 409, title=e.title)
 
 
 def test_keep_awake():
@@ -371,7 +481,7 @@ def test_keep_awake():
 
 
 def test_notification():
-    notify("Test", "Notifications work. You'll get one when a session ends or a run stops.")
+    notify("Test", "Notifications work. You'll get one when a session ends or a run stops.", force=True)
     return {"sent": True}
 
 
@@ -507,6 +617,7 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/update": lambda: updates.update_state(force=query.get("force") == "1"),
             "/api/log": lambda: read_log(query.get("name")),
             "/api/timeline": lambda: read_timeline(query.get("name")),
+            "/api/settings": run_settings,
         }
         self._route(routes.get(url.path))
 
@@ -531,10 +642,11 @@ class Handler(SimpleHTTPRequestHandler):
         routes = {
             "/api/save": lambda: save_game(name, body.get("config"), body.get("csv"),
                                            bool(body.get("overwrite"))),
-            "/api/run": lambda: start_run(name),
+            "/api/run": lambda: start_run(name, bool(body.get("every")), body.get("delay")),
             "/api/stop": lambda: stop_run(name),
             "/api/stop-after": lambda: set_stop_after(name, bool(body.get("on", True))),
             "/api/dismiss": lambda: dismiss(name),
+            "/api/settings": lambda: save_run_settings(body.get("settings")),
             "/api/setup/install": lambda: setup_install(bool(body.get("latest"))),
             "/api/setup/asf-check": asf_check,
             "/api/setup/test-notification": test_notification,
@@ -542,6 +654,7 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/open-folder": open_data_folder,
             "/api/achievements/numbers": lambda: achievement_numbers(body.get("appid")),
             "/api/achievements/link": lambda: achievements_from_link(body.get("url")),
+            "/api/achievements/appid": lambda: {"appid": achievements.find_appid(str(body.get("name") or "")[:200])},
             "/api/setup/login": lambda: setup_login(body.get("username"), body.get("password")),
             "/api/setup/code": lambda: setup_code(body.get("code")),
             "/api/update": app_update,
