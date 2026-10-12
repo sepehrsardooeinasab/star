@@ -1,4 +1,4 @@
-"""The local app: serves the Unlock Scheduler page from docs/ at
+"""The local app: serves the app's page (docs/app.html) at
 http://127.0.0.1:<ui_port>, plus a small JSON API the page uses when it's
 opened from here — save a config straight into jsons/, start a game's
 sessions in the background, stop them, and follow their output.
@@ -607,6 +607,9 @@ class Handler(SimpleHTTPRequestHandler):
             return
         url = urlparse(self.path)
         if not url.path.startswith("/api/"):
+            # The app's page is app.html; index.html is the website's.
+            if url.path in ("/", "/index.html"):
+                self.path = "/app.html" + (f"?{url.query}" if url.query else "")
             return super().do_GET()
         query = {k: v[0] for k, v in parse_qs(url.query).items()}
         routes = {

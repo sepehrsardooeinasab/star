@@ -2,7 +2,7 @@
 
 **Steam Timed Achievement Replayer.** Replays a real player's achievement timeline on your Steam account: the same achievements, in the same order, with the same gaps between them and the same play sessions and breaks. The unlocking itself goes through [ArchiSteamFarm](https://github.com/JustArchiNET/ArchiSteamFarm) (ASF) and its [ASFAchievementManager](https://github.com/CatPoweredPlugins/ASFAchievementManager) plugin.
 
-A desktop app for macOS and Linux (not Windows). The schedule builder also runs in the browser as the **[Unlock Scheduler](https://sepehrsardooeinasab.github.io/star/)**.
+A desktop app for macOS and Linux (not Windows). **[Website](https://sepehrsardooeinasab.github.io/star/)**: how it works and how to use it. The schedule builder also runs in the [browser](https://sepehrsardooeinasab.github.io/star/app.html).
 
 ## Install
 
@@ -112,9 +112,9 @@ Only needed without the install command, e.g. when running straight from a clone
 
 - On [SteamHunters](https://steamhunters.com), in settings enable **show hidden achievements**, and show times with seconds.
 - Open the achievements of a player with a legitimate, completed profile for the game, in the default sort (the game's own order, not grouped). The app accepts any sort, or just the page's link.
-- Select the whole page, copy it, and paste it into the [Unlock Scheduler](https://sepehrsardooeinasab.github.io/star/). Save the config it makes into `jsons/`.
+- Select the whole page, copy it, and paste it into the [schedule builder](https://sepehrsardooeinasab.github.io/star/app.html) in the browser. Save the config it makes into `jsons/`.
 
-This step is manual because SteamHunters has no public API for per-player achievement data and blocks automated access (Cloudflare-protected, `robots.txt` disallows crawlers) — the Unlock Scheduler exists specifically to make pasted, human-copied text quick to turn into a config.
+This step is manual because SteamHunters has no public API for per-player achievement data and blocks automated access (Cloudflare-protected, `robots.txt` disallows crawlers) — the schedule builder exists specifically to make pasted, human-copied text quick to turn into a config.
 
 ### 3. Python
 
@@ -169,7 +169,7 @@ With randomness on, it applies to the delays between achievements and to the gap
   - `api.py` — talks to ArchiSteamFarm's local Web API (`aset`, `play`, `reset`)
   - `state.py` — reads/writes `jsons/config_*.json` and `jsons/progress_*.json`
   - `settings.py` — defaults for `settings.json` and its validation
-  - `server.py` — the local app (`--ui`): serves `docs/` and the API it uses to save configs and start, stop and follow runs
+  - `server.py` — the local app (`--ui`): serves `docs/app.html` and the API it uses to save configs and start, stop and follow runs
   - `achievements.py` — the builder's achievement numbers (from the plugin's `alist`, matched with Steam's public stats) and reading a player's achievements from a link
   - `asf_setup.py` — first-run setup: downloads ArchiSteamFarm and the plugin (and updates them to the pinned versions), writes their configs, signs in to Steam
   - `updates.py` — checks GitHub for a newer release and updates by running the install script again
@@ -177,7 +177,7 @@ With randomness on, it applies to the delays between achievements and to the gap
   - `run_unlocker.py` — entry point for runs, the app's server and the command line
 - `runsteamunlocker` — bash launcher: starts ArchiSteamFarm if needed, then runs the unlocker for a given config
 - `runsteamunlocker.zsh-completion` — tab-completion for available configs
-- `docs/` — the Unlock Scheduler web page (published via GitHub Pages, and the app's interface)
+- `docs/` — published via GitHub Pages: `index.html` is the website, `app.html` the app's interface (also usable in the browser)
 - `app/` — the desktop app (Tauri): a window that starts the local server and shows the page
 - `install.sh` — the one-line installer; `.github/workflows/release.yml` builds the app for each `v*` tag
 - `tools/check_asf_pins.py` — says whether a newer ArchiSteamFarm + plugin pair can replace the pinned one (the newest ASF in the series the latest plugin is built against); `.github/workflows/asf-versions.yml` runs it weekly and fails when the pins should be bumped

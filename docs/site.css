@@ -1,0 +1,151 @@
+  /* The website (index.html): what STAR is, how to install and use it,
+     and how it works. The app's own page is app.html, with style.css. */
+  :root {
+    color-scheme: dark;
+    --bg: #1c1c1e;
+    --surface: #262628;
+    --surface-2: #2d2d30;
+    --border: #3a3a3d;
+    --border-strong: #515154;
+    --text: #f5f5f5;
+    --text-dim: #b0b0b0;
+    --accent: #b6a2ff;
+    --warn: #e0ad5f;
+    --hero-a: #f2c14e;
+    --hero-b: #f0609e;
+    --hero-c: #9b7bff;
+    --font: "Inter", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      color-scheme: light;
+      --bg: #ececec;
+      --surface: #f7f7f7;
+      --surface-2: #efefef;
+      --border: #d6d6d6;
+      --border-strong: #bdbdbd;
+      --text: #1d1d1d;
+      --text-dim: #5c5c5c;
+      --accent: #6d4fd8;
+      --warn: #9a5b06;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 4.5rem; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 400 15px/1.65 var(--font);
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { font-family: var(--mono); font-size: 0.86em; padding: 0.1em 0.35em; background: var(--surface-2); border: 1px solid var(--border); border-radius: 5px; }
+  pre { margin: 0.9rem 0; padding: 0.9rem 1rem; overflow-x: auto; font: 0.82rem/1.6 var(--mono); background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
+  pre code { padding: 0; background: none; border: 0; font-size: inherit; overflow-wrap: normal; }
+  /* Long paths and links in a line break instead of widening the page. */
+  p code, li code { overflow-wrap: anywhere; }
+  kbd { font: 0.8em var(--mono); padding: 0.05em 0.35em; border: 1px solid var(--border-strong); border-bottom-width: 2px; border-radius: 5px; }
+
+  /* The bar along the top: the name, the sections, GitHub. */
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 0.75rem max(1rem, calc((100% - 60rem) / 2));
+    background: color-mix(in srgb, var(--bg) 85%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-brand { display: flex; align-items: center; gap: 0.5rem; color: var(--text); font-weight: 600; letter-spacing: 0.04em; }
+  .nav-brand:hover { text-decoration: none; }
+  .nav-brand img { width: 28px; height: 28px; }
+  .nav-links { display: flex; gap: 1.1rem; margin-right: auto; font-size: 0.86rem; }
+  .nav-links a { color: var(--text-dim); }
+  .nav-links a:hover { color: var(--text); text-decoration: none; }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 0.9rem;
+    font: 500 0.86rem var(--font);
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn:hover { text-decoration: none; background: var(--surface-2); }
+  .btn svg { width: 16px; height: 16px; flex: none; }
+  .btn.primary { color: #fff; background: linear-gradient(120deg, var(--hero-b), var(--hero-c)); border-color: transparent; }
+  .btn.primary:hover { filter: brightness(1.08); }
+
+  main { max-width: 60rem; margin: 0 auto; padding: 0 1rem 4rem; }
+
+  /* The top: the icon, what it is, the install command. */
+  .hero { padding: 4rem 0 2.5rem; text-align: center; }
+  /* The icon brings its own rounded square. */
+  .hero img { width: 112px; height: 112px; }
+  .hero h1 {
+    margin: 1.2rem 0 0.4rem;
+    font-size: clamp(2.4rem, 7vw, 3.4rem);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    background: linear-gradient(120deg, var(--hero-a), var(--hero-b) 50%, var(--hero-c));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .hero .tagline { margin: 0; font-size: 1.05rem; color: var(--text-dim); }
+  .hero .lead { max-width: 40rem; margin: 1.2rem auto 0; }
+  .install { max-width: 44rem; margin: 2rem auto 0; text-align: left; }
+  .install-cmd { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.4rem 0.4rem 1rem; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 10px; }
+  .install-cmd code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; padding: 0.4rem 0; background: none; border: 0; font-size: 0.8rem; }
+  .install-note { margin: 0.6rem 0 0; font-size: 0.82rem; color: var(--text-dim); text-align: center; }
+  .hero-actions { display: flex; justify-content: center; gap: 0.6rem; margin-top: 1.4rem; flex-wrap: wrap; }
+
+  /* Sections. */
+  section { padding: 2.2rem 0 0.5rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+  h2 { margin: 0 0 0.9rem; font-size: 1.45rem; letter-spacing: -0.01em; }
+  h3 { margin: 1.6rem 0 0.5rem; font-size: 1.05rem; }
+  p, li { color: var(--text); }
+  .dim { color: var(--text-dim); }
+  ul, ol { padding-left: 1.3rem; }
+  li { margin: 0.3rem 0; }
+
+  /* How it works: steps side by side. */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0.9rem; margin: 1.2rem 0; }
+  .card { padding: 1rem 1.1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+  .card .num { display: inline-grid; place-items: center; width: 1.6rem; height: 1.6rem; margin-bottom: 0.5rem; font: 600 0.8rem var(--mono); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent); border-radius: 50%; }
+  .card h3 { margin: 0 0 0.35rem; }
+  .card p { margin: 0; font-size: 0.9rem; color: var(--text-dim); }
+
+  .note { margin: 1rem 0; padding: 0.8rem 1rem; background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; font-size: 0.92rem; }
+  .note.warn { border-left-color: var(--warn); }
+
+  .table-wrap { overflow-x: auto; margin: 1rem 0; border: 1px solid var(--border); border-radius: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+  th, td { padding: 0.55rem 0.8rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--border); }
+  th { background: var(--surface-2); font-weight: 600; white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  td:first-child { white-space: nowrap; }
+
+  details { margin: 0.8rem 0; padding: 0.7rem 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
+  details summary { cursor: pointer; font-weight: 600; }
+  details[open] summary { margin-bottom: 0.4rem; }
+
+  footer { padding: 2rem 1rem 3rem; text-align: center; font-size: 0.82rem; color: var(--text-dim); border-top: 1px solid var(--border); }
+
+  @media (max-width: 720px) {
+    .nav-links { display: none; }
+    .nav { justify-content: space-between; }
+    .hero { padding-top: 2.5rem; }
+  }
