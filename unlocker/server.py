@@ -7,6 +7,7 @@ Runs are separate background processes (run_unlocker.py --auto), so closing
 the browser — or stopping this server — never stops a run. Everything the
 page shows is read back from the files runs already keep (configs, progress,
 locks, logs), so reopening the page picks up exactly where things are."""
+import csv
 import json
 import os
 import re
@@ -82,6 +83,28 @@ def _seconds_until(iso):
     return max(0, int((datetime.fromisoformat(iso) - datetime.now()).total_seconds()))
 
 
+def _title(config):
+    """The game's name: the one saved with it, else Steam's."""
+    return ((config.get("game") if isinstance(config.get("game"), str) else None)
+            or achievements.app_title(config["appid"]))
+
+
+def _finished_config(name):
+    """The config of a game a run finished, from its newest completed/
+    folder, or None."""
+    paths = sorted(list(COMPLETED_DIR.glob(f"{name}/config_{name}.json"))
+                   + list(COMPLETED_DIR.glob(f"{name}_*/config_{name}.json")),
+                   key=lambda p: p.stat().st_mtime, reverse=True)
+    for path in paths:
+        try:
+            config = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not config_problems(config):
+            return config
+    return None
+
+
 def _game_state(name, session_label):
     config_path, progress_path = profile_paths(name)
     auto = lock_info(auto_lock_path(name))
@@ -112,8 +135,7 @@ def _game_state(name, session_label):
     game.update(
         appid=config["appid"],
         copied_from=config.get("copied_from"),
-        title=(config.get("game") if isinstance(config.get("game"), str) else None)
-              or achievements.app_title(config["appid"]),
+        title=_title(config),
         total=total,
         done=min(progress["last_completed"] + 1, total),
         config_changed=config_changed(config, progress))
@@ -148,9 +170,15 @@ def game_states():
     for log in JSONS_DIR.glob(".run_*.log"):
         name = log.name[len(".run_"):-len(".log")]
         if name not in names:
-            games.append({"name": name, "state": "completed", "running": False,
-                          "auto": False, "in_session": False, "stop_after": False,
-                          "has_log": True, "finished": True})
+            game = {"name": name, "state": "completed", "running": False,
+                    "auto": False, "in_session": False, "stop_after": False,
+                    "has_log": True, "finished": True}
+            config = _finished_config(name)
+            if config:
+                game.update(appid=config["appid"], copied_from=config.get("copied_from"),
+                            title=_title(config), total=len(config["achievements"]),
+                            done=len(config["achievements"]))
+            games.append(game)
     games.sort(key=lambda g: g["name"])
     return {"games": games, "session": session_label}
 
@@ -312,10 +340,31 @@ def read_timeline(name):
             config = json.loads(config_path.read_text())
         except (OSError, json.JSONDecodeError):
             pass
+    if config is None:
+        config = _finished_config(name)
     for path in [CSVS_DIR / f"{name}.csv"] + finished:
         if path.is_file():
             return {"text": path.read_text(errors="replace"), "found": True, "config": config}
-    return {"text": "", "found": False, "config": config}
+    return {"text": "", "found": False, "config": config, "known": _old_names(name)}
+
+
+def _old_names(name):
+    """Achievement names and the player's times by id, from the folder an
+    older version saved instead of one CSV (csvs/<name>/merged.csv, or
+    for a finished game, completed/<name>/<name>/merged.csv)."""
+    known = {}
+    folders = [CSVS_DIR / name] + sorted(COMPLETED_DIR.glob(f"{name}/{name}"))
+    for path in [folder / "merged.csv" for folder in folders]:
+        try:
+            with open(path, newline="", errors="replace") as f:
+                for row in csv.DictReader(f):
+                    if row.get("ach_id"):
+                        known[row["ach_id"]] = [row.get("ach_name") or "", row.get("unlock_time") or ""]
+        except (OSError, csv.Error):
+            continue
+        if known:
+            break
+    return known
 
 
 def read_log(name):
