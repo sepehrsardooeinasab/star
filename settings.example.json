@@ -11,5 +11,7 @@
   "stop_other_asf": true,
   "jitter_enabled": false,
   "jitter_min_delay": 60,
-  "jitter_percent": 10
+  "jitter_percent": 10,
+  "keep_awake": true,
+  "notifications": true
 }

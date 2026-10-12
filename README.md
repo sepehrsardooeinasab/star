@@ -21,7 +21,7 @@ It installs the **STAR** app and ArchiSteamFarm with its achievement plugin (fro
 
 ## Using the app
 
-The app opens on **New schedule** and **Run a game**. The top bar (or the **Go** menu, ⌘1–⌘3) switches between Home, **Schedule**, **Runs** and **Settings**.
+Open STAR and sign in to Steam. The title bar switches between **Schedule**, **Runs** and **Settings** (or the **Go** menu, ⌘1 and ⌘2; Settings is ⌘,).
 
 ### 1. Make a schedule
 
@@ -30,26 +30,26 @@ Paste into **Schedule** either:
 - **A link** to a player's achievements for the game, from SteamHunters (`steamhunters.com/id/<player>/apps/<appid>/achievements`) or Steam (`steamcommunity.com/id/<player>/stats/<appid>/achievements`). The exact unlock times come straight from Steam, so the player's profile must be public.
 - **The page itself**: on SteamHunters, open the player's achievements for the game, select the whole page (⌘A / Ctrl+A), copy and paste. Turn on **Show hidden achievements** in SteamHunters' settings first, or hidden ones come without a name. Any sort or grouping works.
 
-The game's name and App ID fill themselves in where they can. Check the sessions, breaks and timeline, then **Save schedule**.
+The game's name and App ID fill themselves in where they can. The sessions table beside the paste shows each session's achievements, length and the break before it; **Full timeline** shows every achievement, where breaks can be added or removed and delays changed. **Options** holds the session rules. Then **Save schedule**.
 
 To unlock an achievement, the plugin needs its number in the game (`aset <appid> <number>`). The app asks ArchiSteamFarm for the game's list and matches each achievement by name. Where a game reuses a name (Bongo Cat has four "Item Collector"s), it tells them apart by description; it warns when names repeat, and stops rather than guess when ArchiSteamFarm and Steam disagree.
 
 ### 2. Run it
 
-On **Runs**, select a game and press **Run** (or **Continue**) in the bar above the list:
+On **Runs**, pick a game in the list and press **Run** (or **Continue**) in the title bar:
 
-- It plays the game's **next session**, first waiting for its break to end if needed. Pick **All** (next to **Next**) to play every remaining session back to back, waiting out the breaks.
-- **Start** delays the first session: in 30 minutes up to 4 hours, or **Other…** for any time (`45m`, `1h30m`, or a clock time like `23:30`).
-- While it runs, the same button is **Stop** (the bot stops playing, progress is kept), and **Next** / **All** switches between stopping after the current session and playing on.
-- **One game runs at a time.** The running game is pinned to the top of the list.
+- **1 session** plays the game's next session, first waiting for its break to end if needed. **All sessions** plays every remaining session back to back, waiting out the breaks.
+- **When ready** can be changed to start in 30 minutes up to 4 hours, or **Other…** for any time (`45m`, `1h30m`, or a clock time like `23:30`).
+- While it runs, the same button is **Stop** (the bot stops playing, progress is kept), and **1 session** / **All sessions** switches between stopping after the current session and playing on.
+- **One game runs at a time.** The running game is pinned to the top of the list; games still in their break are dimmed with a clock.
 
-The tabs on the right show the selected game's **Details** (progress, session, when it can play), its **Activity** as it runs, and its **Timeline**, with what's already unlocked dimmed; **Edit** changes the delays still ahead.
+The selected game shows a summary (session, this session's length, unlocked so far, when it can play), its sessions with the current one marked, and its activity log as it runs. **Info** has its App ID and where it was copied from; open the **lock** to change the delays still ahead.
 
 Runs keep going when the window is closed; open the app any time to see where they are. The computer has to stay on, and it's kept awake while a run is going.
 
 ### 3. Settings
 
-**Settings** (⌘,) shows the ArchiSteamFarm and plugin versions with **Check for updates**, the Steam account (**Use another account**), tests for keeping the computer awake and notifications, and the data folder (**Show in Finder**). Theme and accent are under the palette button.
+**Settings** (⌘,) shows the ArchiSteamFarm and plugin versions with **Check for updates**, the Steam account (**Use another account**), switches for keeping the computer awake and for notifications (with tests), whether finished games are listed in Runs, the **Advanced run settings** (locked until opened), and the data folder (**Show in Finder**). Theme and accent are under the palette button.
 
 ArchiSteamFarm and the plugin are pinned to versions known to work together, and ASF's own auto-update is off so it can't drift from the plugin. **Check for updates** offers the newest ASF in the series the latest plugin is built for; newer series need a new plugin first. Updates are swapped in between sessions, never during one.
 
@@ -152,6 +152,8 @@ The defaults work with the setup above. To change any of them, copy `settings.ex
 | `jitter_enabled` | `false` | Turns on randomness, so a run doesn't replay the source player's timings to the second. |
 | `jitter_min_delay` | `60` | Only delays longer than this many seconds get randomness. Shorter ones are kept exact. |
 | `jitter_percent` | `10` | How far a delay can move, in either direction, as a percentage of itself (0–100). With the defaults, a 10-minute delay becomes anywhere from 9 to 11 minutes. |
+| `keep_awake` | `true` | Keeps the computer from sleeping while a run waits or plays. |
+| `notifications` | `true` | A notification when a session ends or a run stops. |
 
 With randomness on, it applies to the delays between achievements and to the gaps between sessions. The random value is picked when that delay is scheduled and saved with your progress, so stopping and resuming doesn't pick a new one. Unlocks that happened together in the source data (see `simultaneous_max_delay`) are still sent together. Estimates such as `-t`, `-ls` and the session length shown before you confirm still use the config's exact values.
 
