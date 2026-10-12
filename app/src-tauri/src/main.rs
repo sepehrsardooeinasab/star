@@ -16,7 +16,9 @@ use std::process::Command;
 use std::thread;
 use std::time::Duration;
 
-use tauri::menu::{Menu, MenuEvent, MenuItem};
+#[cfg(target_os = "macos")]
+use tauri::menu::AboutMetadata;
+use tauri::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::webview::NewWindowResponse;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
@@ -134,43 +136,116 @@ fn place_window_buttons(window: &tauri::Window) {
     });
 }
 
-/// The standard menus, plus Check for Updates… and Settings… (⌘,): in the
-/// app menu on macOS, under Help elsewhere.
+/// STAR's menus: the app menu (About, Check for Updates…, Settings… ⌘,),
+/// Edit (for copy and paste), Go (the page's screens, ⌘1–3), Window and
+/// Help. Elsewhere than macOS, a STAR menu has Settings, the update check
+/// and Quit.
 fn menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
-    let menu = Menu::default(app)?;
-    let check = MenuItem::with_id(app, "check-updates", "Check for Updates…", true, None::<&str>)?;
-    let settings = MenuItem::with_id(app, "settings", "Settings…", true, Some("CmdOrCtrl+,"))?;
+    let item = |id: &str, text: &str, key: Option<&str>| MenuItem::with_id(app, id, text, true, key);
+    let sep = || PredefinedMenuItem::separator(app);
+    let check = item("check-updates", "Check for Updates…", None)?;
+    let settings = item("settings", "Settings…", Some("CmdOrCtrl+,"))?;
+    let menu = Menu::new(app)?;
+
+    // Rebuilt rather than the default so About, Hide and Quit say "STAR"
+    // even when run from the bare binary, and About shows the release name
+    // (3.05).
     #[cfg(target_os = "macos")]
-    if let Some(app_menu) = menu.items()?.first().and_then(|m| m.as_submenu().cloned()) {
-        // Right after About, as in other Mac apps.
-        app_menu.insert_items(&[&check, &settings], 1)?;
+    {
+        let info = app.package_info();
+        let name = info.name.as_str();
+        let v = &info.version;
+        let about = AboutMetadata {
+            name: Some(name.into()),
+            version: Some(format!("{}.{}{}", v.major, v.minor, v.patch)),
+            // Empty, so the panel doesn't add the build number in brackets.
+            short_version: Some(String::new()),
+            icon: app.default_window_icon().cloned(),
+            ..Default::default()
+        };
+        menu.append(&Submenu::with_items(app, name, true, &[
+            &PredefinedMenuItem::about(app, Some(&format!("About {name}")), Some(about))?,
+            &check,
+            &settings,
+            &sep()?,
+            &PredefinedMenuItem::services(app, None)?,
+            &sep()?,
+            &PredefinedMenuItem::hide(app, Some(&format!("Hide {name}")))?,
+            &PredefinedMenuItem::hide_others(app, None)?,
+            &PredefinedMenuItem::show_all(app, None)?,
+            &sep()?,
+            &PredefinedMenuItem::quit(app, Some(&format!("Quit {name}")))?,
+        ])?)?;
     }
     #[cfg(not(target_os = "macos"))]
-    if let Some(help) = menu.get(tauri::menu::HELP_SUBMENU_ID).and_then(|m| m.as_submenu().cloned()) {
-        help.prepend_items(&[&settings, &check])?;
-    }
+    menu.append(&Submenu::with_items(app, "STAR", true, &[
+        &settings,
+        &check,
+        &sep()?,
+        &PredefinedMenuItem::quit(app, None)?,
+    ])?)?;
+
+    menu.append(&Submenu::with_items(app, "Edit", true, &[
+        &PredefinedMenuItem::undo(app, None)?,
+        &PredefinedMenuItem::redo(app, None)?,
+        &sep()?,
+        &PredefinedMenuItem::cut(app, None)?,
+        &PredefinedMenuItem::copy(app, None)?,
+        &PredefinedMenuItem::paste(app, None)?,
+        &PredefinedMenuItem::select_all(app, None)?,
+    ])?)?;
+    menu.append(&Submenu::with_items(app, "Go", true, &[
+        &item("go-home", "Home", Some("CmdOrCtrl+1"))?,
+        &item("go-schedule", "Schedule", Some("CmdOrCtrl+2"))?,
+        &item("go-runs", "Runs", Some("CmdOrCtrl+3"))?,
+    ])?)?;
+    menu.append(&Submenu::with_items(app, "Window", true, &[
+        &PredefinedMenuItem::minimize(app, None)?,
+        &PredefinedMenuItem::maximize(app, None)?,
+        #[cfg(target_os = "macos")]
+        &PredefinedMenuItem::fullscreen(app, None)?,
+        &sep()?,
+        &PredefinedMenuItem::close_window(app, None)?,
+    ])?)?;
+    menu.append(&Submenu::with_items(app, "Help", true, &[
+        &item("help-github", "STAR on GitHub", None)?,
+        &item("help-issue", "Report a Problem…", None)?,
+    ])?)?;
     Ok(menu)
 }
 
-/// The page does the work: it opens its Settings tab, there checking for an
-/// update when asked. (Before the page has loaded, nothing happens.)
+const REPO: &str = "https://github.com/sepehrsardooeinasab/star";
+
+/// The page does the work: it switches screens, or opens its Settings tab,
+/// there checking for an update when asked. (Before the page has loaded,
+/// nothing happens.) Help links open in the browser.
 fn on_menu(app: &AppHandle, event: MenuEvent) {
+    let click = |id: &str| format!("document.getElementById('{id}') && document.getElementById('{id}').click()");
     let script = match event.id().as_ref() {
-        "settings" => "window.unlockerShowGuide && unlockerShowGuide()",
-        "check-updates" => "window.unlockerCheckUpdates && unlockerCheckUpdates()",
+        "settings" => "window.unlockerShowGuide && unlockerShowGuide()".to_string(),
+        "check-updates" => "window.unlockerCheckUpdates && unlockerCheckUpdates()".to_string(),
+        "go-home" => click("switch-home"),
+        "go-schedule" => click("switch-schedule"),
+        "go-runs" => click("switch-runs"),
+        "help-github" => return open_url(REPO),
+        "help-issue" => return open_url(&format!("{REPO}/issues/new")),
         _ => return,
     };
     if let Some(window) = app.get_webview_window("main") {
-        let _ = window.eval(script);
+        let _ = window.eval(&script);
     }
+}
+
+fn open_url(url: &str) {
+    let opener = if cfg!(target_os = "macos") { "open" } else { "xdg-open" };
+    let _ = Command::new(opener).arg(url).spawn();
 }
 
 /// Links the page opens in a new window (GitHub, …) open in the default
 /// browser instead.
 fn on_new_window(url: tauri::Url) -> NewWindowResponse<tauri::Wry> {
     if matches!(url.scheme(), "http" | "https") {
-        let opener = if cfg!(target_os = "macos") { "open" } else { "xdg-open" };
-        let _ = Command::new(opener).arg(url.as_str()).spawn();
+        open_url(url.as_str());
     }
     NewWindowResponse::Deny
 }

@@ -28,7 +28,11 @@ pub fn authorize(wait: Duration) -> Option<bool> {
     }
     let center = UNUserNotificationCenter::currentNotificationCenter();
     let (tx, rx) = mpsc::channel();
-    let done = RcBlock::new(move |granted: Bool, _error: *mut NSError| {
+    let done = RcBlock::new(move |granted: Bool, error: *mut NSError| {
+        // Why it was refused, for the run's log (e.g. an unsigned app).
+        if let Some(error) = unsafe { error.as_ref() } {
+            eprintln!("Notifications not allowed: {}", error.localizedDescription());
+        }
         let _ = tx.send(granted.as_bool());
     });
     center.requestAuthorizationWithOptions_completionHandler(
