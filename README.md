@@ -43,7 +43,7 @@ On **Runs**, pick a game in the list and press **Run** (or **Continue**) in the 
 - While it runs, the same button is **Stop** (the bot stops playing, progress is kept), and **1 session** / **All sessions** switches between stopping after the current session and playing on.
 - **One game runs at a time.** The running game is pinned to the top of the list; games still in their break are dimmed with a clock.
 
-The selected game shows a summary (session, this session's length, unlocked so far, when it can play), its sessions with the current one marked, and its activity log as it runs. **Info** has its App ID and where it was copied from; open the **lock** to change the delays still ahead.
+The selected game shows a summary (session, this session's length, unlocked so far, when it can play), its sessions with the current one marked, and its activity log as it runs. The arrow at the end of the summary shows its App ID and where it was copied from. **Full timeline** lists every achievement; open its **lock** to change the delays still ahead, then **Save**.
 
 Runs keep going when the window is closed; open the app any time to see where they are. The computer has to stay on, and it's kept awake while a run is going.
 
@@ -62,24 +62,24 @@ ArchiSteamFarm and the plugin are pinned to versions known to work together, and
 
 ## Command line
 
-The installer also adds `runsteamunlocker`, which runs the same code. You don't need it with the app; it's there for computers without a screen (a Linux box over SSH), without the app (`--no-app`; `--ui` opens the interface in the browser), or when something's wrong (`-k` stops ArchiSteamFarm and every run, `--ui-stop` stops a stuck app server). Games are named by their file name (`jsons/config_<name>.json`).
+The installer also adds `runsteamunlocker`, which runs the same code. You don't need it with the app; it's there for computers without a screen (a Linux box over SSH), installs without the app (the installer's `--no-app`; `--ui` then opens the interface in the browser), or when something's wrong (`-k` stops ArchiSteamFarm and every run, `--ui-stop` stops a stuck app server). Games are named by their file name (`jsons/config_<name>.json`).
 
 ```sh
-runsteamunlocker <config-name>      # run the unlocker using jsons/config_<config-name>.json
-runsteamunlocker -f <config-name>   # same, but skip the confirmation prompt
-runsteamunlocker -w <config-name>   # confirm now, wait until the session can run, then start it
-runsteamunlocker --auto <config-name>  # run every remaining session back to back, waiting out the breaks
-runsteamunlocker -u / --ui          # open the app in the browser (starts it in the background if needed)
-runsteamunlocker --setup            # download ArchiSteamFarm + plugin, write configs, sign in to Steam
-runsteamunlocker --ui-stop          # stop the app; games it started keep running
+runsteamunlocker <config-name>         # run the game's next session (jsons/config_<config-name>.json), after asking
+runsteamunlocker -f <config-name>      # same, without asking
+runsteamunlocker -w <config-name>      # confirm now, wait until the session can run, then start it
 runsteamunlocker -in 2h <config-name>  # confirm now, start in 2h (also 30, 45m, 1h30m)
-runsteamunlocker -t <config-name>   # print the next session's wait/duration and exit, without running
-runsteamunlocker -s <config-name>   # show achievements from the current session onward (names, done/next)
+runsteamunlocker --auto <config-name>  # every remaining session back to back, waiting out the breaks (-in works here too)
+runsteamunlocker -t <config-name>      # print the next session's wait and length, without running
+runsteamunlocker -s <config-name>      # achievements from the current session on (names, done / next)
 runsteamunlocker -s <config-name> all  # every session; or a number for just that session
-runsteamunlocker -k                 # stop ArchiSteamFarm and any running unlocker session
-runsteamunlocker -a / --all         # list available jsons/config_*.json profiles
-runsteamunlocker -ls / --status     # every game's next session and when it can run
-runsteamunlocker -h                 # help
+runsteamunlocker -ls / --status        # every game's next session and when it can run
+runsteamunlocker -a / --all            # list the saved games (jsons/config_*.json)
+runsteamunlocker -u / --ui             # open the app in the browser (starts its server if needed)
+runsteamunlocker --ui-stop             # stop the app's server; games it started keep running
+runsteamunlocker --setup               # download ArchiSteamFarm + plugin, write configs, sign in to Steam
+runsteamunlocker -k                    # stop ArchiSteamFarm and any running session
+runsteamunlocker -h                    # help
 ```
 
 ## Manual setup
@@ -135,7 +135,7 @@ Put these lines in `~/.zshrc` — or, if you use oh-my-zsh, in a file under `~/.
 
 ### Settings (optional)
 
-The defaults work with the setup above. To change any of them, copy `settings.example.json` to `settings.json` (gitignored) and keep only the keys you want to change. An unknown key or a wrong type stops the unlocker with an error, so a typo never quietly falls back to a default.
+In the app, **Settings** has the two switches and **Advanced run settings** for most of these; it saves them to `settings.json` in the data folder, keeping only what differs from the defaults. The ports and the IPC password are set in that file directly, since they have to match ArchiSteamFarm's own config. Running from a clone, `settings.json` goes in the project folder (gitignored); `settings.example.json` lists every key. An unknown key or a wrong type stops the unlocker with an error, so a typo never quietly falls back to a default.
 
 | Key | Default | What it does |
 | --- | --- | --- |
@@ -169,7 +169,9 @@ With randomness on, it applies to the delays between achievements and to the gap
 - `unlocker/` — the Python package that drives unlocking:
   - `runner.py` — the unlock loop: delays, session breaks, resuming from saved progress
   - `api.py` — talks to ArchiSteamFarm's local Web API (`aset`, `play`, `reset`)
-  - `state.py` — reads/writes `jsons/config_*.json` and `jsons/progress_*.json`
+  - `state.py` — reads/writes `jsons/config_*.json` and `jsons/progress_*.json`, and the locks that keep one game running at a time
+  - `timeline.py` — `-s`: a game's achievements session by session
+  - `extras.py` — what keeps the computer awake and shows notifications on this system, and their tests
   - `settings.py` — defaults for `settings.json` and its validation
   - `server.py` — the local app (`--ui`): serves `docs/app.html` and the API it uses to save configs and start, stop and follow runs
   - `achievements.py` — the builder's achievement numbers (from the plugin's `alist`, matched with Steam's public stats) and reading a player's achievements from a link
@@ -183,7 +185,7 @@ With randomness on, it applies to the delays between achievements and to the gap
 - `app/` — the desktop app (Tauri): a window that starts the local server and shows the page
 - `install.sh` — the one-line installer; `.github/workflows/release.yml` builds the app for each `v*` tag
 - `tools/check_asf_pins.py` — says whether a newer ArchiSteamFarm + plugin pair can replace the pinned one (the newest ASF in the series the latest plugin is built against); `.github/workflows/asf-versions.yml` runs it weekly and fails when the pins should be bumped
-- `jsons/`, `csvs/`, `archifarm/` — per-machine runtime data (ASF install, bot credentials, generated configs); gitignored, not part of the repo
+- `jsons/`, `csvs/`, `archifarm/` — per-machine data (schedules, progress, ASF install, bot credentials), in the data folder (the project folder when run from a clone; gitignored)
 - `completed/` — finished games: each game's config and CSV are moved to `completed/<name>/` once every achievement is unlocked (gitignored)
 
 ## Disclaimer
