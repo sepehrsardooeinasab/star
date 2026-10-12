@@ -33,6 +33,7 @@ from unlocker.state import (
     COMPLETED_DIR,
     CSVS_DIR,
     DEFAULT_PROGRESS,
+    GAME_LOCK,
     JSONS_DIR,
     PROJECT_DIR,
     SESSION_LOCK,
@@ -183,6 +184,10 @@ def start_run(name):
         raise AppError(f"There's no config for {name}.", 404)
     if _running_pid(name):
         raise AppError(f"{name} is already running.", 409)
+    other = lock_info(GAME_LOCK)
+    if other:
+        raise AppError(f"{other[1] or 'Another game'} is running. Only one game runs "
+                       "at a time; stop it first.", 409)
     if _setup["busy"] == "install":
         raise AppError("ArchiSteamFarm is being installed or updated. Try again once it's done.", 409)
     if updates.updating():

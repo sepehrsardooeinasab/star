@@ -28,6 +28,7 @@ from unlocker.state import (
     acquire_lock,
     auto_lock_path,
     cleanup_profile,
+    hold_game_lock,
     config_fingerprint,
     config_problems,
     list_profiles,
@@ -280,6 +281,10 @@ def run_auto(game_name):
     if not acquire_lock(auto_lock_path(game_name), game_label, keep=True):
         print(f"{game_label} is already running: {lock_holder(auto_lock_path(game_name))}.")
         return
+    other = hold_game_lock(game_label, keep=True)
+    if other:
+        print(f"{other} is running. Only one game runs at a time; stop it first.")
+        return
     stop_after = stop_after_path(game_name)
     stop_after.unlink(missing_ok=True)
     # Also set by each run, but a signal can land between runs too.
@@ -317,6 +322,13 @@ def _run(game_name, force=False, time_only=False, delay=None, wait_ready=False):
     if not time_only and not acquire_lock(profile_lock_path(game_name), game_label):
         print(f"{game_label} is already running: {lock_holder(profile_lock_path(game_name))}.")
         return "busy"
+    # And one game at a time, so a second game can't start during this
+    # one's breaks either.
+    if not time_only:
+        other = hold_game_lock(game_label)
+        if other:
+            print(f"{other} is running. Only one game runs at a time; stop it first.")
+            return "busy"
 
     config = load_config(config_path)
     achievements = config["achievements"]
