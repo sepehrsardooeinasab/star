@@ -105,6 +105,8 @@ def _game_state(name, session_label):
     game.update(
         appid=config["appid"],
         copied_from=config.get("copied_from"),
+        title=(config.get("game") if isinstance(config.get("game"), str) else None)
+              or achievements.app_title(config["appid"]),
         total=total,
         done=min(progress["last_completed"] + 1, total),
         config_changed=config_changed(config, progress))
@@ -163,10 +165,11 @@ def save_game(name, config, csv_text, overwrite=False):
     if not isinstance(csv_text, str):
         raise AppError("Missing the timeline CSV.")
     config_path, _ = profile_paths(name)
+    title = config.get("game") if isinstance(config.get("game"), str) and config.get("game") else name
     if _running_pid(name):
-        raise AppError(f"{name} is running. Stop it before replacing its config.", 409)
+        raise AppError(f"{title} is running. Stop it before replacing its schedule.", 409)
     if config_path.exists() and not overwrite:
-        raise AppError(f"config_{name}.json already exists.", 409, exists=True)
+        raise AppError(f"{title} is already saved (as {name}).", 409, exists=True)
     JSONS_DIR.mkdir(parents=True, exist_ok=True)
     CSVS_DIR.mkdir(parents=True, exist_ok=True)
     config_path.write_text(json.dumps(config, indent=2) + "\n")
@@ -542,6 +545,7 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/open-folder": open_data_folder,
             "/api/achievements/numbers": lambda: achievement_numbers(body.get("appid")),
             "/api/achievements/link": lambda: achievements_from_link(body.get("url")),
+            "/api/achievements/appid": lambda: {"appid": achievements.find_appid(str(body.get("name") or "")[:200])},
             "/api/setup/login": lambda: setup_login(body.get("username"), body.get("password")),
             "/api/setup/code": lambda: setup_code(body.get("code")),
             "/api/update": app_update,

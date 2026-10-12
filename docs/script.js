@@ -183,6 +183,12 @@
     return String(name || "").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "");
   }
 
+  // The name a game's files are saved under: "Grand Theft Auto V" ->
+  // "grandtheftautov", or app<id> for a name with no letters to use.
+  function fileName(title, appid) {
+    return (gameSlug(title) || (title && appid > 0 ? "app" + appid : "")).slice(0, 60);
+  }
+
   function loadLink(url) {
     if (linkSources[url]) return linkSources[url];
     linkSources[url] = {status: "loading"};
@@ -190,7 +196,7 @@
       linkSources[url] = {status: "ok", data: d};
       if (pastedLink(els.exportText.value) === url) {
         if (!els.appid.value && d.appid) els.appid.value = d.appid;
-        if (!els.gameName.value && d.game) els.gameName.value = gameSlug(d.game);
+        if (!els.gameName.value && d.game) els.gameName.value = d.game;
         if (!els.copiedFrom.value && d.player) els.copiedFrom.value = d.player;
       }
     }).catch(function (err) {
@@ -333,7 +339,7 @@
     return {sessions: sessions, gaps: gaps, durations: durations, autoBreaks: autoBreaks};
   }
 
-  function buildConfig(appid, sessions, gaps, copiedFrom) {
+  function buildConfig(appid, sessions, gaps, copiedFrom, title) {
     var achievements = [];
     sessions.forEach(function (session, si) {
       session.forEach(function (ach, ai) {
@@ -346,6 +352,7 @@
       });
     });
     var config = {appid: appid};
+    if (title) config.game = title;
     if (copiedFrom) config.copied_from = copiedFrom;
     config.achievements = achievements;
     return config;
@@ -692,7 +699,10 @@
   // ---- core recompute (pure, runs on every input change) ----
   function recompute() {
     var appidVal = parseInt(els.appid.value, 10);
-    var gameName = els.gameName.value.trim().toLowerCase();
+    // The game's real name is shown in the app; its files get a short
+    // name made from it.
+    var title = els.gameName.value.trim();
+    var gameName = fileName(title, appidVal);
     var copiedFrom = els.copiedFrom.value.trim();
     var gapLimitSec = (parseFloat(els.gapLimit.value) || 0) * 3600;
     var cumLimitSec = (parseFloat(els.cumLimit.value) || 0) * 3600;
@@ -777,7 +787,7 @@
     var simultaneous = Object.keys(timeMap).filter(function (t) { return timeMap[t].length > 1; });
 
     var split = applyEdits(splitSessions(withDelays, gapLimitSec, cumLimitSec, breaks), edits);
-    var config = buildConfig(appidVal, split.sessions, split.gaps, copiedFrom);
+    var config = buildConfig(appidVal, split.sessions, split.gaps, copiedFrom, title);
 
     // Unlike the warnings below, a re-sorted paste makes every ach_id
     // wrong, so it's surfaced loudly (red Download button, input-pane
@@ -1008,6 +1018,28 @@
   // text changes. Registered before the scheduleRecompute loop below so it
   // runs first and scheduleRecompute's saveDraft() sees the reset values.
   els.exportText.addEventListener("input", resetSettingFields);
+
+  // A whole-page paste names its game: that fills in the game name, and in
+  // the app the App ID too, when Steam's store has exactly one game by
+  // that name (otherwise it's left for you).
+  var appidLookups = {};  // title -> appid or null
+  els.exportText.addEventListener("input", function () {
+    var title = pastedLink(els.exportText.value) ? null : pageGame(els.exportText.value);
+    if (!title) return;
+    els.gameName.value = title;
+    if (!local) return;
+    var fill = function (appid) {
+      if (appid && !els.appid.value && pageGame(els.exportText.value) === title) {
+        els.appid.value = appid;
+        scheduleRecompute();
+      }
+    };
+    if (title in appidLookups) return fill(appidLookups[title]);
+    api("/api/achievements/appid", {name: title}).then(function (d) {
+      appidLookups[title] = d.appid;
+      fill(d.appid);
+    }).catch(function () {});
+  });
 
   [els.exportText, els.appid, els.gameName, els.copiedFrom, els.gapLimit, els.cumLimit, els.minGap].forEach(function (el) {
     el.addEventListener("input", scheduleRecompute);
@@ -1375,13 +1407,14 @@
   }
 
   function saveToProject(overwrite) {
-    var name = els.gameName.value.trim().toLowerCase();
+    var name = fileName(els.gameName.value.trim(), parseInt(els.appid.value, 10));
+    var title = latest.config.game || name;
     api("/api/save", {name: name, config: latest.config, csv: latest.csvText, overwrite: overwrite})
       .then(function () {
         resetAll();
         delete timelines[name];  // re-saved: read its timeline again
         selectedRun = name;  // picked when Runs is opened
-        showToast("Saved " + name + ". Start it from Runs in the top bar.");
+        showToast("Saved " + title + ". Start it from Runs in the top bar.");
       })
       .catch(function (err) {
         // Asked with a second click rather than a dialog, which the

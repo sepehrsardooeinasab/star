@@ -25,7 +25,7 @@ import xml.etree.ElementTree as ET
 
 from unlocker import asf_setup
 from unlocker.api import asf_running, ensure_asf_running, send_command
-from unlocker.state import SESSION_LOCK, lock_info
+from unlocker.state import JSONS_DIR, SESSION_LOCK, lock_info
 
 # A player's achievements for a game, from a SteamHunters or Steam link.
 LINK_RES = [
@@ -202,3 +202,69 @@ def numbers(appid):
                 asf_setup._stop_idle_asf()  # waits until it's gone
         _cache[appid] = (time.monotonic(), result)
         return result
+
+
+def find_appid(name):
+    """The App ID of the one Steam game named exactly name (ignoring case
+    and ®/™), from the store's search; None when there's no such game or
+    more than one, rather than a guess."""
+    clean = lambda text: re.sub(r"[®™©]", "", text or "").strip().casefold()
+    url = "https://store.steampowered.com/api/storesearch/?" + urllib.parse.urlencode(
+        {"term": name, "l": "english", "cc": "US"})
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (STAR)"})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            items = json.loads(r.read()).get("items") or []
+    except (urllib.error.URLError, OSError, ValueError):
+        return None
+    exact = {item.get("id") for item in items if clean(item.get("name")) == clean(name)}
+    return exact.pop() if len(exact) == 1 else None
+
+
+TITLES_PATH = JSONS_DIR / ".titles.json"
+_titles_lock = threading.Lock()
+_titles_pending = set()
+_titles_failed = {}  # appid -> when a lookup last failed, so it's retried only now and then
+TITLE_RETRY = 600  # seconds
+
+
+def _fetch_title(appid):
+    url = f"https://store.steampowered.com/api/appdetails?appids={appid}&filters=basic&l=english"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (STAR)"})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            entry = json.loads(r.read()).get(str(appid)) or {}
+    except (urllib.error.URLError, OSError, ValueError):
+        entry = {}
+    title = ((entry.get("data") or {}).get("name") or "").strip() if entry.get("success") else ""
+    with _titles_lock:
+        _titles_pending.discard(appid)
+        if not title:
+            _titles_failed[appid] = time.monotonic()
+            return
+        try:
+            titles = json.loads(TITLES_PATH.read_text())
+        except (OSError, ValueError):
+            titles = {}
+        titles[str(appid)] = title
+        TITLES_PATH.write_text(json.dumps(titles, indent=1) + "\n")
+
+
+def app_title(appid):
+    """The game's name on Steam's store, for games saved before configs kept
+    it. Cached in jsons/.titles.json; looked up in the background, so None
+    until it's known (or if the store doesn't list the game)."""
+    if not isinstance(appid, int) or appid <= 0:
+        return None
+    try:
+        title = json.loads(TITLES_PATH.read_text()).get(str(appid))
+    except (OSError, ValueError):
+        title = None
+    if title:
+        return title
+    with _titles_lock:
+        failed = _titles_failed.get(appid)
+        if appid not in _titles_pending and (failed is None or time.monotonic() - failed > TITLE_RETRY):
+            _titles_pending.add(appid)
+            threading.Thread(target=_fetch_title, args=(appid,), daemon=True).start()
+    return None
