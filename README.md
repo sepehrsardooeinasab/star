@@ -38,9 +38,9 @@ To unlock an achievement, the plugin needs its number in the game (`aset <appid>
 
 On **Runs**, select a game and press **Run** (or **Continue**) in the bar above the list:
 
-- It plays the game's **next session**, first waiting for its break to end if needed. Tick **All sessions** to play every remaining session back to back, waiting out the breaks.
+- It plays the game's **next session**, first waiting for its break to end if needed. Pick **All** (next to **Next**) to play every remaining session back to back, waiting out the breaks.
 - **Start** delays the first session: in 30 minutes up to 4 hours, or **Other…** for any time (`45m`, `1h30m`, or a clock time like `23:30`).
-- While it runs, the same button is **Stop** (the bot stops playing, progress is kept), and **All sessions** switches between stopping after the current session and playing on.
+- While it runs, the same button is **Stop** (the bot stops playing, progress is kept), and **Next** / **All** switches between stopping after the current session and playing on.
 - **One game runs at a time.** The running game is pinned to the top of the list.
 
 The tabs on the right show the selected game's **Details** (progress, session, when it can play), its **Activity** as it runs, and its **Timeline**, with what's already unlocked dimmed; **Edit** changes the delays still ahead.

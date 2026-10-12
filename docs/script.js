@@ -313,15 +313,22 @@
     var autoBreaks = {};
     breaks = breaks || {};
 
+    // A session you merged by removing a break isn't split again just for
+    // running long (that would only move the break further on); a real
+    // pause in the player's unlocks still starts a new one.
+    var merged = false;
     items.forEach(function (ach) {
       var delay = ach.delay;
 
       if (current.length) {
         var key = String(ach.ach_id);
-        var auto = delay > gapLimit || cumulative + delay > cumulativeLimit;
+        var auto = delay > gapLimit || (!merged && cumulative + delay > cumulativeLimit);
         autoBreaks[key] = auto;
         if (key in breaks ? breaks[key] : auto) {
           sessions.push(current); durations.push(cumulative); current = []; cumulative = 0;
+          merged = false;
+        } else if (auto) {
+          merged = true;  // a break you removed
         }
       }
 
@@ -356,6 +363,12 @@
     if (copiedFrom) config.copied_from = copiedFrom;
     config.achievements = achievements;
     return config;
+  }
+
+  function exactRange(list) {
+    var lo = Math.min.apply(null, list), hi = Math.max.apply(null, list);
+    var fmt = function (x) { return x >= 60 ? fmtDur(x) : Math.round(x) + "s"; };
+    return lo === hi ? fmt(lo) : fmt(lo) + " – " + fmt(hi);
   }
 
   function roughDuration(seconds) {
@@ -463,9 +476,39 @@
   }
 
   // Whole seconds. Returns null if invalid.
+  // Seconds from what's typed: "90" (seconds), or "1h 20m", "45m", "2d 3h",
+  // "90s"; null if it's neither.
   function parseDelayInput(text) {
-    var t = String(text).trim();
-    return /^\d+$/.test(t) ? parseInt(t, 10) : null;
+    var t = String(text).trim().toLowerCase();
+    if (/^\d+$/.test(t)) return parseInt(t, 10);
+    var m = /^(?:(\d+)\s*d)?\s*(?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?\s*(?:(\d+)\s*s)?$/.exec(t);
+    if (!t || !m || !(m[1] || m[2] || m[3] || m[4])) return null;
+    return (+m[1] || 0) * 86400 + (+m[2] || 0) * 3600 + (+m[3] || 0) * 60 + (+m[4] || 0);
+  }
+
+  // "1h 21m 10s": every part, for editing a delay without losing any of it.
+  function exactDuration(seconds) {
+    seconds = Math.max(0, Math.round(Number(seconds) || 0));
+    var parts = [[86400, "d"], [3600, "h"], [60, "m"], [1, "s"]].map(function (u) {
+      var n = Math.floor(seconds / u[0]);
+      seconds -= n * u[0];
+      return n ? n + u[1] : "";
+    }).filter(Boolean);
+    return parts.join(" ") || "0s";
+  }
+
+  // The app's timeline, written for people: "Oct 9, 21:25" and "1h 21m".
+  function prettyTime(text) {
+    var d = new Date(String(text).replace(" ", "T"));
+    return isNaN(d) ? text : d.toLocaleString([], {month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"});
+  }
+  function prettyLabel(r) {
+    var secs = Number(r[CSV_DELAY_COL + 1]) || 0, m;
+    if ((m = /^Gap before session (\d+)/.exec(r[0]))) return "Break before session " + m[1];
+    if ((m = /^Session (\d+) \((\d+ achievements?)\)/.exec(r[0]))) {
+      return "Session " + m[1] + " · " + m[2] + " · " + fmtDur(secs);
+    }
+    return r[0];
   }
 
   function isLabelRow(row) {
@@ -481,20 +524,23 @@
     var achievement = -1;
     var head = rows[0];
     var body = rows.slice(1);
-    var html = '<div class="table-wrap"><table class="csv-table"><thead><tr>';
-    head.forEach(function (h) { html += "<th>" + escapeHtml(h) + "</th>"; });
+    var pretty = combined;  // the app: friendlier columns (see prettyTime)
+    var html = '<div class="table-wrap"><table class="csv-table' + (pretty ? " pretty" : "") + '"><thead><tr>';
+    (pretty ? ["#", "Achievement", "Player's time", "After"] : head).forEach(function (h) { html += "<th>" + escapeHtml(h) + "</th>"; });
     html += "</tr></thead><tbody>";
+    var shown = function (r) { return pretty ? exactDuration(r[CSV_DELAY_COL + 1]) : r[CSV_DELAY_COL + 1]; };
 
     function delayCell(r, ri) {
       var id = ui && ui.targets[ri + 1];
-      if (!id) return "<td>" + escapeHtml(r[CSV_DELAY_COL + 1]) + "</td>";
+      if (!id) return "<td>" + escapeHtml(shown(r)) + "</td>";
       var edited = id in ui.edits;
+      // In the app the undo goes before the time, so the times line up.
+      var undo = edited ? '<button class="undo-edit" type="button" data-undo="' + escapeHtml(id) + '" title="Undo this edit">↺</button>' : "";
       var title = edited
         ? "Edited (was " + ui.originals[id] + "s) — click to change"
         : "Click to edit this delay";
       return '<td class="delay-cell editable' + (edited ? " edited" : "") + '" data-id="' + escapeHtml(id) +
-        '" title="' + escapeHtml(title) + '">' + escapeHtml(r[CSV_DELAY_COL + 1]) +
-        (edited ? '<button class="undo-edit" type="button" data-undo="' + escapeHtml(id) + '" title="Undo this edit">↺</button>' : "") +
+        '" title="' + escapeHtml(title) + '">' + (pretty ? undo + escapeHtml(shown(r)) : escapeHtml(shown(r)) + undo) +
         "</td>";
     }
 
@@ -514,6 +560,20 @@
     }
 
     body.forEach(function (r, ri) {
+      if (pretty) {
+        if (/^Copied from:/.test(r[0])) return;
+        if (isLabelRow(r)) {
+          var kind = /^Gap/.test(r[0]) ? "gap-row" : "session-row";
+          html += '<tr class="' + kind + '"><td colspan="3">' + escapeHtml(prettyLabel(r)) + gapButton(ri) + "</td>" +
+            (kind === "gap-row" ? delayCell(r, ri) : "<td></td>") + "</tr>";
+        } else {
+          var cls2 = achievementClass ? achievementClass(++achievement) : "";
+          html += "<tr" + (cls2 ? ' class="' + cls2 + '"' : "") + '><td><span class="row-num">' + escapeHtml(r[1]) + "</span>" +
+            gapButton(ri) + "</td><td>" +
+            escapeHtml(r[2]) + "</td><td>" + escapeHtml(prettyTime(r[4])) + "</td>" + delayCell(r, ri) + "</tr>";
+        }
+        return;
+      }
       if (isLabelRow(r)) {
         var cls = /^Gap/.test(r[0]) ? "gap-row" : /^Copied from:/.test(r[0]) ? "meta-row" : "session-row";
         html += '<tr class="' + cls + '"><td colspan="' + CSV_DELAY_COL + '">' + escapeHtml(r[0]) + gapButton(ri) + "</td>" +
@@ -744,8 +804,11 @@
     }
 
     var errors = [];
-    if (!appidVal || appidVal <= 0) errors.push("Enter a valid numeric App ID in Settings.");
-    if (!gameName) errors.push("Enter a game name in Settings.");
+    // In the app the fields sit in the bar above; on the website, on the
+    // Settings tab.
+    var where = combined ? " above." : " in Settings.";
+    if (!appidVal || appidVal <= 0) errors.push("Enter the game's App ID" + where);
+    if (!gameName) errors.push("Enter a game name" + where);
 
     var parsed = linked ? {
       list: linked.achievements.map(function (a, i) {
@@ -756,11 +819,20 @@
     } : parseExport(els.exportText.value || "");
     if (parsed.list.length === 0) errors.push("No unlocked achievements with a valid timestamp were found in the pasted text.");
 
+    // Unlocked hidden achievements pasted without their names can't be
+    // matched to the game's, so nothing can be saved until they have them.
+    if (parsed.namelessCount) {
+      var n = parsed.namelessCount;
+      latest = {errors: [n + " unlocked achievement" + (n === 1 ? " shows" : "s show") +
+        " only as \u201cThis achievement is hidden.\u201d, with no name. In SteamHunters, turn on " +
+        "Settings \u2192 Show hidden achievements."], inputNotice: "danger"};
+      return;
+    }
+
     if (errors.length) { latest = {errors: errors}; return; }
 
     // Numbers from ArchiSteamFarm (app only); see assignNumbers.
     var numberDangers = [], numberWarnings = [];
-    var namelessFate = null;  // what happened to hidden ones pasted without a name
     if (local) {
       var numbering = loadNumbers(appidVal);
       if (numbering.status === "loading") {
@@ -775,7 +847,6 @@
           numberDangers.push("Not in this game's achievements, so left out: " + match.missing.join(", ") +
             ". Check the App ID, or that the paste is from this game.");
         }
-        namelessFate = match.namelessMissing ? "left out" : "numbered by their position in the default order";
         var shared = sharedNamesMsg(match, !!linked);
         if (shared) numberWarnings.push(shared);
         if (match.restricted.length) {
@@ -808,19 +879,12 @@
     // wrong, so it's surfaced loudly (red Download button, input-pane
     // notice) rather than only as a notice in the output tabs.
     var dangers = numberDangers.slice();
-    if (parsed.namelessCount) {
-      var n = parsed.namelessCount, one = n === 1;
-      dangers.push(n + " unlocked achievement" + (one ? " shows" : "s show") + " only as \u201cThis achievement is hidden.\u201d, " +
-        "with no name. In SteamHunters, turn on Settings \u2192 Show hidden achievements, then copy the page again. Until then " +
-        (one ? "it's " : "they're ") + (namelessFate ||
-          "numbered by position, which is only right in the default order") + ".");
-    }
     if (parsed.sortedBy) dangers.push(sortedByMsg(parsed.sortedBy));
 
     var warnings = numberWarnings.slice();
     if (parsed.minutesOnly) {
       warnings.push("The pasted times have no seconds, so every delay is rounded to the minute. For exact times, turn on " +
-        "seconds in SteamHunters' settings and copy the page again" + (local ? ", or paste the player's link instead." : "."));
+        "seconds in SteamHunters' settings and copy the page again.");
     }
     if (simultaneous.length) warnings.push(simultaneous.length + " timestamp(s) have multiple achievements unlocking together.");
     // Problems that can hit many sessions/achievements are listed in one
@@ -844,12 +908,9 @@
         }
       });
     });
-    if (longWaits.length === 1) {
-      warnings.push(longWaits[0] + " waits longer than your \"Session break after\" setting after your edits. It stays in its session, " +
-        "so the game keeps running in ASF the whole time.");
-    } else if (longWaits.length) {
-      warnings.push(longWaits.length + " achievements wait longer than your \"Session break after\" setting after your edits: " +
-        longWaits.join(", ") + ". They stay in their sessions, so the game keeps running in ASF the whole time.");
+    if (longWaits.length) {
+      warnings.push((longWaits.length === 1 ? "1 wait is" : longWaits.length + " waits are") +
+        " longer than \"Session break after\".");
     }
     // A session that lasts no time is either a lone achievement or several
     // unlocked at the same moment; say which, since both happen.
@@ -891,12 +952,20 @@
         totalAchievements: parsed.totalCount,
         sessions: split.sessions.length,
         sessionLen: split.durations.length ? roughDuration(Math.min.apply(null, split.durations)) + " – " + roughDuration(Math.max.apply(null, split.durations)) : "—",
-        gapRange: split.gaps.length ? roughDuration(Math.min.apply(null, split.gaps)) + " – " + roughDuration(Math.max.apply(null, split.gaps)) : "—"
+        gapRange: split.gaps.length ? roughDuration(Math.min.apply(null, split.gaps)) + " – " + roughDuration(Math.max.apply(null, split.gaps)) : "—",
+        // Exact, for the app: "38m – 6h 2m".
+        sessionLenExact: split.durations.length ? exactRange(split.durations) : "—",
+        gapRangeExact: split.gaps.length ? exactRange(split.gaps) : "—"
       }
     };
   }
 
+  var combined = false;  // the app's one-screen Schedule (see enableLocal)
+  var pasteOpen = false;  // the paste box shown again after it folded
+  var schedFull = false;  // every achievement instead of the sessions
+
   function fileKeyForView(view) {
+    if (combined && view === "input") return "csv";
     if (view === "json") return "json";
     if (view === "csv") return "csv";
     return null;
@@ -952,8 +1021,13 @@
       els.statsStrip.innerHTML =
         "<span><b>" + latest.stats.achievements + " / " + latest.stats.totalAchievements + "</b> achievements</span>" +
         "<span><b>" + latest.stats.sessions + "</b> sessions</span>" +
-        "<span>len <b>" + latest.stats.sessionLen + "</b></span>" +
-        "<span>gap <b>" + latest.stats.gapRange + "</b></span>";
+        (combined
+          ? "<span>sessions <b>" + latest.stats.sessionLenExact + "</b></span>" +
+            "<span>breaks <b>" + latest.stats.gapRangeExact + "</b></span>"
+          : "<span>len <b>" + latest.stats.sessionLen + "</b></span>" +
+            "<span>gap <b>" + latest.stats.gapRange + "</b></span>");
+    } else if (combined) {
+      els.statsStrip.innerHTML = "";  // the app shows progress beside the paste instead
     } else {
       // Kept (with a hint) so the bar doesn't change height on paste.
       els.statsStrip.innerHTML = "<span>" + escapeHtml(latest && latest.pending ? latest.errors[0]
@@ -982,6 +1056,27 @@
     var slot = fileKey === "json" ? els.jsonSlot : els.csvSlot;
     if (fileKey === "csv" && ok) els.boxTitle.textContent = "Timeline (" + latest.filenames.csv + ")";
 
+    // Beside the paste: the how-to until something's pasted, then the
+    // timeline (its problems already show under the paste).
+    if (combined) {
+      var box = document.querySelector(".box");
+      box.classList.toggle("has-paste", !!els.exportText.value.trim());
+      box.classList.toggle("has-timeline", !!ok);
+      // A clean paste folds away (Edit paste brings it back), leaving the
+      // sessions overview, or with Full timeline, every achievement.
+      box.classList.toggle("paste-folded", !!ok && !pasteOpen);
+      box.classList.toggle("sched-full", !!ok && schedFull);
+      if (!latest || latest.errors.length) {
+        // What's still missing (like the App ID) says so here; problems
+        // with the paste itself already show under it.
+        var missing = latest && !latest.inputNotice && els.exportText.value.trim() ? latest.errors : [];
+        slot.innerHTML = latest && latest.pending ? noticeHtml("info", latest.errors[0])
+          : missing.map(function (m) { return noticeHtml("info", m); }).join("") +
+            emptyHtml("☰", "The timeline shows up here once the paste reads cleanly.");
+        return;
+      }
+    }
+
     if (!latest || latest.errors.length) {
       var msgs = latest ? latest.errors : ["Paste an export first."];
       slot.innerHTML = msgs.map(function (m) {
@@ -1004,6 +1099,8 @@
 
     if (fileKey === "json") {
       slot.innerHTML = '<pre class="file-preview">' + highlightJson(latest.jsonText) + "</pre>" + warningsHtml;
+    } else if (combined && !schedFull) {
+      slot.innerHTML = sessionsHtml(latest.csvRows, null) + warningsHtml;
     } else {
       slot.innerHTML = rowsToTable(latest.csvRows, {
         targets: latest.csvTargets, gapActions: latest.gapActions, edits: edits,
@@ -1011,6 +1108,19 @@
       }) + warningsHtml;
     }
   }
+
+  byId("sched-full-btn").addEventListener("click", function () {
+    schedFull = !schedFull;
+    this.setAttribute("aria-pressed", String(schedFull));
+    render();
+  });
+  byId("paste-edit-btn").addEventListener("click", function () {
+    pasteOpen = !pasteOpen;
+    this.setAttribute("aria-pressed", String(pasteOpen));
+    this.textContent = pasteOpen ? "Done" : "Edit paste";
+    render();
+    if (pasteOpen) els.exportText.focus();
+  });
 
   var debounceTimer = null;
   function scheduleRecompute() {
@@ -1096,8 +1206,8 @@
     var input = document.createElement("input");
     input.type = "text";
     input.className = "delay-input";
-    input.value = currentDelay(id);
-    input.placeholder = "seconds";
+    input.value = combined ? exactDuration(currentDelay(id)) : currentDelay(id);
+    input.placeholder = combined ? "1h 20m" : "seconds";
     cell.textContent = "";
     cell.appendChild(input);
     input.focus();
@@ -1110,7 +1220,7 @@
       if (!save) { render(); return; }
       var seconds = parseDelayInput(input.value);
       if (seconds === null) {
-        showToast("Enter a whole number of seconds, e.g. 90");
+        showToast(combined ? "Enter a time like 1h 20m, 45m or 90s." : "Enter a whole number of seconds, e.g. 90");
         render();
         return;
       }
@@ -1484,6 +1594,10 @@
   // A card says just enough to pick a game: its session and when it can
   // play. The Details tab has the rest.
   function runCardHtml(g) {
+    // A game still in its break says when it can play, and looks it;
+    // one that can play now just shows its session.
+    var wait = g.session ? waitLeft(g) : 0;
+    var resting = !g.running && g.state === "idle" && wait > 0;
     var badge = g.state === "in_session" ? ["live", "Playing"]
       : g.running ? ["wait", "Waiting"]
       : g.state === "invalid" ? ["bad", "Problem"]
@@ -1493,53 +1607,67 @@
     else if (g.finished || g.state === "completed") meta = "All achievements unlocked.";
     else if (!g.session) meta = g.total ? g.done + " / " + g.total + " achievements" : "";
     else {
-      var wait = waitLeft(g);
-      meta = "Session " + g.session + " of " + g.sessions + " · " +
-        (g.state === "in_session" ? (g.next_unlock_in == null ? "unlocking…" : "next unlock in " + fmtDur(left(g.next_unlock_in)))
-          : wait > 0 ? (g.running ? "starts " : "playable ") + fmtAt(wait) : g.running ? "starting…" : "playable now");
+      meta = "Session " + g.session + " of " + g.sessions;
+      if (g.state === "in_session") {
+        meta += " · " + (g.next_unlock_in == null ? "unlocking…" : "next unlock in " + fmtDur(left(g.next_unlock_in)));
+      } else if (g.running) {
+        meta += " · " + (wait > 0 ? "starts " + fmtAt(wait) : "starting…");
+      }
     }
-    return '<div class="run-card' + (g.name === selectedRun ? " selected" : "") + '" data-name="' + escapeHtml(g.name) + '">' +
-      '<div class="run-head"><span class="run-name">' + escapeHtml(gameTitle(g)) + "</span>" +
+    // On a break: dimmed, with a clock; when it can play is on hover and
+    // in the line over its sessions.
+    var clock = resting ? '<svg class="run-rest" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" ' +
+      'stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 4.8V8l2.2 1.5"/></svg>' : "";
+    var over = g.finished || g.state === "completed";
+    return '<div class="run-card' + (g.name === selectedRun ? " selected" : "") + (resting ? " resting" : "") + (over ? " over" : "") +
+      '" data-name="' + escapeHtml(g.name) + '"' + (resting ? ' title="Playable ' + escapeHtml(fmtAt(wait)) + '"' : "") + ">" +
+      '<div class="run-head"><span class="run-name">' + escapeHtml(gameTitle(g)) + "</span>" + clock +
       (badge ? '<span class="run-badge ' + badge[0] + '">' + badge[1] + "</span>" : "") + "</div>" +
       (meta ? '<div class="run-meta">' + meta + "</div>" : "") +
       "</div>";
   }
 
-  function detailsHtml(g) {
-    if (!g) return emptyHtml("▶", "Select a game.");
-    var rows = [];
-    function row(label, value) { rows.push("<dt>" + label + "</dt><dd>" + value + "</dd>"); }
-    var status = g.state === "in_session" ? "Playing a session"
-      : g.running ? "Waiting for its next session"
-      : g.state === "invalid" ? '<span class="bad">' + escapeHtml(g.error || "Invalid config") + "</span>"
-      : g.finished || g.state === "completed" ? "Done" : "Not running";
-    row("Status", status);
-    if (g.running) row("Plays", g.stop_after ? "This session, then stops" : "Every remaining session");
-    if (g.total) {
-      var pct = Math.round(100 * g.done / g.total);
-      row("Achievements", "<b>" + g.done + " / " + g.total + "</b> unlocked (" + pct + "%)" +
-        '<div class="run-progress"><span style="width:' + pct + '%"></span></div>');
+  // Over the selected game's sessions: its name, then a bar of four
+  // parts: session, this session's size, progress, and when it plays.
+  function summaryHtml(g) {
+    if (!g) return "";
+    var title = '<div class="run-summary-title">' + escapeHtml(gameTitle(g)) + "</div>";
+    if (g.state === "invalid") {
+      return title + '<div class="run-summary-line"><span class="bad">' + escapeHtml(g.error || "The config has a problem.") + "</span></div>";
+    }
+    if (g.finished || g.state === "completed") return title + '<div class="run-summary-line">All achievements unlocked</div>';
+    var parts = [];
+    function part(label, value) {
+      parts.push('<div class="summary-part"><span class="summary-label">' + label + '</span><span class="summary-value">' +
+        value + "</span></div>");
     }
     if (g.session) {
-      row("Session", "<b>" + g.session + " of " + g.sessions + "</b> · " + g.count + " achievement" +
-        (g.count === 1 ? "" : "s") + (g.duration >= 60 ? ", about " + fmtDur(g.duration) : ", under a minute"));
-      if (g.state === "in_session") {
-        row("Next unlock", g.next_unlock_in == null ? "Unlocking…" : "In <b>" + fmtDur(left(g.next_unlock_in)) + "</b>");
-      } else {
-        var wait = waitLeft(g);
-        row(g.running ? "Starts" : "Playable", wait > 0
-          ? "In <b>" + fmtDur(wait) + "</b> (" + fmtAt(wait) + ")" : "<b>Now</b>");
-      }
+      part(g.state === "in_session" ? "Playing session" : "Session", g.session + " of " + g.sessions +
+        (g.running ? ' <span class="summary-note">· ' + (g.stop_after ? "this one only" : "all sessions") + "</span>" : ""));
+      part("This session", g.count + " achievement" + (g.count === 1 ? "" : "s") + " · " +
+        fmtDur(g.duration));
     }
+    if (g.total) part("Unlocked", g.done + " / " + g.total);
+    if (g.state === "in_session") {
+      part("Next unlock", g.next_unlock_in == null ? "Now" : "In " + fmtDur(left(g.next_unlock_in)));
+    } else if (g.session) {
+      var wait = waitLeft(g);
+      part(g.running ? "Starts" : "Playable", wait > 0 ? escapeHtml(fmtAt(wait)) : g.running ? "Starting…" : "Now");
+    }
+    return title + '<div class="summary-bar">' + parts.join("") + "</div>" +
+      (g.config_changed ? '<div class="run-summary-line"><span class="warn">The achievement order changed: run it once from the terminal to confirm.</span></div>' : "");
+  }
+
+  // Info: where the schedule came from, a click away.
+  function infoHtml(g) {
+    if (!g) return "";
+    var rows = [];
+    function row(label, value) { rows.push("<dt>" + label + "</dt><dd>" + value + "</dd>"); }
     if (g.appid) row("App ID", String(g.appid));
     if (g.copied_from) row("Copied from", escapeHtml(g.copied_from));
-    if (g.title && g.title !== g.name) row("Saved as", escapeHtml(g.name));
-    var notes = "";
-    if (g.config_changed) {
-      notes = noticeHtml("warn", "The achievement order changed since it started. Run it once from the terminal to confirm.");
-    }
-    if (g.finished) notes = noticeHtml("info", "Its files moved to completed/ in the data folder.");
-    return '<dl class="details-list">' + rows.join("") + "</dl>" + notes;
+    row("Saved as", escapeHtml(g.name));
+    if (g.finished) row("Files", "Moved to completed/ in the data folder");
+    return '<dl class="details-list">' + rows.join("") + "</dl>";
   }
 
   // Minutes from the Start choice, or null when Other… holds something
@@ -1564,15 +1692,23 @@
   }
 
   // The bar acts on the selected game: Run or Continue it, or while it's
-  // running, Stop it, with All sessions switching how much it plays.
+  // running, Stop it, with Next / All switching how much it plays.
   function selectedGame() {
     return (runsData ? runsData.games : []).filter(function (x) { return x.name === selectedRun; })[0];
+  }
+
+  // Next (session) / All (sessions), shown as pressed.
+  function setRunMode(every, disabled) {
+    byId("run-mode").querySelectorAll("button").forEach(function (b) {
+      b.setAttribute("aria-pressed", String((b.getAttribute("data-every") === "1") === !!every));
+      b.disabled = !!disabled;
+    });
   }
 
   function renderRunBar(games) {
     var g = selectedGame();
     var other = games.filter(function (x) { return x.running && (!g || x.name !== g.name); })[0];
-    var button = byId("run-start"), every = byId("run-every"), delay = byId("run-delay");
+    var button = byId("run-start"), delay = byId("run-delay"), mode;
     var custom = byId("run-delay-custom");
     var running = !!(g && g.running), done = !!(g && (g.finished || g.state === "completed"));
     var minutes = runDelayMinutes(), why = "";
@@ -1580,13 +1716,13 @@
     custom.classList.toggle("invalid", !custom.hidden && custom.value.trim() !== "" && minutes === null);
     if (running) {
       var armed = isArmed("stop:" + g.name);
-      button.textContent = armed ? "Click again to stop" : "Stop";
+      button.textContent = armed ? "Stop?" : "Stop";
       button.className = "btn-hero run-start" + (armed ? " armed" : "");
-      every.checked = !g.stop_after;
+      mode = !g.stop_after;
     } else if (done && g.finished) {
       button.textContent = "Dismiss";
       button.className = "btn-hero run-start";
-      every.checked = runOpts.every;
+      mode = runOpts.every;
     } else {
       if (!g) why = "Select a game.";
       else if (done) why = gameTitle(g) + " is done.";
@@ -1596,12 +1732,12 @@
       else if (minutes === null) why = "Start: enter a time like 45m, 1h30m or 23:30.";
       button.textContent = g && g.done ? "Continue" : "Run";
       button.className = "btn-hero primary run-start";
-      every.checked = runOpts.every;
+      mode = runOpts.every;
     }
     button.disabled = !!why;
     button.title = why;
     delay.disabled = custom.disabled = running || done;
-    every.disabled = done || (running && !g.auto);
+    setRunMode(mode, done || (running && !g.auto));
   }
 
   function renderRuns() {
@@ -1613,13 +1749,15 @@
     if (currentView !== "runs") return;
     // One game runs at a time, so its name says more than a count.
     var runningGame = games.filter(function (g) { return g.running; })[0];
-    // In the page header's eyebrow: how many games, and which one runs.
-    var bits = runsData ? [games.length + " game" + (games.length === 1 ? "" : "s")] : [];
-    if (runningGame) bits.push("running: " + gameTitle(runningGame));
+    // Over the list: games still to play (finished ones counted apart),
+    // and anything else holding ArchiSteamFarm, like an update.
+    var finished = games.filter(function (g) { return !g.running && (g.finished || g.state === "completed"); }).length;
+    var head = runsData ? [(games.length - finished) + " game" + (games.length - finished === 1 ? "" : "s")] : [];
+    if (finished && showDone) head.push(finished + " finished");
     if (runsData && runsData.session && (!runningGame || runsData.session !== runningGame.name)) {
-      bits.push("busy: " + runsData.session);
+      head.push("busy: " + runsData.session);
     }
-    byId("page-eyebrow").textContent = ["STAR", "Runs"].concat(bits).join(" · ");
+    byId("runs-list-head").textContent = head.join(" · ");
 
     if (runsError) {
       els.runsList.innerHTML = noticeHtml("danger", "Can't reach the app: " + runsError +
@@ -1642,13 +1780,14 @@
         : emptyHtml("▶", "Every game is finished. Turn on Show finished games in Settings to see them.");
     }
     var shown = selectedGame();
-    if (runsPane === "details") byId("run-details").innerHTML = runsError ? "" : detailsHtml(shown);
-    if (runsPane === "timeline") renderTimeline();
+    byId("run-summary").innerHTML = runsError ? "" : summaryHtml(shown);
+    byId("run-info").innerHTML = runsError ? "" : infoHtml(shown);
+    renderTimeline();
   }
 
   // ---- a game's timeline on Runs: its saved CSV, in the builder's table
   // (read-only), with what's unlocked so far dimmed ----
-  var runsPane = "details";
+  var runsPane = "timeline";
   var timelines = {};      // name -> {rows, config}, or null when there's no CSV
   var timelineShown = "";  // what's drawn, so polling doesn't redraw it
 
@@ -1703,19 +1842,60 @@
     return editable;
   }
 
+  // The sessions overview: a row per session with its achievements, its
+  // length and the break before it; done ones dimmed, the current marked.
+  function sessionsHtml(rows, current) {
+    var sessions = [], gap = null;
+    rows.slice(1).forEach(function (r) {
+      if (!isLabelRow(r)) return;
+      var secs = Number(r[CSV_DELAY_COL + 1]) || 0, m;
+      if (/^Gap before session/.test(r[0])) { gap = secs; return; }
+      if ((m = /^Session (\d+) \((\d+)/.exec(r[0]))) {
+        sessions.push({n: +m[1], count: +m[2], length: secs, gap: gap});
+        gap = null;
+      }
+    });
+    var dur = fmtDur;
+    return '<div class="table-wrap"><table class="csv-table sessions-summary"><thead><tr>' +
+      "<th>Session</th><th>Achievements</th><th>Length</th><th>Break before</th></tr></thead><tbody>" +
+      sessions.map(function (x) {
+        var cls = current && x.n < current ? "done-row" : x.n === current ? "next-row" : "";
+        return "<tr" + (cls ? ' class="' + cls + '"' : "") + "><td>" + x.n + "</td><td>" + x.count + "</td><td>" +
+          dur(x.length) + "</td><td>" + (x.gap == null ? "—" : dur(x.gap)) + "</td></tr>";
+      }).join("") + "</tbody></table></div>";
+  }
+
   function timelineHtml(rows, done, running, editable) {
-    var html = '<div class="table-wrap"><table class="csv-table"><thead><tr>' +
-      rows[0].map(function (h) { return "<th>" + escapeHtml(h) + "</th>"; }).join("") + "</tr></thead><tbody>";
+    var pretty = local;  // the app: friendlier columns (see prettyTime)
+    var html = '<div class="table-wrap"><table class="csv-table' + (pretty ? " pretty" : "") + '"><thead><tr>' +
+      (pretty ? ["#", "Achievement", "Player's time", "After"] : rows[0]).map(function (h) {
+        return "<th>" + escapeHtml(h) + "</th>";
+      }).join("") + "</tr></thead><tbody>";
     var index = -1;
     function delayCell(r, ri) {
       var original = runEdit ? runEdit.edited[ri] : undefined;
       var cls = "delay-cell" + (editable && editable[ri] ? " run-editable" : "") + (original !== undefined ? " edited" : "");
-      return '<td class="' + cls + '" data-row="' + ri + '">' + escapeHtml(r[CSV_DELAY_COL + 1]) +
-        (original !== undefined ? '<button class="undo-edit" type="button" data-run-undo="' + ri +
-          '" title="Undo (was ' + original + 's)">↺</button>' : "") + "</td>";
+      var undo = original !== undefined ? '<button class="undo-edit" type="button" data-run-undo="' + ri +
+        '" title="Undo (was ' + (pretty ? exactDuration(original) : original + "s") + ')">↺</button>' : "";
+      var value = escapeHtml(pretty ? exactDuration(r[CSV_DELAY_COL + 1]) : r[CSV_DELAY_COL + 1]);
+      return '<td class="' + cls + '" data-row="' + ri + '">' + (pretty ? undo + value : value + undo) + "</td>";
     }
     rows.slice(1).forEach(function (r, i) {
       var ri = i + 1;
+      if (pretty) {
+        if (/^Copied from:/.test(r[0])) return;
+        if (isLabelRow(r)) {
+          var kind = /^Gap/.test(r[0]) ? "gap-row" : "session-row";
+          html += '<tr class="' + kind + '"><td colspan="3">' + escapeHtml(prettyLabel(r)) + "</td>" +
+            (kind === "gap-row" ? delayCell(r, ri) : "<td></td>") + "</tr>";
+          return;
+        }
+        index++;
+        var rc = index < done ? "done-row" : index === done && running ? "next-row" : "";
+        html += "<tr" + (rc ? ' class="' + rc + '"' : "") + "><td>" + escapeHtml(r[1]) + "</td><td>" + escapeHtml(r[2]) +
+          "</td><td>" + escapeHtml(prettyTime(r[4])) + "</td>" + delayCell(r, ri) + "</tr>";
+        return;
+      }
       if (isLabelRow(r)) {
         var cls = /^Gap/.test(r[0]) ? "gap-row" : /^Copied from:/.test(r[0]) ? "meta-row" : "session-row";
         html += '<tr class="' + cls + '"><td colspan="' + CSV_DELAY_COL + '">' + escapeHtml(r[0]) + "</td>" +
@@ -1738,22 +1918,34 @@
     if (runEdit && runEdit.name !== selectedRun) runEdit = null;
     var game = runGame(), done = doneCount(game);
     var rows = runEdit ? runEdit.rows : data && data.rows;
-    var key = [selectedRun, done, !!game.running, !!rows, runEdit ? JSON.stringify(runEdit.rows) : ""].join("|");
+    var key = [selectedRun, done, !!game.running, !!rows, runFull, game.session, runEdit ? JSON.stringify(runEdit.rows) : ""].join("|");
     if (key === timelineShown) return;
     timelineShown = key;
+    // Every achievement (no log) for Full timeline, and while editing.
+    var full = runFull || !!runEdit;
+    document.querySelector(".runs-log").classList.toggle("full", full);
+    byId("run-activity").hidden = full;
 
+    byId("run-full-btn").hidden = !(rows && rows.length > 1);  // nothing more to show without a timeline
     var canEdit = !!(data && data.config && rows && rows.length > 1 && game.state !== "completed");
     byId("timeline-bar").hidden = !canEdit;
-    byId("timeline-edit").hidden = !!runEdit;
-    byId("timeline-cancel").hidden = byId("timeline-save").hidden = !runEdit;
+    // The same lock as Settings: open it to change delays; closing it
+    // again drops anything not saved.
+    var lock = byId("timeline-lock");
+    lock.setAttribute("aria-pressed", String(!!runEdit));
+    lock.disabled = !!game.running && !runEdit;
+    lock.title = game.running ? "Stop the game to change its timeline"
+      : runEdit ? "Lock again (unsaved changes are dropped)" : "Unlock to change the delays still ahead";
+    byId("timeline-lock-label").textContent = runEdit ? "Unlocked" : "Locked";
+    byId("timeline-save").hidden = !runEdit;
     byId("timeline-save").disabled = !runEdit || !Object.keys(runEdit.edited).length;
     byId("timeline-bar-text").textContent = runEdit
-      ? "Click a delay to change it (in seconds). Only what isn't unlocked yet can change."
-      : game.running ? "Locked. Stop the game to edit its timeline." : "Locked.";
-    byId("timeline-edit").disabled = !!game.running;
+      ? "Click a delay still ahead to change it, in seconds."
+      : game.running ? "Stop the game to change its timeline." : "";
 
     byId("timeline-table").innerHTML = rows && rows.length > 1
-      ? timelineHtml(rows, done, game.running, runEdit && editableRows(rows, done))
+      ? (runFull || runEdit ? timelineHtml(rows, done, game.running, runEdit && editableRows(rows, done))
+        : sessionsHtml(rows, game.session))
       : emptyHtml("☰", "No timeline was saved with this game.");
   }
 
@@ -1804,15 +1996,14 @@
     return copy;
   }
 
-  byId("timeline-edit").addEventListener("click", function () {
+  byId("timeline-lock").addEventListener("click", function () {
     var data = timelines[selectedRun];
-    if (!data || !data.rows) return;
-    runEdit = {name: selectedRun, rows: JSON.parse(JSON.stringify(data.rows)), edited: {}};
-    timelineShown = "";
-    renderTimeline();
-  });
-  byId("timeline-cancel").addEventListener("click", function () {
-    runEdit = null;
+    if (runEdit) {
+      runEdit = null;
+    } else {
+      if (!data || !data.rows) return;
+      runEdit = {name: selectedRun, rows: JSON.parse(JSON.stringify(data.rows)), edited: {}};
+    }
     timelineShown = "";
     renderTimeline();
   });
@@ -1845,7 +2036,7 @@
     var input = document.createElement("input");
     input.type = "text";
     input.className = "delay-input";
-    input.value = runEdit.rows[ri][CSV_DELAY_COL + 1];
+    input.value = local ? exactDuration(runEdit.rows[ri][CSV_DELAY_COL + 1]) : runEdit.rows[ri][CSV_DELAY_COL + 1];
     cell.textContent = "";
     cell.appendChild(input);
     input.focus();
@@ -1855,7 +2046,7 @@
       if (finished) return;
       finished = true;
       var seconds = save ? parseDelayInput(input.value) : null;
-      if (save && seconds === null) showToast("Enter a whole number of seconds, e.g. 90");
+      if (save && seconds === null) showToast("Enter a time like 1h 20m, 45m or 90s.");
       if (seconds === null) { timelineShown = ""; renderTimeline(); return; }
       setRunDelay(ri, seconds);
     }
@@ -1866,31 +2057,60 @@
     input.addEventListener("blur", function () { finish(true); });
   });
 
+  // Rows in the saved timeline's shape, made from the schedule alone, for
+  // games saved without one: sessions, breaks and delays are all there,
+  // the achievements go by name and time when an older save knew them, by
+  // number otherwise. Saving an edit writes it as the game's timeline.
+  function rowsFromConfig(config, known) {
+    known = known || {};
+    var list = config && Array.isArray(config.achievements) ? config.achievements : [];
+    if (!list.length) return null;
+    var rows = [["session", "#", "achievement", "id", "unlock_time", "delay", "delay_s"]];
+    var session = 0, label = null, n = 0;
+    list.forEach(function (a, i) {
+      if (i === 0 || a.new_session) {
+        session++;
+        if (i > 0) rows.push(["Gap before session " + session, "", "", "", "", roughDurationCsv(a.delay), a.delay]);
+        label = ["", "", "", "", "", "", 0];
+        rows.push(label);
+        n = 0;
+      }
+      var delay = i > 0 && a.new_session ? 0 : a.delay;
+      n++;
+      label[0] = "Session " + session + " (" + n + " achievement" + (n === 1 ? ")" : "s)");
+      label[CSV_DELAY_COL + 1] += i > 0 && !a.new_session ? delay : 0;
+      label[CSV_DELAY_COL] = roughDurationCsv(label[CSV_DELAY_COL + 1]);
+      var k = known[a.id] || [];
+      rows.push([String(session), String(n), k[0] || "Achievement " + a.id, String(a.id), k[1] || "", roughDurationCsv(delay), delay]);
+    });
+    return rows;
+  }
+
   function loadTimeline(name) {
     timelines[name] = "loading";
     api("/api/timeline?name=" + encodeURIComponent(name)).then(function (data) {
-      timelines[name] = data.found ? {rows: parseCsv(data.text), config: data.config} : null;
+      var made = !data.found && rowsFromConfig(data.config, data.known);
+      timelines[name] = data.found ? {rows: parseCsv(data.text), config: data.config}
+        : made ? {rows: made, config: data.config} : null;
     }).catch(function () { timelines[name] = null; }).then(function () {
       timelineShown = "";
       if (name === selectedRun && runsPane === "timeline") renderTimeline();
     });
   }
 
-  function setRunsPane(pane) {
-    runsPane = pane;
-    document.querySelectorAll("[data-runs-pane]").forEach(function (b) {
-      b.setAttribute("aria-pressed", String(b.getAttribute("data-runs-pane") === pane));
-    });
-    els.runsLog.hidden = pane !== "output";
-    byId("run-details").hidden = pane !== "details";
-    byId("runs-timeline").hidden = pane !== "timeline";
-    document.querySelector('.view-pane[data-view="runs"]').setAttribute("data-pane", pane);
-    if (pane === "timeline" && selectedRun && !runEdit) delete timelines[selectedRun];  // re-read: it may have been re-saved
+  // Info and Log: shown under the summary when asked for.
+  byId("run-info-btn").addEventListener("click", function () {
+    var open = byId("run-info").hidden;
+    byId("run-info").hidden = !open;
+    this.setAttribute("aria-expanded", String(open));
+  });
+  // Full timeline: every session, in the space the log takes otherwise.
+  var runFull = false;
+  byId("run-full-btn").addEventListener("click", function () {
+    runFull = !runFull;
+    this.setAttribute("aria-pressed", String(runFull));
     timelineShown = "";
-    renderRuns();
-  }
-  document.querySelectorAll("[data-runs-pane]").forEach(function (b) {
-    b.addEventListener("click", function () { setRunsPane(b.getAttribute("data-runs-pane")); });
+    renderTimeline();
   });
 
   function refreshLog() {
@@ -1963,7 +2183,7 @@
     if (!g) return;
     runAction(g.running ? "stop" : g.finished ? "dismiss" : "run", g.name);
   });
-  byId("run-every").checked = runOpts.every;
+  setRunMode(runOpts.every, false);
   byId("run-delay").addEventListener("change", function () {
     var custom = byId("run-delay-custom");
     renderRunBar(runsData ? runsData.games : []);
@@ -1972,21 +2192,31 @@
   byId("run-delay-custom").addEventListener("input", function () {
     renderRunBar(runsData ? runsData.games : []);
   });
-  // While the selected game runs, All sessions changes how much it plays;
+  // While the selected game runs, All changes how much it plays;
   // otherwise it's how the next Run starts.
-  byId("run-every").addEventListener("change", function () {
-    var g = selectedGame();
+  byId("run-mode").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-every]");
+    if (!b || b.disabled) return;
+    var every = b.getAttribute("data-every") === "1", g = selectedGame();
     if (g && g.running) {
-      runAction(this.checked ? "keep-going" : "stop-after", g.name);
+      if (every !== !g.stop_after) runAction(every ? "keep-going" : "stop-after", g.name);
       return;
     }
-    runOpts.every = this.checked;
-    try { localStorage.setItem("run-every", this.checked ? "1" : "0"); } catch (e) {}
+    runOpts.every = every;
+    setRunMode(every, false);
+    try { localStorage.setItem("run-every", every ? "1" : "0"); } catch (err) {}
   });
+
+  // In the app, each screen's actions (Save, Run…) sit in the window's
+  // title bar, beside the screen switch, as in other Mac apps.
+  if (document.documentElement.hasAttribute("data-desktop")) {
+    var topRight = document.querySelector(".topbar-right");
+    topRight.insertBefore(document.querySelector(".page-actions"), topRight.firstChild);
+  }
 
   // In the app, a right click is for text only (Cut, Copy, Paste): the
   // web view's own menu (Reload, Inspect Element) isn't for an app.
-  if (document.documentElement.hasAttribute("data-desktop")) {
+  if (document.documentElement.hasAttribute("data-desktop") && !document.documentElement.hasAttribute("data-dev")) {
     document.addEventListener("contextmenu", function (e) {
       var text = e.target.closest && e.target.closest("input, textarea, [contenteditable]");
       var selected = String(window.getSelection ? window.getSelection() : "").trim();
@@ -2010,6 +2240,60 @@
     byId("hero-install").hidden = true;
     document.body.classList.add("local");
     els.exportText.placeholder = "Paste the copied SteamHunters achievements page here, or a link to a player's achievements\u2026";
+    // Schedule is one screen in the app: the game's fields and options in
+    // a bar on top, the paste on the left and its timeline on the right.
+    combined = true;
+    var bar = byId("schedule-bar");
+    bar.querySelector('[data-slot="game-name"]').appendChild(els.gameName);
+    bar.querySelector('[data-slot="appid"]').appendChild(els.appid);
+    bar.querySelector('[data-slot="copied-from"]').appendChild(els.copiedFrom);
+    els.copiedFrom.placeholder = "optional";
+    bar.querySelector('[data-slot="reset"]').appendChild(els.resetBtn);
+    els.resetBtn.style.width = "";
+    bar.querySelector('[data-slot="settings-form"]').prepend(document.querySelector(".settings-form"));
+    // In the popover: short labels, the unit beside each box.
+    [["gap-limit", "Session break after"], ["cum-limit", "Max session length"], ["min-gap", "Warn if break under"]]
+      .forEach(function (f) {
+        var input = byId(f[0]), unit = document.createElement("span");
+        document.querySelector('label[for="' + f[0] + '"]').textContent = f[1];
+        unit.className = "bar-unit";
+        unit.textContent = "h";
+        input.parentNode.insertBefore(unit, input.nextSibling);
+      });
+    // It opens centered under Options, moved in from the window's edge if
+    // it would cross it (its pointer stays on the button), and closes on a
+    // click outside it, or Esc.
+    var options = byId("bar-options");
+    options.addEventListener("toggle", function () {
+      var pop = options.querySelector(".bar-popover");
+      pop.style.setProperty("--shift", "0px");
+      if (!options.open) return;
+      var r = pop.getBoundingClientRect(), edge = 12;
+      var shift = Math.min(0, window.innerWidth - edge - r.right) || Math.max(0, edge - r.left);
+      pop.style.setProperty("--shift", shift + "px");
+    });
+    document.addEventListener("mousedown", function (e) {
+      if (options.open && !options.contains(e.target)) options.open = false;
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && options.open) { options.open = false; options.querySelector("summary").focus(); }
+    });
+    // What the paste gave (achievements, sessions, lengths), in a line
+    // over the result.
+    byId("paste-summary").querySelector('[data-slot="stats"]').appendChild(els.statsStrip);
+    // How to edit: beside Full timeline, which it's about.
+    byId("paste-summary").insertBefore(document.querySelector(".hover-help"), byId("sched-full-btn"));
+    // The how-to sits inside the empty paste box, like a placeholder; the
+    // timeline takes the right side.
+    var help = document.querySelector(".input-help");
+    els.exportText.parentNode.insertBefore(help, els.exportText.nextSibling);
+    els.exportText.placeholder = "";
+    document.querySelector('.view-pane[data-view="input"]').appendChild(els.csvSlot);
+    // The app has no start screen: it opens on Runs (Settings takes over
+    // while setup isn't done; see refreshSetup).
+    byId("switch-home").hidden = true;
+    showScreen("work");
+    setView("runs");
     recompute();
     render();
     refreshRuns();
@@ -2032,7 +2316,10 @@
   function refreshSetup() {
     clearTimeout(setupTimer);
     api("/api/setup").then(function (d) {
-      if (setupData === null && !setupOpen) setupOpen = setupAutoClose = !(d.asf && d.plugin && d.bot);
+      if (setupData === null && !setupOpen) {
+        setupOpen = setupAutoClose = !(d.asf && d.plugin && d.bot);
+        if (setupOpen) showScreen("guide");  // first run: set up before anything else
+      }
       setupData = d;
       renderSetup();
       if (d.busy) setupTimer = setTimeout(refreshSetup, 800);
@@ -2047,6 +2334,7 @@
     if (setupOpen && setupAutoClose && asfDone && d.signed_in && !d.busy) {
       setupOpen = setupAutoClose = false;
       showToast("All set. Make a schedule, then run it.");
+      if (local) { showScreen("work"); setView("input"); }
     }
     var signedIn = d.signed_in || (d.bot && !changingAccount);
     var firstRun = !(asfDone && (d.signed_in || d.bot));
@@ -2060,8 +2348,7 @@
     var asfCurrent = asfDone && !d.outdated;
     byId("step-asf").className = "setup-step" + (installing ? " busy" : asfCurrent ? " done" : "");
     byId("step-asf-text").textContent = installing ? (d.message || "Starting…")
-      : asfCurrent ? "Installed: ArchiSteamFarm " + d.asf_version + "\nInstalled: ASFAchievementManager " +
-        d.plugin_version
+      : asfCurrent ? "ArchiSteamFarm " + d.asf_version + " · plugin " + d.plugin_version
       : asfDone ? "ArchiSteamFarm " + d.asf_wanted + " with ASFAchievementManager " + d.plugin_wanted +
         " is ready to install. It installs by itself once no game is in a session."
       : "Downloads ArchiSteamFarm and its achievement plugin (about 50 MB).";
@@ -2080,9 +2367,8 @@
     byId("asf-latest-text").hidden = !asfCurrent || installing || !shown;
     if (latest) {
       byId("asf-latest-text").textContent = latest.error ? latest.error
-        : latest.newer ? "ArchiSteamFarm " + latest.asf + " with ASFAchievementManager " + latest.plugin +
-          " is out and they work together. Updating waits for any session that's playing."
-        : "Up to date. There's no newer pair that works together.";
+        : latest.newer ? latest.asf + " is available. It installs between sessions."
+        : "Up to date.";
       byId("asf-update-latest").textContent = "Update to " + (latest.asf || "");
     }
 
@@ -2489,7 +2775,7 @@
   });
   document.querySelector(".topbar .brand").addEventListener("click", function (e) {
     e.preventDefault();
-    showScreen("home");
+    if (local) { showScreen("work"); setView("runs"); } else showScreen("home");
   });
   byId("copy-install").addEventListener("click", function () {
     var text = byId("install-cmd").textContent;
