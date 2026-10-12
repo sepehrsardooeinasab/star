@@ -622,9 +622,25 @@
     });
     els.boxTitle.textContent = NAV_TITLES[view];
     document.querySelector(".box").setAttribute("data-view", view);  // shows that tab's help
+    document.body.setAttribute("data-view", view);  // the page header's action
+    renderPageHead();
     sizeBoxes();
     render();
     if (view === "runs") refreshRuns();
+  }
+
+  // The header over Schedule, Runs and Settings, in the start screen's
+  // style: what the screen is for, the bright part first.
+  var PAGE_HEADS = {
+    schedule: ["Schedule", "Make a schedule", " from a real player"],
+    runs: ["Runs", "Run a game", " at the player's pace"],
+    guide: ["Settings", "Settings", " for this computer"]
+  };
+  function renderPageHead() {
+    var screen = document.body.getAttribute("data-screen");
+    var head = PAGE_HEADS[screen === "guide" ? "guide" : currentView === "runs" ? "runs" : "schedule"];
+    byId("page-eyebrow").textContent = "STAR · " + head[0];
+    byId("page-title").innerHTML = '<span class="hero-bright">' + head[1] + "</span>" + head[2];
   }
 
   // Runs and Settings take the builder's height (Runs has no tabs or
@@ -956,7 +972,7 @@
     els.inputAlertSlot.innerHTML = dangerHtml + inputHtml + editsBannerHtml();
     els.downloadBtn.classList.toggle("btn-danger", dangers.length > 0);
     els.downloadBtn.textContent = local
-      ? (dangers.length ? "Save anyway" : "Save to project")
+      ? (dangers.length ? "Save anyway" : "Save schedule")
       : (dangers.length ? "Download anyway" : "Download All");
     els.downloadBtn.title = dangers.join("\n");
 
@@ -2405,6 +2421,7 @@
   // ---- start screen ----
   function showScreen(name) {
     document.body.setAttribute("data-screen", name);
+    renderPageHead();
     window.scrollTo(0, 0);
     byId("page").scrollTop = 0;  // in the app, the page scrolls on its own
     // Leaving the Guide tab closes the panel, unless it's first-run setup,
