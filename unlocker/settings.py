@@ -64,6 +64,54 @@ _TYPES = {
 }
 
 
+# The ones the app's Settings tab edits, in its order. The ports and the
+# IPC password stay in settings.json: they have to match ArchiSteamFarm's
+# own config.
+APP_EDITABLE = [
+    "jitter_enabled", "jitter_percent", "jitter_min_delay",
+    "stop_other_asf", "simultaneous_max_delay",
+    "warm_settle_delay", "reconnect_settle_delay", "play_check_interval",
+    "bot_connect_timeout", "asf_shutdown_delay",
+]
+
+
+def problems(overrides):
+    """What's wrong with a settings.json object, as messages (empty when
+    it's fine): an unknown key, a wrong type or a value out of range."""
+    if not isinstance(overrides, dict):
+        return ["must be a JSON object"]
+    found = []
+    for key, value in overrides.items():
+        if key not in DEFAULTS:
+            found.append(f"unknown setting {key!r} (known: {', '.join(DEFAULTS)})")
+        # bool is an int subclass in Python — don't accept true as 1.
+        elif (isinstance(value, bool) and bool not in _TYPES[key]) or not isinstance(value, _TYPES[key]):
+            found.append(f"{key!r} has the wrong type ({type(value).__name__})")
+        elif not isinstance(value, bool) and isinstance(value, (int, float)) and value < 0:
+            found.append(f"{key!r} can't be negative")
+    if found:
+        return found
+    for port in ("asf_port", "ui_port"):
+        if not 1 <= overrides.get(port, 1) <= 65535:
+            found.append(f"{port!r} must be between 1 and 65535")
+    if overrides.get("play_check_interval", 1) < 1:
+        found.append("'play_check_interval' must be at least 1")
+    if overrides.get("jitter_percent", 0) > 100:
+        found.append("'jitter_percent' can't be more than 100")
+    return found
+
+
+def read_overrides(path=SETTINGS_PATH):
+    """settings.json's own keys (not the defaults), or {} without one.
+    Raises ValueError when it isn't valid JSON."""
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text())
+    except json.JSONDecodeError as e:
+        raise ValueError(f"not valid JSON ({e})")
+
+
 def _fail(message):
     print(f"settings.json: {message}")
     sys.exit(1)
@@ -73,32 +121,13 @@ def load_settings(path=SETTINGS_PATH):
     """DEFAULTS overlaid with settings.json, if it exists. Exits with a
     message on an unknown key or a wrong type, so a typo never silently
     falls back to a default."""
-    if not path.exists():
-        return dict(DEFAULTS)
-
     try:
-        overrides = json.loads(path.read_text())
-    except json.JSONDecodeError as e:
-        _fail(f"not valid JSON ({e})")
-    if not isinstance(overrides, dict):
-        _fail("must be a JSON object")
-
-    for key, value in overrides.items():
-        if key not in DEFAULTS:
-            _fail(f"unknown setting {key!r} (known: {', '.join(DEFAULTS)})")
-        # bool is an int subclass in Python — don't accept true as 1.
-        if (isinstance(value, bool) and bool not in _TYPES[key]) or not isinstance(value, _TYPES[key]):
-            _fail(f"{key!r} has the wrong type ({type(value).__name__})")
-        if not isinstance(value, bool) and isinstance(value, (int, float)) and value < 0:
-            _fail(f"{key!r} can't be negative")
-    for port in ("asf_port", "ui_port"):
-        if not 1 <= overrides.get(port, 1) <= 65535:
-            _fail(f"{port!r} must be between 1 and 65535")
-    if overrides.get("play_check_interval", 1) < 1:
-        _fail("'play_check_interval' must be at least 1")
-    if overrides.get("jitter_percent", 0) > 100:
-        _fail("'jitter_percent' can't be more than 100")
-
+        overrides = read_overrides(path)
+    except ValueError as e:
+        _fail(str(e))
+    found = problems(overrides)
+    if found:
+        _fail(found[0])
     return {**DEFAULTS, **overrides}
 
 

@@ -172,6 +172,21 @@
           <button class="btn-ghost" id="notify-test" type="button">Send a test notification</button>
         </div>
       </li>
+      <li class="setup-step done" id="step-runs" hidden>
+        <div class="step-head"><span class="step-mark"></span><b>Runs</b></div>
+        <label class="setting-check"><input type="checkbox" id="show-done"> Show finished games in Runs</label>
+        <details class="run-settings-box" id="run-settings-box">
+          <summary>Advanced run settings <span id="run-settings-summary"></span></summary>
+          <form class="run-settings" id="run-settings" autocomplete="off"></form>
+          <div class="step-actions">
+            <button class="btn-ghost" id="run-settings-edit" type="button">Edit</button>
+            <button class="btn-ghost primary-ghost" id="run-settings-save" type="button" hidden disabled>Save</button>
+            <button class="btn-ghost" id="run-settings-cancel" type="button" hidden>Cancel</button>
+            <button class="btn-ghost" id="run-settings-reset" type="button" hidden>Set all to defaults</button>
+          </div>
+          <p class="step-text" id="run-settings-note">Locked so they don't change by accident: press Edit to change them. Runs started after saving use them. Saved in settings.json in the data folder.</p>
+        </details>
+      </li>
       <li class="setup-step done" id="step-data" hidden>
         <div class="step-head"><span class="step-mark"></span><b>Data folder</b></div>
         <p class="step-text">Your games' schedules, progress and finished games, ArchiSteamFarm and settings. Updating the app keeps it. Copy it to back up or move to another computer.</p>

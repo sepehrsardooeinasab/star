@@ -25,6 +25,7 @@ from urllib.parse import parse_qs, urlparse
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from unlocker import achievements, asf_setup, extras, updates
+from unlocker import settings as settings_module
 from unlocker.api import notify
 from unlocker.paths import CODE_DIR, DATA_DIR
 from unlocker.runner import _session_status, config_changed
@@ -152,6 +153,41 @@ def game_states():
                           "has_log": True, "finished": True})
     games.sort(key=lambda g: g["name"])
     return {"games": games, "session": session_label}
+
+
+def run_settings():
+    """The settings the app edits: each one's value (settings.json's, else
+    the default) and default."""
+    try:
+        overrides = settings_module.read_overrides()
+    except ValueError as e:
+        raise AppError(f"settings.json is {e}. Fix it or delete it.")
+    return {"settings": [{"key": key, "value": overrides.get(key, settings_module.DEFAULTS[key]),
+                          "default": settings_module.DEFAULTS[key]}
+                         for key in settings_module.APP_EDITABLE]}
+
+
+def save_run_settings(values):
+    """Writes the app's settings into settings.json, keeping its other keys
+    and leaving out any that are back at their default. Runs started after
+    this use them."""
+    if not isinstance(values, dict) or any(k not in settings_module.APP_EDITABLE for k in values):
+        raise AppError("Unknown setting.")
+    try:
+        overrides = settings_module.read_overrides()
+    except ValueError as e:
+        raise AppError(f"settings.json is {e}. Fix it or delete it.")
+    overrides.update(values)
+    found = settings_module.problems(overrides)
+    if found:
+        raise AppError(found[0][0].upper() + found[0][1:] + ".")
+    kept = {k: v for k, v in overrides.items()
+            if k not in settings_module.APP_EDITABLE or v != settings_module.DEFAULTS[k]}
+    if kept:
+        SETTINGS_PATH.write_text(json.dumps(kept, indent=2) + "\n")
+    else:
+        SETTINGS_PATH.unlink(missing_ok=True)
+    return run_settings()
 
 
 def _check_name(name):
@@ -531,6 +567,7 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/update": lambda: updates.update_state(force=query.get("force") == "1"),
             "/api/log": lambda: read_log(query.get("name")),
             "/api/timeline": lambda: read_timeline(query.get("name")),
+            "/api/settings": run_settings,
         }
         self._route(routes.get(url.path))
 
@@ -559,6 +596,7 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/stop": lambda: stop_run(name),
             "/api/stop-after": lambda: set_stop_after(name, bool(body.get("on", True))),
             "/api/dismiss": lambda: dismiss(name),
+            "/api/settings": lambda: save_run_settings(body.get("settings")),
             "/api/setup/install": lambda: setup_install(bool(body.get("latest"))),
             "/api/setup/asf-check": asf_check,
             "/api/setup/test-notification": test_notification,

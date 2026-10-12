@@ -309,7 +309,13 @@
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-content: start;
+    align-items: start;
+    /* Runs spans the width at the end; the data folder fills in beside
+       Keep awake. */
+    grid-auto-flow: row dense;
   }
+  body[data-screen="guide"] #hero-setup #step-runs { grid-column: 1 / -1; }
+  body[data-screen="guide"] #hero-setup .run-settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 2.5rem; }
   body[data-screen="guide"] #setup-error { margin: 0; padding: 0 1.3rem 0.8rem; }
   body[data-screen="guide"] #hero-setup .update-row { margin: 0; padding: 0.8rem 1.3rem; }
   @media (max-width: 900px) {
@@ -496,6 +502,50 @@
   .step-actions:not(:has(button:not([hidden]))) { display: none; }
   .step-actions .primary-ghost { border-color: var(--accent); color: var(--accent); }
   .setup-step .install-line { margin-top: 0.6rem; }
+  /* Settings → Runs */
+  .setup-step .setting-check {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.7rem 0 0;
+    font-size: 0.82rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .setup-step .setting-check input { accent-color: var(--accent); margin: 0; }
+  .run-settings-box { margin-top: 0.8rem; border-top: 1px solid var(--border); padding-top: 0.7rem; }
+  .run-settings-box summary { cursor: pointer; font-size: 0.82rem; font-weight: 500; color: var(--text); list-style-position: inside; }
+  .run-settings-box summary span { color: var(--text-dim); font-weight: 400; }
+  .run-settings-box:not([open]) #run-settings-note { display: none; }
+  .run-settings { display: flex; flex-direction: column; gap: 0.9rem; margin-top: 0.4rem; }
+  .run-settings .setting-row .setting-check { margin: 0; }
+  .run-settings.locked input:disabled { opacity: 0.75; cursor: default; }
+  .setting-reset { padding: 0 0.35rem; height: 1.6rem; font-size: 0.85rem; line-height: 1; background: none; border: 0; color: var(--accent); }
+  .setting-reset:hover { color: var(--text); }
+  .setting-reset[hidden] { display: none; }
+  .setting-group-title { margin-top: 0.5rem; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); }
+  .run-settings .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; margin-top: 0.55rem; font-size: 0.82rem; }
+  .run-settings .setting-row label { margin: 0; font-size: 0.82rem; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--text); }
+  .run-settings .setting-row span { flex: none; display: flex; align-items: center; gap: 0.5rem; color: var(--text-dim); font-size: 0.78rem; }
+  .run-settings .setting-unit { width: 3.6rem; }
+  .run-settings input[type="number"] {
+    width: 5.5rem;
+    height: 1.9rem;
+    box-sizing: border-box;
+    padding: 0 0.5rem;
+    font: inherit;
+    font-size: 0.82rem;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 7px;
+  }
+  .run-settings input:disabled { opacity: 0.45; }
+  .run-settings input.invalid { border-color: var(--danger); }
+  #run-settings-note { margin-top: 0.6rem; color: var(--text-dim); font-size: 0.76rem; }
   .setup-form { display: flex; flex-wrap: wrap; gap: 0.5rem; }
   .setup-form input { flex: 1 1 9rem; width: auto; font-family: var(--font); }
   .setup-error { color: var(--danger); font-size: 0.82rem; }

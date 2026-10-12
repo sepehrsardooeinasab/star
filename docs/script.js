@@ -2084,6 +2084,8 @@
     byId("code-form").hidden = !asfDone || d.signed_in || signing || !d.needs;
 
     renderExtras(d);
+    byId("step-runs").hidden = !(d.asf && d.plugin);
+    if (!runSettings) loadRunSettings();
     byId("step-data").hidden = !d.data_dir;
     byId("data-path").textContent = d.data_dir || "";
     byId("open-folder").textContent = document.documentElement.getAttribute("data-desktop") === "linux"
@@ -2091,6 +2093,150 @@
     byId("setup-error").hidden = !d.error;
     byId("setup-error").textContent = d.error || "";
   }
+
+  // Settings → Runs: how runs pace themselves (settings.json), and whether
+  // finished games are listed.
+  var RUN_SETTINGS = {
+    jitter_enabled: ["Randomize delays", "Moves each delay a little, so a run doesn't replay the player's timings to the second."],
+    jitter_percent: ["By up to", "%", 0, 100],
+    jitter_min_delay: ["Only delays longer than", "seconds"],
+    stop_other_asf: ["Stop other ArchiSteamFarm installs", "Steam allows one login per account. Turn it off if they use other accounts, like a card-farming install."],
+    simultaneous_max_delay: ["Unlock together when within", "seconds"],
+    warm_settle_delay: ["Wait before the first unlock", "seconds"],
+    reconnect_settle_delay: ["…after reconnecting to Steam", "seconds"],
+    play_check_interval: ["Check the game is still playing every", "seconds", 1],
+    bot_connect_timeout: ["Wait for Steam to connect up to", "seconds"],
+    asf_shutdown_delay: ["Close an idle ArchiSteamFarm after", "seconds"]
+  };
+  var runSettings = null;  // [{key, value, default}] as saved
+  var editingSettings = false;  // locked until Edit
+
+  function loadRunSettings() {
+    runSettings = [];
+    api("/api/settings").then(function (d) { runSettings = d.settings; renderRunSettings(); })
+      .catch(function (err) {
+        runSettings = null;
+        byId("run-settings").innerHTML = noticeHtml("danger", err.message);
+      });
+  }
+
+  var RUN_SETTING_GROUPS = [
+    ["Delays", ["jitter_enabled", "jitter_percent", "jitter_min_delay", "simultaneous_max_delay"]],
+    ["ArchiSteamFarm", ["stop_other_asf", "warm_settle_delay", "reconnect_settle_delay",
+                        "play_check_interval", "bot_connect_timeout", "asf_shutdown_delay"]]
+  ];
+
+  function renderRunSettings() {
+    var byKey = {};
+    runSettings.forEach(function (s) { byKey[s.key] = s; });
+    var changed = runSettings.filter(function (s) { return s.value !== s.default; }).length;
+    byId("run-settings-summary").textContent = changed ? "· " + changed + " changed" : "· defaults";
+    byId("run-settings").innerHTML = RUN_SETTING_GROUPS.map(function (group) {
+      return '<div class="setting-group"><div class="setting-group-title">' + group[0] + "</div>" +
+        group[1].filter(function (key) { return byKey[key]; }).map(function (key) { return settingHtml(byKey[key]); }).join("") +
+        "</div>";
+    }).join("");
+    syncRunSettings();
+  }
+
+  function settingHtml(s) {
+    return (function (s) {
+      var info = RUN_SETTINGS[s.key], id = "set-" + s.key;
+      // ↺ puts one setting back to its default (shown while editing, when
+      // it differs).
+      var reset = '<button class="setting-reset" type="button" data-reset="' + s.key + '" title="Set to default (' +
+        (typeof s.default === "boolean" ? (s.default ? "on" : "off") : s.default) + ')" aria-label="Set to default">↺</button>';
+      if (typeof s.default === "boolean") {
+        return '<div class="setting-row"><label class="setting-check" title="' + escapeHtml(info[1]) + '"><input type="checkbox" id="' + id +
+          '" data-key="' + s.key + '"' + (s.value ? " checked" : "") + "> " + escapeHtml(info[0]) + "</label>" + reset + "</div>";
+      }
+      return '<div class="setting-row"><label for="' + id + '">' + escapeHtml(info[0]) + '</label><span>' + reset + '<input type="number" id="' + id +
+        '" data-key="' + s.key + '" min="' + (info[2] || 0) + '"' + (info[3] != null ? ' max="' + info[3] + '"' : "") +
+        ' step="1" value="' + s.value + '"><span class="setting-unit">' + escapeHtml(info[1]) + "</span></span></div>";
+    })(s);
+  }
+
+  // What the form holds, or null if a number isn't valid.
+  function runSettingsForm() {
+    var values = {}, ok = true;
+    byId("run-settings").querySelectorAll("[data-key]").forEach(function (el) {
+      if (el.type === "checkbox") { values[el.dataset.key] = el.checked; return; }
+      var n = Number(el.value), valid = el.value.trim() !== "" && el.checkValidity() && Number.isInteger(n);
+      el.classList.toggle("invalid", !valid);
+      if (!valid) ok = false;
+      values[el.dataset.key] = n;
+    });
+    return ok ? values : null;
+  }
+
+  function syncRunSettings() {
+    var values = runSettingsForm();
+    var changed = !!values && (runSettings || []).some(function (s) { return values[s.key] !== s.value; });
+    var form = byId("run-settings");
+    form.classList.toggle("locked", !editingSettings);
+    form.querySelectorAll("[data-key]").forEach(function (el) { el.disabled = !editingSettings; });
+    var jitter = byId("set-jitter_enabled");
+    ["set-jitter_percent", "set-jitter_min_delay"].forEach(function (id) {
+      if (byId(id) && jitter && !jitter.checked) byId(id).disabled = true;
+    });
+    (runSettings || []).forEach(function (s) {
+      var button = form.querySelector('[data-reset="' + s.key + '"]');
+      if (button) button.hidden = !editingSettings || !values || values[s.key] === s.default;
+    });
+    byId("run-settings-edit").hidden = editingSettings;
+    ["run-settings-save", "run-settings-cancel", "run-settings-reset"].forEach(function (id) {
+      byId(id).hidden = !editingSettings;
+    });
+    byId("run-settings-save").disabled = !changed;
+  }
+
+  function saveRunSettings(values) {
+    api("/api/settings", {settings: values}).then(function (d) {
+      runSettings = d.settings;
+      editingSettings = false;
+      renderRunSettings();
+      showToast("Saved. Runs started from now on use these.");
+    }).catch(function (err) { showToast("Couldn't save: " + err.message); });
+  }
+  byId("run-settings").addEventListener("input", syncRunSettings);
+  byId("run-settings").addEventListener("change", syncRunSettings);
+  byId("run-settings").addEventListener("submit", function (e) { e.preventDefault(); });
+  byId("run-settings-save").addEventListener("click", function () {
+    var values = runSettingsForm();
+    if (values) saveRunSettings(values);
+  });
+  byId("run-settings-edit").addEventListener("click", function () {
+    editingSettings = true;
+    syncRunSettings();
+  });
+  byId("run-settings-cancel").addEventListener("click", function () {
+    editingSettings = false;
+    renderRunSettings();  // back to what's saved
+  });
+  // Defaults fill the form; Save keeps them.
+  function setToDefault(s) {
+    var el = byId("set-" + s.key);
+    if (!el) return;
+    if (el.type === "checkbox") el.checked = s.default; else el.value = s.default;
+  }
+  byId("run-settings-reset").addEventListener("click", function () {
+    (runSettings || []).forEach(setToDefault);
+    syncRunSettings();
+  });
+  byId("run-settings").addEventListener("click", function (e) {
+    var button = e.target.closest("[data-reset]");
+    if (!button) return;
+    var key = button.getAttribute("data-reset");
+    (runSettings || []).forEach(function (s) { if (s.key === key) setToDefault(s); });
+    syncRunSettings();
+  });
+
+  byId("show-done").checked = showDone;
+  byId("show-done").addEventListener("change", function () {
+    showDone = this.checked;
+    try { localStorage.setItem("runs-show-done", showDone ? "1" : "0"); } catch (e) {}
+    renderRuns();
+  });
 
   // Keep awake & notifications: what this computer has, and how to get
   // what's missing. Shown once setup is done.
