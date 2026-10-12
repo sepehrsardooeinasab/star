@@ -661,6 +661,7 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/setup/login": lambda: setup_login(body.get("username"), body.get("password")),
             "/api/setup/code": lambda: setup_code(body.get("code")),
             "/api/update": app_update,
+            "/api/quit": quit_server,
         }
         self._route(routes.get(urlparse(self.path).path))
 
@@ -687,7 +688,22 @@ def _keep_asf_current():
         time.sleep(600)
 
 
+_server = None  # the running ThreadingHTTPServer, for quit_server()
+
+
+def quit_server():
+    """The desktop app closing: stops this server, which nothing needs
+    once its window is gone (games run on their own and keep going), so
+    macOS doesn't list STAR as running in the background. Not while
+    ArchiSteamFarm is being installed, which runs in this process."""
+    if _setup["busy"]:
+        raise AppError("ArchiSteamFarm is being set up; the server stays until it's done.", 409)
+    threading.Thread(target=_server.shutdown, daemon=True).start()
+    return {"quit": True}
+
+
 def serve():
+    global _server
     if not acquire_lock(SERVER_LOCK, "app", keep=True):
         print("The app is already running.")
         return
@@ -695,6 +711,7 @@ def serve():
     server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     print(f"Serving {URL} (started {datetime.now():%a %H:%M}).")
     threading.Thread(target=_keep_asf_current, daemon=True).start()
+    _server = server
     server.serve_forever()
 
 

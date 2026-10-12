@@ -12,7 +12,10 @@ mod notify;
 
 use std::env;
 use std::path::{Path, PathBuf};
+use std::io::{Read, Write};
+use std::net::TcpStream;
 use std::process::Command;
+use std::sync::OnceLock;
 use std::thread;
 use std::time::Duration;
 
@@ -97,6 +100,25 @@ fn start_server(code: Option<PathBuf>, home: &Path) -> Result<String, String> {
             stdout.trim(),
             String::from_utf8_lossy(&output.stderr).trim()
         )),
+    }
+}
+
+/// The server's URL once it's up, to stop it when the window closes.
+static SERVER_URL: OnceLock<String> = OnceLock::new();
+
+/// Asks the server to stop (POST /api/quit). Games are their own processes
+/// and keep running; the next launch starts the server again.
+fn quit_server() {
+    let Some(host) = SERVER_URL.get().and_then(|u| u.strip_prefix("http://")).and_then(|u| u.split('/').next()) else {
+        return;
+    };
+    let Ok(addr) = host.parse() else { return };
+    let Ok(mut stream) = TcpStream::connect_timeout(&addr, Duration::from_secs(1)) else { return };
+    let _ = stream.set_read_timeout(Some(Duration::from_secs(2)));
+    let request = format!("POST /api/quit HTTP/1.1\r\nHost: {host}\r\nContent-Type: application/json\r\n\
+                           Content-Length: 2\r\nConnection: close\r\n\r\n{{}}");
+    if stream.write_all(request.as_bytes()).is_ok() {
+        let _ = stream.read(&mut [0u8; 512]);
     }
 }
 
@@ -263,6 +285,14 @@ fn main() {
         .menu(menu)
         .on_menu_event(on_menu)
         .on_window_event(|_window, event| {
+            // Closing the window quits STAR, rather than leaving it open
+            // with no window ("Running in Background" in the Dock). Games
+            // are their own processes and keep running either way.
+            if matches!(event, tauri::WindowEvent::Destroyed) {
+                quit_server();
+                _window.app_handle().exit(0);
+                return;
+            }
             #[cfg(target_os = "macos")]
             if matches!(event, tauri::WindowEvent::Focused(_) | tauri::WindowEvent::Resized(_)
                 | tauri::WindowEvent::ThemeChanged(_) | tauri::WindowEvent::ScaleFactorChanged { .. })
@@ -297,6 +327,7 @@ fn main() {
             let code = code_dir(app.path().resource_dir().ok(), &home);
             thread::spawn(move || match start_server(code, &home) {
                 Ok(url) => {
+                    let _ = SERVER_URL.set(url.clone());
                     // Tells the page it's in the app, which lays out its top
                     // bar as the window's title bar. A dev build adds dev=1:
                     // all text selectable and the full right-click menu
