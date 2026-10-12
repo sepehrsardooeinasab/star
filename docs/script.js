@@ -1921,12 +1921,15 @@
     timelineShown = key;
     // Every achievement (no log) for Full timeline, and while editing.
     var full = runFull || !!runEdit;
+    byId("run-full-btn").disabled = !!runEdit;  // it's needed for editing
     document.querySelector(".runs-log").classList.toggle("full", full);
     byId("run-activity").hidden = full;
 
     byId("run-full-btn").hidden = !(rows && rows.length > 1);  // nothing more to show without a timeline
     var canEdit = !!(data && data.config && rows && rows.length > 1 && game.state !== "completed");
-    byId("timeline-bar").hidden = !canEdit;
+    // The lock is in the full timeline only, where delays are changed, so
+    // it never switches the view.
+    byId("timeline-bar").hidden = !canEdit || !full;
     // The same lock as Settings: open it to change delays; closing it
     // again drops anything not saved.
     var lock = byId("timeline-lock");
@@ -1937,9 +1940,7 @@
     byId("timeline-lock-label").textContent = runEdit ? "Unlocked" : "Locked";
     byId("timeline-save").hidden = !runEdit;
     byId("timeline-save").disabled = !runEdit || !Object.keys(runEdit.edited).length;
-    byId("timeline-bar-text").textContent = runEdit
-      ? "Click a delay still ahead to change it, in seconds."
-      : game.running ? "Stop the game to change its timeline." : "";
+    byId("timeline-bar-text").textContent = "";  // the lock's tooltip says it
 
     byId("timeline-table").innerHTML = rows && rows.length > 1
       ? (runFull || runEdit ? timelineHtml(rows, done, game.running, runEdit && editableRows(rows, done))
