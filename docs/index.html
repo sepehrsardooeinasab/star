@@ -65,6 +65,45 @@
 
 <!-- The page under the top bar; in the app, it alone scrolls. -->
 <div class="page" id="page">
+<!-- Over Schedule, Runs and Settings: what the screen is, in the start
+     screen's style, and its main action on the right. -->
+<div class="page-head" id="page-head">
+  <div class="page-head-text">
+    <div class="page-eyebrow" id="page-eyebrow">STAR</div>
+    <h2 class="page-title" id="page-title"></h2>
+  </div>
+  <div class="page-actions">
+    <div class="pa pa-schedule">
+      <button class="btn-hero primary page-action" id="download-btn" type="button" disabled>Download All</button>
+      <button class="btn-ghost" id="folder-btn" type="button" style="display:none">Choose save folder…</button>
+      <span class="folder-status" id="folder-status"></span>
+    </div>
+    <div class="pa pa-runs">
+      <div class="run-options" id="run-options">
+        <select id="run-delay" aria-label="Start" title="When the first session starts. It never starts before its break is over.">
+          <option value="0">When ready</option>
+          <option value="30">In 30 min</option>
+          <option value="60">In 1 hour</option>
+          <option value="120">In 2 hours</option>
+          <option value="240">In 4 hours</option>
+          <option value="custom">Other…</option>
+        </select>
+        <input type="text" id="run-delay-custom" placeholder="45m, 1h30m or 23:30" aria-label="Start in or at" spellcheck="false" hidden>
+        <label class="run-every" title="Play every remaining session back to back, waiting out the breaks. Otherwise just the next session."><input type="checkbox" id="run-every"> All sessions</label>
+        <button class="btn-primary run-start" id="run-start" type="button" disabled>Run</button>
+      </div>
+    </div>
+    <div class="pa pa-guide">
+      <div class="update-row" id="update-row">
+        <span id="update-text">STAR</span>
+        <a class="btn-ghost" id="repo-link" href="https://github.com/sepehrsardooeinasab/star" target="_blank" rel="noopener">GitHub</a>
+        <button class="btn-ghost" id="update-check" type="button">Check for updates</button>
+        <button class="btn-ghost primary-ghost" id="update-now" type="button" hidden>Update now</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <section class="hero" aria-labelledby="hero-title">
   <div class="hero-eyebrow"><span>STAR · Steam Timed Achievement Replayer</span></div>
   <h1 class="hero-title" id="hero-title"><span class="hero-bright">Replay a real player's</span> achievement timeline</h1>
@@ -143,11 +182,6 @@
       </li>
     </ol>
     <p class="setup-error" id="setup-error" hidden></p>
-    <div class="update-row" id="update-row">
-      <span id="update-text">STAR</span>
-      <button class="btn-ghost" id="update-check" type="button">Check for updates</button>
-      <button class="btn-ghost primary-ghost" id="update-now" type="button" hidden>Update now</button>
-    </div>
   </div>
 
   <ul class="hero-points">
@@ -289,16 +323,19 @@
           <div id="csv-slot"></div>
         </div>
         <div class="view-pane" data-view="runs">
-          <div class="runs-list" id="runs-list"></div>
+          <div class="runs-side">
+            <div class="runs-list" id="runs-list"></div>
+          </div>
           <div class="runs-log">
             <div class="runs-log-head">
-              <span id="runs-log-title">Output</span>
               <div class="segmented runs-pane-switch" role="group" aria-label="Show">
-                <button type="button" data-runs-pane="output" aria-pressed="true">Output</button>
+                <button type="button" data-runs-pane="details" aria-pressed="true">Details</button>
+                <button type="button" data-runs-pane="output" aria-pressed="false">Activity</button>
                 <button type="button" data-runs-pane="timeline" aria-pressed="false">Timeline</button>
               </div>
             </div>
-            <pre class="file-preview" id="runs-log"></pre>
+            <div class="run-details" id="run-details"></div>
+            <pre class="file-preview" id="runs-log" hidden></pre>
             <div class="runs-timeline" id="runs-timeline" hidden>
               <div class="timeline-bar" id="timeline-bar" hidden>
                 <span id="timeline-bar-text"></span>
@@ -312,11 +349,6 @@
         </div>
       </div>
 
-      <div class="box-footer">
-        <button class="btn-primary" id="download-btn" type="button" disabled>Download All</button>
-        <button class="btn-ghost" id="folder-btn" type="button" style="display:none">Choose save folder…</button>
-        <span class="folder-status" id="folder-status"></span>
-      </div>
     </div>
   </main>
 </div>

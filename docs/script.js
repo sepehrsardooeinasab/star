@@ -566,7 +566,6 @@
     csvSlot: document.getElementById("csv-slot"),
     runsList: document.getElementById("runs-list"),
     runsLog: document.getElementById("runs-log"),
-    runsLogTitle: document.getElementById("runs-log-title"),
     inputAlertSlot: document.getElementById("input-alert-slot")
   };
 
@@ -1388,6 +1387,13 @@
   var local = false;
   var runsData = null, runsError = null, runsFetchedAt = 0;
   var selectedRun = null;
+  // How Run starts a game, from the bar above the list: delay (minutes
+  // before the first session) and every (all sessions back to back
+  // instead of just the next one).
+  var runOpts = {every: false};
+  var showDone = true;  // finished games in the list (Settings → Runs)
+  try { showDone = localStorage.getItem("runs-show-done") !== "0"; } catch (e) {}
+  try { runOpts.every = localStorage.getItem("run-every") === "1"; } catch (e) {}
   var runsTimer = null;
 
   function api(path, body) {
@@ -1451,76 +1457,153 @@
     return Math.max(0, seconds - (Date.now() - runsFetchedAt) / 1000);
   }
 
+  function gameTitle(g) { return g.title || g.name; }
+
+  // When the game's next session can start: its break, and for a run
+  // started with Start in, that delay too.
+  function waitLeft(g) {
+    return Math.max(left(g.ready_in || 0), g.running && g.starts_in ? left(g.starts_in) : 0);
+  }
+
+  // A card says just enough to pick a game: its session and when it can
+  // play. The Details tab has the rest.
   function runCardHtml(g) {
-    var badge = {
-      in_session: ["live", "In session"],
-      waiting: ["wait", g.auto ? "Waiting for next session" : "Waiting"],
-      idle: ["", "Not running"],
-      completed: ["", "Completed"],
-      invalid: ["bad", "Invalid config"]
-    }[g.state];
-    var lines = [];
-    if (g.state === "invalid") {
-      lines.push('<span class="bad">' + escapeHtml(g.error) + "</span>");
-    } else if (g.finished) {
-      lines.push("All achievements unlocked. Its files moved to completed/.");
-    } else if (g.total) {
-      lines.push("<b>" + g.done + " / " + g.total + "</b> achievements" + (g.appid ? " · app " + g.appid : ""));
-      if (g.session) {
-        lines.push("Session <b>" + g.session + " of " + g.sessions + "</b> · " + g.count + " to go, ~" + fmtDur(g.duration));
-        if (g.state === "in_session") {
-          lines.push(g.next_unlock_in == null ? "Unlocking…"
-            : "Next unlock in <b>" + fmtDur(left(g.next_unlock_in)) + "</b>");
-        } else {
-          var wait = left(g.ready_in);
-          lines.push(wait > 0
-            ? "Next session in <b>" + fmtDur(wait) + "</b> (" + fmtAt(wait) + ")"
-            : "Next session can start <b>now</b>");
-        }
-      }
-      if (g.config_changed) {
-        lines.push('<span class="warn">The achievement order changed since it started. Run it once from the terminal to confirm.</span>');
-      }
-      if (g.stop_after) lines.push('<span class="warn">Stops after this session.</span>');
+    var badge = g.state === "in_session" ? ["live", "Playing"]
+      : g.running ? ["wait", "Waiting"]
+      : g.state === "invalid" ? ["bad", "Problem"]
+      : g.finished || g.state === "completed" ? ["", "Done"] : null;
+    var meta;
+    if (g.state === "invalid") meta = "The config has a problem.";
+    else if (g.finished || g.state === "completed") meta = "All achievements unlocked.";
+    else if (!g.session) meta = g.total ? g.done + " / " + g.total + " achievements" : "";
+    else {
+      var wait = waitLeft(g);
+      meta = "Session " + g.session + " of " + g.sessions + " · " +
+        (g.state === "in_session" ? (g.next_unlock_in == null ? "unlocking…" : "next unlock in " + fmtDur(left(g.next_unlock_in)))
+          : wait > 0 ? (g.running ? "starts " : "playable ") + fmtAt(wait) : g.running ? "starting…" : "playable now");
     }
-
-    var actions = [];
-    function btn(action, label, cls) {
-      var armed = action === "stop" && isArmed("stop:" + g.name);
-      return '<button class="' + (cls || "btn-ghost") + (armed ? " armed" : "") + '" type="button" data-action="' +
-        action + '" data-name="' + escapeHtml(g.name) + '">' + (armed ? "Click again to stop" : label) + "</button>";
-    }
-    if (g.running) {
-      actions.push(btn("stop", "Stop"));
-      if (g.auto && g.state === "in_session") {
-        actions.push(g.stop_after ? btn("keep-going", "Keep going") : btn("stop-after", "Stop after this session"));
-      }
-    } else if (g.finished) {
-      actions.push(btn("dismiss", "Dismiss"));
-    } else if (g.state === "idle" && !g.config_changed) {
-      actions.push(btn("run", g.done ? "Continue" : "Run", "btn-primary"));
-    }
-
-    var pct = g.total ? Math.round(100 * g.done / g.total) : (g.finished ? 100 : 0);
     return '<div class="run-card' + (g.name === selectedRun ? " selected" : "") + '" data-name="' + escapeHtml(g.name) + '">' +
-      '<div class="run-head"><span class="run-name">' + escapeHtml(g.name) + "</span>" +
-      '<span class="run-badge ' + badge[0] + '">' + badge[1] + "</span></div>" +
-      (lines.length ? '<div class="run-meta">' + lines.join("<br>") + "</div>" : "") +
-      (g.state !== "invalid" ? '<div class="run-progress"><span style="width:' + pct + '%"></span></div>' : "") +
-      (actions.length ? '<div class="run-actions">' + actions.join("") + "</div>" : "") +
+      '<div class="run-head"><span class="run-name">' + escapeHtml(gameTitle(g)) + "</span>" +
+      (badge ? '<span class="run-badge ' + badge[0] + '">' + badge[1] + "</span>" : "") + "</div>" +
+      (meta ? '<div class="run-meta">' + meta + "</div>" : "") +
       "</div>";
+  }
+
+  function detailsHtml(g) {
+    if (!g) return emptyHtml("▶", "Select a game.");
+    var rows = [];
+    function row(label, value) { rows.push("<dt>" + label + "</dt><dd>" + value + "</dd>"); }
+    var status = g.state === "in_session" ? "Playing a session"
+      : g.running ? "Waiting for its next session"
+      : g.state === "invalid" ? '<span class="bad">' + escapeHtml(g.error || "Invalid config") + "</span>"
+      : g.finished || g.state === "completed" ? "Done" : "Not running";
+    row("Status", status);
+    if (g.running) row("Plays", g.stop_after ? "This session, then stops" : "Every remaining session");
+    if (g.total) {
+      var pct = Math.round(100 * g.done / g.total);
+      row("Achievements", "<b>" + g.done + " / " + g.total + "</b> unlocked (" + pct + "%)" +
+        '<div class="run-progress"><span style="width:' + pct + '%"></span></div>');
+    }
+    if (g.session) {
+      row("Session", "<b>" + g.session + " of " + g.sessions + "</b> · " + g.count + " achievement" +
+        (g.count === 1 ? "" : "s") + (g.duration >= 60 ? ", about " + fmtDur(g.duration) : ", under a minute"));
+      if (g.state === "in_session") {
+        row("Next unlock", g.next_unlock_in == null ? "Unlocking…" : "In <b>" + fmtDur(left(g.next_unlock_in)) + "</b>");
+      } else {
+        var wait = waitLeft(g);
+        row(g.running ? "Starts" : "Playable", wait > 0
+          ? "In <b>" + fmtDur(wait) + "</b> (" + fmtAt(wait) + ")" : "<b>Now</b>");
+      }
+    }
+    if (g.appid) row("App ID", String(g.appid));
+    if (g.copied_from) row("Copied from", escapeHtml(g.copied_from));
+    if (g.title && g.title !== g.name) row("Saved as", escapeHtml(g.name));
+    var notes = "";
+    if (g.config_changed) {
+      notes = noticeHtml("warn", "The achievement order changed since it started. Run it once from the terminal to confirm.");
+    }
+    if (g.finished) notes = noticeHtml("info", "Its files moved to completed/ in the data folder.");
+    return '<dl class="details-list">' + rows.join("") + "</dl>" + notes;
+  }
+
+  // Minutes from the Start choice, or null when Other… holds something
+  // that isn't a time: "45" or "45m", "1h30m", "2h", or a clock time
+  // ("23:30", the next time it's that).
+  function runDelayMinutes() {
+    var choice = byId("run-delay").value;
+    if (choice !== "custom") return Number(choice);
+    var text = byId("run-delay-custom").value.trim().toLowerCase().replace(/\s+/g, "");
+    var m;
+    if ((m = /^(\d{1,2}):(\d{2})$/.exec(text)) && +m[1] < 24 && +m[2] < 60) {
+      var now = new Date(), at = new Date(now);
+      at.setHours(+m[1], +m[2], 0, 0);
+      if (at <= now) at.setDate(at.getDate() + 1);
+      return Math.max(1, Math.round((at - now) / 60000));
+    }
+    if ((m = /^(?:(\d+)h)?(?:(\d+)m?)?$/.exec(text)) && text && (m[1] || m[2])) {
+      var minutes = (+m[1] || 0) * 60 + (+m[2] || 0);
+      return minutes <= 24 * 60 ? minutes : null;
+    }
+    return null;
+  }
+
+  // The bar acts on the selected game: Run or Continue it, or while it's
+  // running, Stop it, with All sessions switching how much it plays.
+  function selectedGame() {
+    return (runsData ? runsData.games : []).filter(function (x) { return x.name === selectedRun; })[0];
+  }
+
+  function renderRunBar(games) {
+    var g = selectedGame();
+    var other = games.filter(function (x) { return x.running && (!g || x.name !== g.name); })[0];
+    var button = byId("run-start"), every = byId("run-every"), delay = byId("run-delay");
+    var custom = byId("run-delay-custom");
+    var running = !!(g && g.running), done = !!(g && (g.finished || g.state === "completed"));
+    var minutes = runDelayMinutes(), why = "";
+    custom.hidden = delay.value !== "custom";
+    custom.classList.toggle("invalid", !custom.hidden && custom.value.trim() !== "" && minutes === null);
+    if (running) {
+      var armed = isArmed("stop:" + g.name);
+      button.textContent = armed ? "Click again to stop" : "Stop";
+      button.className = "btn-hero run-start" + (armed ? " armed" : "");
+      every.checked = !g.stop_after;
+    } else if (done && g.finished) {
+      button.textContent = "Dismiss";
+      button.className = "btn-hero run-start";
+      every.checked = runOpts.every;
+    } else {
+      if (!g) why = "Select a game.";
+      else if (done) why = gameTitle(g) + " is done.";
+      else if (g.state === "invalid") why = gameTitle(g) + "'s config has a problem.";
+      else if (g.config_changed) why = "The achievement order changed. Run it once from the terminal to confirm.";
+      else if (other) why = "Only one game runs at a time. Stop " + gameTitle(other) + " first.";
+      else if (minutes === null) why = "Start: enter a time like 45m, 1h30m or 23:30.";
+      button.textContent = g && g.done ? "Continue" : "Run";
+      button.className = "btn-hero primary run-start";
+      every.checked = runOpts.every;
+    }
+    button.disabled = !!why;
+    button.title = why;
+    delay.disabled = custom.disabled = running || done;
+    every.disabled = done || (running && !g.auto);
   }
 
   function renderRuns() {
     var games = runsData ? runsData.games : [];
     var running = games.filter(function (g) { return g.running; }).length;
+    byId("run-options").hidden = !games.length;
+    renderRunBar(games);
     byId("switch-runs").classList.toggle("has-content", running > 0);
     if (currentView !== "runs") return;
-    els.statsStrip.innerHTML = runsData
-      ? "<span><b>" + games.length + "</b> game" + (games.length === 1 ? "" : "s") + "</span>" +
-        "<span><b>" + running + "</b> running</span>" +
-        (runsData.session ? "<span>in session: <b>" + escapeHtml(runsData.session) + "</b></span>" : "")
-      : "";
+    // One game runs at a time, so its name says more than a count.
+    var runningGame = games.filter(function (g) { return g.running; })[0];
+    // In the page header's eyebrow: how many games, and which one runs.
+    var bits = runsData ? [games.length + " game" + (games.length === 1 ? "" : "s")] : [];
+    if (runningGame) bits.push("running: " + gameTitle(runningGame));
+    if (runsData && runsData.session && (!runningGame || runsData.session !== runningGame.name)) {
+      bits.push("busy: " + runsData.session);
+    }
+    byId("page-eyebrow").textContent = ["STAR", "Runs"].concat(bits).join(" · ");
 
     if (runsError) {
       els.runsList.innerHTML = noticeHtml("danger", "Can't reach the app: " + runsError +
@@ -1528,22 +1611,28 @@
     } else if (!runsData) {
       els.runsList.innerHTML = "";
     } else if (!games.length) {
-      els.runsList.innerHTML = emptyHtml("▶", "No games yet. Make one under Schedule, then Save to project.");
+      els.runsList.innerHTML = emptyHtml("▶", "No games yet. Make one under Schedule, then save it.");
     } else {
-      if (!games.some(function (g) { return g.name === selectedRun; })) {
-        var pick = games.filter(function (g) { return g.running; })[0] || games[0];
-        selectedRun = pick.name;
+      // The running game is pinned to the top until it stops; finished
+      // games go to the bottom, or out of the list (Settings → Runs).
+      var isDone = function (g) { return !g.running && (g.finished || g.state === "completed"); };
+      var listed = games.filter(function (g) { return g.running; })
+        .concat(games.filter(function (g) { return !g.running && !isDone(g); }))
+        .concat(showDone ? games.filter(isDone) : []);
+      if (listed.length && !listed.some(function (g) { return g.name === selectedRun; })) {
+        selectedRun = listed[0].name;
       }
-      els.runsList.innerHTML = games.map(runCardHtml).join("");
+      els.runsList.innerHTML = listed.length ? listed.map(runCardHtml).join("")
+        : emptyHtml("▶", "Every game is finished. Turn on Show finished games in Settings to see them.");
     }
-    var paneName = runsPane === "timeline" ? "Timeline" : "Output";
-    els.runsLogTitle.innerHTML = selectedRun ? paneName + " · <b>" + escapeHtml(selectedRun) + "</b>" : paneName;
+    var shown = selectedGame();
+    if (runsPane === "details") byId("run-details").innerHTML = runsError ? "" : detailsHtml(shown);
     if (runsPane === "timeline") renderTimeline();
   }
 
   // ---- a game's timeline on Runs: its saved CSV, in the builder's table
   // (read-only), with what's unlocked so far dimmed ----
-  var runsPane = "output";
+  var runsPane = "details";
   var timelines = {};      // name -> {rows, config}, or null when there's no CSV
   var timelineShown = "";  // what's drawn, so polling doesn't redraw it
 
@@ -1777,6 +1866,7 @@
       b.setAttribute("aria-pressed", String(b.getAttribute("data-runs-pane") === pane));
     });
     els.runsLog.hidden = pane !== "output";
+    byId("run-details").hidden = pane !== "details";
     byId("runs-timeline").hidden = pane !== "timeline";
     document.querySelector('.view-pane[data-view="runs"]').setAttribute("data-pane", pane);
     if (pane === "timeline" && selectedRun && !runEdit) delete timelines[selectedRun];  // re-read: it may have been re-saved
@@ -1794,7 +1884,7 @@
       if (name !== selectedRun) return;
       var pre = els.runsLog;
       var atBottom = pre.scrollHeight - pre.scrollTop - pre.clientHeight < 40;
-      pre.textContent = data.text || "No output yet. Games run from here write their progress here.";
+      pre.textContent = data.text || "No activity yet. When this game runs, what it does shows up here.";
       if (atBottom) pre.scrollTop = pre.scrollHeight;
     }).catch(function () {});
   }
@@ -1818,18 +1908,23 @@
   }
 
   function runAction(action, name) {
+    var g = (runsData ? runsData.games : []).filter(function (x) { return x.name === name; })[0];
+    var title = g ? gameTitle(g) : name, minutes = runDelayMinutes(), delaySelect = byId("run-delay");
+    var when = !minutes ? "" : delaySelect.value === "custom" ? ", in " + fmtDur(minutes * 60)
+      : ", " + delaySelect.options[delaySelect.selectedIndex].text.toLowerCase();
     var requests = {
-      run: ["/api/run", {name: name}, "Started " + name + ". You can close this page; it keeps running."],
-      stop: ["/api/stop", {name: name}, "Stopping " + name + "…"],
-      "stop-after": ["/api/stop-after", {name: name, on: true}, name + " will stop after this session."],
-      "keep-going": ["/api/stop-after", {name: name, on: false}, name + " will keep going."],
+      run: ["/api/run", {name: name, every: !!runOpts.every, delay: minutes || 0},
+            "Started " + title + (runOpts.every ? ", every session" : ", next session") + when +
+            ". You can close this window; it keeps running."],
+      stop: ["/api/stop", {name: name}, "Stopping " + title + "…"],
+      "stop-after": ["/api/stop-after", {name: name, on: true}, title + " will stop after this session."],
+      "keep-going": ["/api/stop-after", {name: name, on: false}, title + " will play every remaining session."],
       dismiss: ["/api/dismiss", {name: name}, null]
     };
     var req = requests[action];
     if (action === "stop" && !confirmTwice("stop:" + name)) { renderRuns(); return; }
-    api(req[0], req[1]).then(function (data) {
-      showToast(data.stopped && action === "stop-after"
-        ? "Stopped " + name + " (it was between sessions)." : req[2] || "Done.");
+    api(req[0], req[1]).then(function () {
+      showToast(req[2] || "Done.");
     }).catch(function (err) {
       showToast(err.message);
     }).then(function () {
@@ -1838,8 +1933,6 @@
   }
 
   els.runsList.addEventListener("click", function (e) {
-    var button = e.target.closest("button[data-action]");
-    if (button) { runAction(button.getAttribute("data-action"), button.getAttribute("data-name")); return; }
     var card = e.target.closest(".run-card");
     if (card && card.getAttribute("data-name") !== selectedRun) {
       selectedRun = card.getAttribute("data-name");
@@ -1848,6 +1941,42 @@
       refreshLog();
     }
   });
+
+  byId("run-start").addEventListener("click", function () {
+    var g = selectedGame();
+    if (!g) return;
+    runAction(g.running ? "stop" : g.finished ? "dismiss" : "run", g.name);
+  });
+  byId("run-every").checked = runOpts.every;
+  byId("run-delay").addEventListener("change", function () {
+    var custom = byId("run-delay-custom");
+    renderRunBar(runsData ? runsData.games : []);
+    if (this.value === "custom") custom.focus();
+  });
+  byId("run-delay-custom").addEventListener("input", function () {
+    renderRunBar(runsData ? runsData.games : []);
+  });
+  // While the selected game runs, All sessions changes how much it plays;
+  // otherwise it's how the next Run starts.
+  byId("run-every").addEventListener("change", function () {
+    var g = selectedGame();
+    if (g && g.running) {
+      runAction(this.checked ? "keep-going" : "stop-after", g.name);
+      return;
+    }
+    runOpts.every = this.checked;
+    try { localStorage.setItem("run-every", this.checked ? "1" : "0"); } catch (e) {}
+  });
+
+  // In the app, a right click is for text only (Cut, Copy, Paste): the
+  // web view's own menu (Reload, Inspect Element) isn't for an app.
+  if (document.documentElement.hasAttribute("data-desktop")) {
+    document.addEventListener("contextmenu", function (e) {
+      var text = e.target.closest && e.target.closest("input, textarea, [contenteditable]");
+      var selected = String(window.getSelection ? window.getSelection() : "").trim();
+      if (!text && !selected) e.preventDefault();
+    });
+  }
 
   // render() redraws the cards for the "click again" labels too.
   var baseRender = render;

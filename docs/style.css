@@ -319,7 +319,8 @@
   .screen-switch:not([hidden]) ~ .topbar-right #guide-btn { display: none; }
   /* Narrow windows: the logo alone, so the buttons fit. */
   @media (max-width: 520px) { .topbar .brand span { display: none; } }
-  @media (max-width: 600px) { .screen-switch:not([hidden]) ~ .topbar-right .topbar-btn { display: none; } }
+  /* In the app GitHub sits in Settings, next to the version. */
+  .screen-switch:not([hidden]) ~ .topbar-right .topbar-btn { display: none; }
 
   .topbar-btn {
     background: var(--text);
@@ -515,6 +516,8 @@
   .update-row span { flex: 1 1 12rem; }
   .update-row button { padding: 0.35rem 0.8rem; font-size: 0.78rem; }
   .update-row .primary-ghost { border-color: var(--accent); color: var(--accent); }
+  .update-row a.btn-ghost { padding: 0.35rem 0.8rem; font-size: 0.78rem; font-weight: 500; border: 1px solid var(--border-strong); border-radius: 8px; text-decoration: none; }
+  .update-row a.btn-ghost:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .hero [hidden] { display: none !important; }
 
   .shell {
@@ -626,7 +629,6 @@
   .box[data-view="runs"] .tab-group,
   .box[data-view="runs"] .box-footer { display: none; }
   .box[data-view="runs"] .box-header { padding-top: 0; }
-  .box[data-view="runs"] .stats-row { margin-top: 0; border-top: 0; }
   /* Runs takes the builder's height (--box-h, set by the script); its content fills it. */
   .box[data-view="runs"] { height: var(--box-h, auto); }
   .box[data-view="runs"] .box-content { height: auto; flex: 1; min-height: 0; }
@@ -691,22 +693,17 @@
   }
 
   /* Runs (only in the local app): games on the left, the selected one's
-     output on the right (stacked on narrow screens). */
+     details, activity or timeline on the right (stacked on narrow
+     screens). The list keeps one width and card shape on every tab. */
   .view-pane[data-view="runs"].active {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+    grid-template-columns: minmax(15rem, 0.38fr) minmax(0, 1fr);
     gap: 1rem;
   }
-  /* The timeline needs the room more than the game list does. */
-  .view-pane[data-view="runs"][data-pane="timeline"].active {
-    grid-template-columns: minmax(12rem, 0.3fr) minmax(0, 1fr);
-  }
-  /* Beside a timeline, a game is just its name. */
-  .view-pane[data-view="runs"][data-pane="timeline"] :is(.run-badge, .run-meta, .run-progress, .run-actions) { display: none; }
   @media (max-width: 900px) {
-    .view-pane[data-view="runs"].active, .view-pane[data-view="runs"][data-pane="timeline"].active { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }
+    .view-pane[data-view="runs"].active { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }
   }
-  .runs-list { display: flex; flex-direction: column; gap: 0.6rem; min-height: 0; overflow-y: auto; }
+  .runs-list { display: flex; flex-direction: column; gap: 0.6rem; min-height: 0; flex: 1 1 auto; overflow-y: auto; }
   .runs-list .empty-hint, .runs-list .notice { margin: 0; }
   .run-card {
     background: var(--surface-2);
@@ -745,7 +742,7 @@
   .run-badge.bad { background: var(--danger-bg); color: var(--danger); }
   @keyframes run-pulse { 50% { opacity: 0.3; } }
   .run-meta {
-    margin-top: 0.4rem;
+    margin-top: 0.3rem;
     font-size: 0.8rem;
     line-height: 1.55;
     color: var(--text-dim);
@@ -756,20 +753,72 @@
   .run-meta .bad { color: var(--danger); }
   .run-progress { height: 4px; margin-top: 0.6rem; background: var(--surface-3); border-radius: 2px; overflow: hidden; }
   .run-progress span { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
-  .run-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
-  .run-actions button { padding: 0.42rem 0.85rem; font-size: 0.8rem; }
+  .runs-side { display: flex; flex-direction: column; gap: 0.6rem; min-height: 0; }
+  /* Runs' bar, at the right of the stats row: when it starts, how much
+     it plays, and Run / Stop for the selected game. */
+  .run-options { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.5rem 0.75rem; }
+  .run-options[hidden] { display: none; }
+  .run-options [hidden] { display: none; }
+  /* Every control in the bar is the same height. */
+  .run-options select, .run-options input[type="text"], .run-options .run-start {
+    box-sizing: border-box;
+    height: 2rem;
+    margin: 0;
+    font: inherit;
+    font-size: 0.8rem;
+    border-radius: 8px;
+  }
+  .run-options select, .run-options input[type="text"] {
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    padding: 0 0.5rem;
+  }
+  .run-options input[type="text"].invalid { border-color: var(--danger); }
+  .run-options select:focus-visible, .run-options input[type="text"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .run-options .run-every {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    height: 2rem;
+    margin: 0;
+    font-size: 0.8rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--text);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .run-options .run-every input { accent-color: var(--accent); margin: 0; width: 0.95rem; height: 0.95rem; }
+  .run-options input[type="text"] { width: 9.5rem; }
+  .run-options .run-start { padding: 0 1rem; min-width: 5.5rem; }
+  .run-options :disabled { cursor: not-allowed; }
+  .run-options .run-every:has(input:disabled) { opacity: 0.5; cursor: not-allowed; }
+  /* Details tab: label / value rows. */
+  .run-details { flex: 1; min-height: 0; overflow-y: auto; }
+  .run-details .empty-hint { margin: auto; }
+  .details-list { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.55rem 1.2rem; margin: 0 0 0.8rem; font-size: 0.84rem; }
+  .details-list dt { color: var(--text-dim); }
+  .details-list dd { margin: 0; color: var(--text); font-variant-numeric: tabular-nums; }
+  .details-list dd b { font-weight: 600; }
+  .details-list .run-progress { margin-top: 0.45rem; max-width: 18rem; }
+  .details-list .bad { color: var(--danger); }
   .runs-log { display: flex; flex-direction: column; min-height: 0; }
   .runs-log-head {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: 0.75rem;
     font-size: 0.78rem;
     color: var(--text-dim);
-    margin-bottom: 0.45rem;
+    margin-bottom: 0.9rem;
   }
   .runs-pane-switch { flex: none; }
-  .runs-pane-switch button { padding: 0.2rem 0.7rem; font-size: 0.75rem; }
+  /* Same look as the Schedule tabs. */
+  .runs-pane-switch { padding: 2px; border-radius: 9px; background: var(--surface); }
+  .runs-pane-switch button { padding: 0.42rem 0.8rem; border-radius: 7px; font-size: 0.82rem; font-weight: 500; }
+  .runs-pane-switch button[aria-pressed="true"] { background: var(--accent-tint); color: var(--accent); }
   .runs-log [hidden] { display: none !important; }
   /* A game's timeline on Runs: the builder's table, read-only, with what's
      already unlocked dimmed. */
