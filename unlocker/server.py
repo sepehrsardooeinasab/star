@@ -17,7 +17,7 @@ import threading
 import time
 import urllib.request
 import webbrowser
-from datetime import datetime
+from datetime import datetime, timedelta
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -68,6 +68,11 @@ class AppError(Exception):
         super().__init__(message)
         self.status = status
         self.extra = extra
+
+
+def _starts_path(name):
+    """When a run started with a delay starts its first session (ISO)."""
+    return JSONS_DIR / f".starts_{name}"
 
 
 def _seconds_until(iso):
@@ -122,6 +127,11 @@ def _game_state(name, session_label):
                 duration=duration, ready_in=wait)
     if in_session:
         game["next_unlock_in"] = _seconds_until(progress["next_unlock_at"])
+    elif running:
+        try:
+            game["starts_in"] = _seconds_until(_starts_path(name).read_text().strip()) or None
+        except (OSError, ValueError):
+            pass
     return game
 
 
@@ -178,8 +188,13 @@ def save_game(name, config, csv_text, overwrite=False):
     return {"saved": name}
 
 
-def start_run(name):
+def start_run(name, every=False, delay=None):
+    """Runs the game's next session, or with every, all of them back to
+    back; delay: minutes to wait before the first one starts."""
     name = _check_name(name)
+    if delay is not None and (not isinstance(delay, int) or isinstance(delay, bool)
+                              or not 0 <= delay <= 24 * 60):
+        raise AppError("Start in: a number of minutes, up to a day.")
     if not profile_paths(name)[0].exists():
         raise AppError(f"There's no config for {name}.", 404)
     if _running_pid(name):
@@ -193,9 +208,13 @@ def start_run(name):
     if updates.updating():
         raise AppError("The app is updating. Try again once it has reopened.", 409)
     JSONS_DIR.mkdir(parents=True, exist_ok=True)
+    _starts_path(name).unlink(missing_ok=True)
+    if delay:
+        _starts_path(name).write_text((datetime.now() + timedelta(minutes=delay)).isoformat())
     with open(auto_log_path(name), "w") as log:
         proc = subprocess.Popen(
-            [sys.executable, "-u", str(RUN_SCRIPT), name, "--auto"],
+            [sys.executable, "-u", str(RUN_SCRIPT), name, "--auto"]
+            + ([] if every else ["--once"]) + (["-in", str(delay)] if delay else []),
             cwd=str(PROJECT_DIR), stdin=subprocess.DEVNULL, stdout=log,
             stderr=subprocess.STDOUT, start_new_session=True)
     # Wait until it holds its lock, so the next status already shows it
@@ -220,18 +239,14 @@ def stop_run(name):
 
 
 def set_stop_after(name, on):
-    """Asks an auto run to stop once its current session ends. Between
-    sessions nothing is playing, so it just stops now."""
+    """Makes a run stop once its current (or, between sessions, its next)
+    session ends, or with on=False, play every session again."""
     name = _check_name(name)
     if not on:
         stop_after_path(name).unlink(missing_ok=True)
         return {"stop_after": False}
     if not lock_info(auto_lock_path(name)):
         raise AppError(f"{name} isn't running from the app.", 409)
-    session = lock_info(SESSION_LOCK)
-    if not (session and session[1] == name):
-        stop_run(name)
-        return {"stopped": name}
     stop_after_path(name).touch()
     return {"stop_after": True}
 
@@ -241,6 +256,7 @@ def dismiss(name):
     if _running_pid(name):
         raise AppError(f"{name} is running.", 409)
     auto_log_path(name).unlink(missing_ok=True)
+    _starts_path(name).unlink(missing_ok=True)
     return {"dismissed": name}
 
 
@@ -539,7 +555,7 @@ class Handler(SimpleHTTPRequestHandler):
         routes = {
             "/api/save": lambda: save_game(name, body.get("config"), body.get("csv"),
                                            bool(body.get("overwrite"))),
-            "/api/run": lambda: start_run(name),
+            "/api/run": lambda: start_run(name, bool(body.get("every")), body.get("delay")),
             "/api/stop": lambda: stop_run(name),
             "/api/stop-after": lambda: set_stop_after(name, bool(body.get("on", True))),
             "/api/dismiss": lambda: dismiss(name),

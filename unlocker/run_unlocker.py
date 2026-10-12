@@ -72,6 +72,7 @@ if __name__ == "__main__":
     time_only = "-t" in args or "--time" in args
     wait_ready = "-w" in args or "--wait" in args
     auto = "--auto" in args
+    once = "--once" in args
 
     delay = None
     for flag in ("-in", "--in"):
@@ -88,13 +89,18 @@ if __name__ == "__main__":
         sys.exit(1)
 
     positional = [a for a in args
-                  if a not in ("-f", "--force", "-t", "--time", "-w", "--wait", "--auto")]
+                  if a not in ("-f", "--force", "-t", "--time", "-w", "--wait", "--auto", "--once")]
 
     game_name = positional[0] if positional else choose_game_name()
     if auto:
-        if force or time_only or wait_ready or delay is not None:
-            print("--auto can't be combined with -f, -t, -w or -in.")
+        # -in delays its first session; --once (the app's default) stops
+        # after one session.
+        if force or time_only or wait_ready:
+            print("--auto can't be combined with -f, -t or -w.")
             sys.exit(1)
-        run_auto(game_name)
+        run_auto(game_name, once=once, delay=delay)
         sys.exit(0)
+    if once:
+        print("--once goes with --auto.")
+        sys.exit(1)
     run(game_name, force=force, time_only=time_only, delay=delay, wait_ready=wait_ready)
