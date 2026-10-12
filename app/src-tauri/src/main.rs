@@ -137,7 +137,7 @@ fn place_window_buttons(window: &tauri::Window) {
 }
 
 /// STAR's menus: the app menu (About, Check for Updates…, Settings… ⌘,),
-/// Edit (for copy and paste), Go (the page's screens, ⌘1–3), Window and
+/// Edit (for copy and paste), Go (the page's screens, ⌘1–2), Window and
 /// Help. Elsewhere than macOS, a STAR menu has Settings, the update check
 /// and Quit.
 fn menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
@@ -195,9 +195,8 @@ fn menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         &PredefinedMenuItem::select_all(app, None)?,
     ])?)?;
     menu.append(&Submenu::with_items(app, "Go", true, &[
-        &item("go-home", "Home", Some("CmdOrCtrl+1"))?,
-        &item("go-schedule", "Schedule", Some("CmdOrCtrl+2"))?,
-        &item("go-runs", "Runs", Some("CmdOrCtrl+3"))?,
+        &item("go-schedule", "Schedule", Some("CmdOrCtrl+1"))?,
+        &item("go-runs", "Runs", Some("CmdOrCtrl+2"))?,
     ])?)?;
     menu.append(&Submenu::with_items(app, "Window", true, &[
         &PredefinedMenuItem::minimize(app, None)?,
@@ -208,6 +207,7 @@ fn menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         &PredefinedMenuItem::close_window(app, None)?,
     ])?)?;
     menu.append(&Submenu::with_items(app, "Help", true, &[
+        &item("help-guide", "How STAR Works", None)?,
         &item("help-github", "STAR on GitHub", None)?,
         &item("help-issue", "Report a Problem…", None)?,
     ])?)?;
@@ -224,9 +224,9 @@ fn on_menu(app: &AppHandle, event: MenuEvent) {
     let script = match event.id().as_ref() {
         "settings" => "window.unlockerShowGuide && unlockerShowGuide()".to_string(),
         "check-updates" => "window.unlockerCheckUpdates && unlockerCheckUpdates()".to_string(),
-        "go-home" => click("switch-home"),
         "go-schedule" => click("switch-schedule"),
         "go-runs" => click("switch-runs"),
+        "help-guide" => return open_url("https://sepehrsardooeinasab.github.io/star/"),
         "help-github" => return open_url(REPO),
         "help-issue" => return open_url(&format!("{REPO}/issues/new")),
         _ => return,
@@ -279,7 +279,7 @@ fn main() {
                 .on_new_window(|url, _| on_new_window(url))
                 .title("STAR")
                 .inner_size(1180.0, 860.0)
-                .min_inner_size(420.0, 560.0);
+                .min_inner_size(960.0, 560.0);
             // macOS: no separate title bar. The page's top bar takes its
             // place, starting after the window buttons, which sit centred
             // in it (it's 52px tall).
@@ -298,9 +298,12 @@ fn main() {
             thread::spawn(move || match start_server(code, &home) {
                 Ok(url) => {
                     // Tells the page it's in the app, which lays out its top
-                    // bar as the window's title bar.
+                    // bar as the window's title bar. A dev build adds dev=1:
+                    // all text selectable and the full right-click menu
+                    // (Inspect Element), which release builds don't have.
                     let desktop = if cfg!(target_os = "macos") { "macos" } else { "linux" };
-                    if let Ok(url) = format!("{url}?desktop={desktop}").parse() {
+                    let dev = if cfg!(debug_assertions) { "&dev=1" } else { "" };
+                    if let Ok(url) = format!("{url}?desktop={desktop}{dev}").parse() {
                         let _ = window.navigate(url);
                     }
                 }
