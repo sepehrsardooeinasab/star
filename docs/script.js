@@ -2409,7 +2409,7 @@
     stop_other_asf: ["Stop other ArchiSteamFarm installs", "Steam allows one login per account. Turn it off if they use other accounts, like a card-farming install."],
     simultaneous_max_delay: ["Unlock together when within", "seconds"],
     warm_settle_delay: ["Wait before the first unlock", "seconds"],
-    reconnect_settle_delay: ["…after reconnecting to Steam", "seconds"],
+    reconnect_settle_delay: ["Wait before the first unlock, if Steam just reconnected", "seconds"],
     play_check_interval: ["Check the game is still playing every", "seconds", 1],
     bot_connect_timeout: ["Wait for Steam to connect up to", "seconds"],
     asf_shutdown_delay: ["Close an idle ArchiSteamFarm after", "seconds"]
