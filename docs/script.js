@@ -2265,14 +2265,17 @@
     // it would cross it (its pointer stays on the button), and closes on a
     // click outside it, or Esc.
     var options = byId("bar-options");
-    options.addEventListener("toggle", function () {
+    function placeOptions() {
       var pop = options.querySelector(".bar-popover");
       pop.style.setProperty("--shift", "0px");
       if (!options.open) return;
       var r = pop.getBoundingClientRect(), edge = 12;
       var shift = Math.min(0, window.innerWidth - edge - r.right) || Math.max(0, edge - r.left);
       pop.style.setProperty("--shift", shift + "px");
-    });
+    }
+    options.addEventListener("toggle", placeOptions);
+    // Again as the window is resized with it open.
+    window.addEventListener("resize", placeOptions);
     document.addEventListener("mousedown", function (e) {
       if (options.open && !options.contains(e.target)) options.open = false;
     });
