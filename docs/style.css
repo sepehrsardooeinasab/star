@@ -679,8 +679,10 @@
   .input-help { overflow-y: auto; }
   .app-only { display: none; }
   body.local .app-only { display: list-item; }
+  body.local div.app-only, body.local ul.app-only { display: block; }
+  body.local .web-only { display: none; }
   .input-help .format-title { margin-top: 1rem; }
-  .input-help pre { white-space: pre-wrap; font-size: 0.76rem; }
+  .input-help .help-url { display: block; margin-top: 0.3rem; font-size: 0.74rem; overflow-wrap: anywhere; }
   @media (max-width: 900px) {
     .view-pane[data-view="input"].active { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
     .input-help { max-height: 9rem; }
@@ -872,6 +874,8 @@
   .notice.stack { flex-direction: column; gap: 0.15rem; }
   .notice.warn { background: var(--warn-bg); color: var(--warn); }
   .notice.danger { background: var(--danger-bg); color: var(--danger); }
+  .notice.problem { line-height: 1.45; }
+  .notice-title { font-weight: 600; margin-bottom: 0.2rem; }
   .notice.info { background: var(--info-bg); color: var(--info); }
   #input-alert-slot .notice, .notices-below .notice { margin: 0.5rem 0 0; }
   .visually-hidden {

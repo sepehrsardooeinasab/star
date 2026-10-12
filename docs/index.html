@@ -207,25 +207,25 @@
             <div id="input-alert-slot"></div>
           </div>
           <div class="hint settings-help input-help">
-            <div class="help-title">What to paste</div>
-            <ul>
-              <li>On SteamHunters, open the achievements of the player you want to copy, for this game.</li>
-              <li>Select the whole page (<b>⌘A</b> / <b>Ctrl+A</b>), copy it and paste it here.</li>
-              <li>Achievements without an unlock time (still locked for that player) are skipped.</li>
-              <li class="app-only">Any sort works: each achievement is matched to its number in the game by name.</li>
-              <li class="app-only">Or paste just a link to the player's achievements, from SteamHunters or Steam. The exact times then come straight from Steam.</li>
+            <div class="help-title app-only">A link</div>
+            <ul class="app-only">
+              <li>A link to the player's achievements for this game, from SteamHunters or Steam:
+                <code class="help-url">steamhunters.com/id/<i>name</i>/apps/<i>appid</i>/achievements</code>
+                <code class="help-url">steamcommunity.com/id/<i>name</i>/stats/<i>appid</i>/achievements</code>
+              </li>
+              <li><code>profiles/<i>steamid</i></code> links work too.</li>
+              <li>The exact times come straight from Steam, so the player's profile must be public.</li>
             </ul>
-            <div class="help-title format-title">Each achievement looks like</div>
-            <pre>Achievement Name
-
-Description text
-
-2,944 / 7,212   197   39.8 %
-
-17 Aug '25 @ 02:46:25 pm
-
-
-(a blank line, then the next one)</pre>
+            <div class="help-title format-title app-only">Or the page</div>
+            <div class="help-title web-only">What to paste</div>
+            <ul>
+              <li>On SteamHunters, open the player's achievements for this game.</li>
+              <li>Select the whole page (<b>⌘A</b> / <b>Ctrl+A</b>), copy it and paste it here.</li>
+              <li>Turn on <b>Settings → Show hidden achievements</b> on SteamHunters first, or hidden ones come without a name.</li>
+              <li class="app-only">Any sort or grouping works.</li>
+              <li>Achievements the player hasn't unlocked are skipped.</li>
+              <li class="app-only">Steam's own page can't be pasted; use its link.</li>
+            </ul>
           </div>
         </div>
 

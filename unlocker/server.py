@@ -354,7 +354,7 @@ def achievement_numbers(appid):
     try:
         return achievements.numbers(appid)
     except achievements.Problem as e:
-        raise AppError(str(e), 409)
+        raise AppError(str(e), 409, title=e.title)
 
 
 def achievements_from_link(url):
@@ -362,7 +362,7 @@ def achievements_from_link(url):
     try:
         return achievements.from_link(str(url or "").strip())
     except achievements.Problem as e:
-        raise AppError(str(e), 409)
+        raise AppError(str(e), 409, title=e.title)
 
 
 def test_keep_awake():

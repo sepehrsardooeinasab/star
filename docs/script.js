@@ -2,27 +2,16 @@
   "use strict";
 
   // ---------------------------------------------------------------
-  // Parsing / session-splitting / CSV logic — unchanged pure functions
-  // (verified byte-identical to builder/*.py's output).
+  // Parsing / session-splitting / CSV logic — pure functions.
   // ---------------------------------------------------------------
   var MONTHS = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
   var SKIP_LINE_RE = /^\d+\s+guides?$/i;
-  // "2,944 / 7,212   197   39.8 %" — unlocked / owners, points, percentage.
-  var STATS_RE = /^[\d,]+\s*\/\s*[\d,]+\s+([\d,]+)\s+(\d+(?:\.\d+)?)\s*%$/;
+  // "2,944 / 7,212   197   39.8 %" — unlocked / owners, points (can be
+  // a fraction, e.g. 0.6), percentage, sometimes after SteamHunters' tags
+  // for the achievement ("Missable", "Main Storyline"). Every achievement
+  // has this line, so the parser finds achievements by it.
+  var STATS_RE = /(?:^|\s)[\d,]+\s*\/\s*[\d,]+\s+([\d,]+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s*%$/;
   var TIME_RE = /(\d{1,2})\s+(\w{3})\s+'(\d{2})\s+@\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s+(am|pm)/i;
-
-  function groupIntoBlocks(lines) {
-    var blocks = [], current = [], blankRun = 0;
-    for (var i = 0; i < lines.length; i++) {
-      var line = lines[i];
-      if (line === "") { blankRun++; continue; }
-      if (blankRun >= 2 && current.length) { blocks.push(current); current = []; }
-      blankRun = 0;
-      current.push(line);
-    }
-    if (current.length) blocks.push(current);
-    return blocks;
-  }
 
   function parseTimestamp(match) {
     var month = MONTHS[match[2].toLowerCase()];
@@ -34,42 +23,69 @@
     return isNaN(d.getTime()) ? null : d.getTime();
   }
 
+  // Reads achievements from SteamHunters' page text, copied whole (⌘A) or
+  // just the list: everything else on the page (menus, the player's
+  // banner, the game's description, tags) is ignored. Each achievement is
+  // found by its stats line; its name and description are the lines just
+  // above it, and its unlock time (if it's unlocked) the line just below.
   function parseExport(text) {
     var lines = text.split(/\r?\n/).map(function (l) { return l.trim(); });
-    var blocks = groupIntoBlocks(lines);
     var achievements = [];
     var entries = []; // every achievement, locked or not, in pasted order
-    var totalCount = 0;
+    var seen = {};
+    var minutesOnly = false;  // a time without seconds: SteamHunters' setting is off
+    var namelessCount = 0;    // unlocked hidden ones without a name: another setting off
 
-    blocks.forEach(function (block, bi) {
-      var orderIndex = bi + 1;
-      var idx = 0;
-      while (idx < block.length && SKIP_LINE_RE.test(block[idx])) idx++;
-      if (idx >= block.length) return;
-
-      var achName = block[idx];
-      idx++;
-      totalCount++;
-
-      var unlockTime = null, points = null, percent = null, description = "";
-      for (var i = idx; i < block.length; i++) {
-        var s = block[i].match(STATS_RE);
-        if (s && percent === null) {
-          points = parseInt(s[1].replace(/,/g, ""), 10);
-          percent = parseFloat(s[2]);
-          continue;
-        }
-        var m = block[i].match(TIME_RE);
-        if (m) { unlockTime = parseTimestamp(m); break; }
-        if (i === idx && percent === null) description = block[i];  // the line under the name
+    for (var i = 0; i < lines.length; i++) {
+      var stats = lines[i].match(STATS_RE);
+      if (!stats) continue;
+      // Up to two lines above, from this entry only: entries are 3 blank
+      // lines apart, and a guide count or another entry's lines end it.
+      var above = [], blanks = 0;
+      for (var j = i - 1; j >= 0 && above.length < 2; j--) {
+        if (lines[j] === "") { if (++blanks >= 2) break; continue; }
+        blanks = 0;
+        if (STATS_RE.test(lines[j]) || TIME_RE.test(lines[j]) || SKIP_LINE_RE.test(lines[j])) break;
+        above.unshift(lines[j]);
       }
-      entries.push({name: achName, points: points, percent: percent});
+      if (!above.length) continue;
+      var achName = above[0];
+      // SteamHunters notes hidden achievements in their description.
+      var description = (above.length > 1 ? above[1] : "").replace(/^This achievement is hidden\.\s*/i, "");
 
+      var unlockTime = null;
+      for (var k = i + 1; k < lines.length; k++) {
+        if (lines[k] === "") continue;
+        var m = lines[k].match(TIME_RE);
+        if (m) {
+          unlockTime = parseTimestamp(m);
+          if (!m[6]) minutesOnly = true;
+        }
+        break;
+      }
+
+      // Grouped by tags, an achievement with several tags is listed once
+      // per tag: the same name, description and unlock time again. (Only
+      // unlocked ones: locked hidden ones all read "This achievement is
+      // hidden.", and each still counts.)
+      // Without SteamHunters' "show hidden achievements" setting, a hidden
+      // one has no name at all, just this note.
+      var nameless = /^This achievement is hidden\.?$/i.test(achName);
+      if (unlockTime !== null && !nameless) {
+        var key = achName + "\n" + description + "\n" + unlockTime;
+        if (seen[key]) continue;
+        seen[key] = true;
+      }
+
+      var orderIndex = entries.length + 1;
+      entries.push({name: achName, points: parseFloat(stats[1].replace(/,/g, "")), percent: parseFloat(stats[2])});
       if (unlockTime !== null) {
         achievements.push({ach_name: achName, ach_id: orderIndex, unlock_time: unlockTime,
-                           description: description, order: orderIndex});
+                           description: description, order: orderIndex, nameless: nameless});
+        if (nameless) namelessCount++;
       }
-    });
+    }
+    var totalCount = entries.length;
 
     // ach_id is the achievement's position as pasted, which must match the
     // game's default/schema order (same order ASF's alist/aset use) for the
@@ -79,10 +95,11 @@
     // which would silently scramble ach_id even though the delay/session
     // math below stays correct either way (it re-sorts by real timestamp
     // regardless of paste order).
-    var sortedBy = detectSort(achievements, entries);
+    var sortedBy = pageOrder(lines) || detectSort(achievements, entries);
 
     achievements.sort(function (a, b) { return a.unlock_time - b.unlock_time; });
-    return {list: achievements, sortedBy: sortedBy, totalCount: totalCount};
+    return {list: achievements, sortedBy: sortedBy, totalCount: totalCount, minutesOnly: minutesOnly,
+            namelessCount: namelessCount};
   }
 
   var NAME_COLLATOR = new Intl.Collator(undefined, {sensitivity: "base", ignorePunctuation: true, numeric: true});
@@ -102,7 +119,35 @@
     return changed && (asc || desc);
   }
 
-  // Returns the name of the sort key the paste appears ordered by, or null.
+  // A whole-page paste says how SteamHunters lists it ("… grouped by" /
+  // "nothing" / "sorted by" / "default"). Returns how, if it isn't the
+  // game's default order, else null.
+  function pageOrder(lines) {
+    var after = function (label) {
+      for (var i = 0; i < lines.length; i++) {
+        if (!/(^|\s)(grouped|sorted) by$/i.test(lines[i]) || lines[i].toLowerCase().slice(-label.length) !== label) continue;
+        for (var j = i + 1; j < lines.length; j++) if (lines[j]) return lines[j];
+      }
+      return null;
+    };
+    var grouped = after("grouped by"), sorted = after("sorted by");
+    if (sorted && !/^default$/i.test(sorted)) return "sorted by " + sorted;
+    if (grouped && !/^nothing$/i.test(grouped)) return "grouped by " + grouped;
+    return null;
+  }
+
+  // The game's title in a whole-page paste: the line above its achievement
+  // count ("Among Us" / "33Achievements"). Null for a list-only paste.
+  function pageGame(text) {
+    var lines = String(text || "").split(/\r?\n/).map(function (l) { return l.trim(); });
+    for (var i = 0; i < lines.length; i++) {
+      if (!/^[\d,]+\s*Achievements$/.test(lines[i])) continue;
+      for (var j = i - 1; j >= 0; j--) if (lines[j]) return lines[j];
+    }
+    return null;
+  }
+
+  // Returns how the paste appears ordered ("sorted by name", …), or null.
   function detectSort(unlocked, entries) {
     var byNumber = function (a, b) { return a - b; };
     var known = function (key) {
@@ -111,10 +156,10 @@
       return vals.every(function (v) { return v !== null; }) ? vals : [];
     };
 
-    if (isMonotonic(unlocked.map(function (a) { return a.unlock_time; }), byNumber)) return "unlock date";
-    if (isMonotonic(entries.map(function (e) { return e.name; }), NAME_COLLATOR.compare)) return "name";
-    if (isMonotonic(known("percent"), byNumber)) return "percentage";
-    if (isMonotonic(known("points"), byNumber)) return "points";
+    if (isMonotonic(unlocked.map(function (a) { return a.unlock_time; }), byNumber)) return "sorted by unlock date";
+    if (isMonotonic(entries.map(function (e) { return e.name; }), NAME_COLLATOR.compare)) return "sorted by name";
+    if (isMonotonic(known("percent"), byNumber)) return "sorted by percentage";
+    if (isMonotonic(known("points"), byNumber)) return "sorted by points";
     return null;
   }
 
@@ -149,7 +194,7 @@
         if (!els.copiedFrom.value && d.player) els.copiedFrom.value = d.player;
       }
     }).catch(function (err) {
-      linkSources[url] = {status: "error", message: err.message};
+      linkSources[url] = {status: "error", message: err.message, title: (err.data || {}).title};
     }).then(scheduleRecompute);
     return linkSources[url];
   }
@@ -169,7 +214,7 @@
         api("/api/achievements/numbers", {appid: appid}).then(function (d) {
           numberings[appid] = {status: "ok", data: d};
         }).catch(function (err) {
-          numberings[appid] = {status: "error", message: err.message, at: Date.now()};
+          numberings[appid] = {status: "error", message: err.message, title: (err.data || {}).title, at: Date.now()};
         }).then(function () {
           if (numbersWanted === appid) numbersWanted = null;
           scheduleRecompute();
@@ -183,16 +228,26 @@
     return String(a || "").replace(/\s+/g, " ").trim().toLowerCase() === String(b || "").replace(/\s+/g, " ").trim().toLowerCase();
   }
 
-  // Sets each achievement's ach_id to its number. Matched in pasted order,
-  // so achievements that can't be told apart at all keep that order.
-  function assignNumbers(list, numbered) {
-    var byApi = {}, used = {};
-    numbered.forEach(function (n) { if (n.apiname) byApi[n.apiname] = n; });
-    var result = {missing: [], shared: {}, byOrder: {}, restricted: []};
-    list.slice().sort(function (a, b) { return a.order - b.order; }).forEach(function (a) {
+  // Sets each achievement's ach_id to its number: by Steam's API name when
+  // there is one, else by name (and description where names repeat).
+  // Matched in pasted order, so achievements that can't be told apart at
+  // all keep that order. Hidden ones shown without a name can only go by
+  // their position, which is their number when the paste is in the
+  // default order (inOrder); they then take their real name.
+  function assignNumbers(list, numbered, inOrder) {
+    var byApi = {}, byNumber = {}, used = {};
+    numbered.forEach(function (n) { byNumber[n.number] = n; });
+    // Steam's stats page lowercases API names; SteamHunters shows them as written.
+    numbered.forEach(function (n) { if (n.apiname) byApi[n.apiname.toLowerCase()] = n; });
+    var result = {missing: [], shared: {}, byOrder: {}, restricted: [], nameless: 0, namelessMissing: 0};
+    var sorted = list.slice().sort(function (a, b) { return a.order - b.order; });
+    sorted.forEach(function (a) {
+      if (a.nameless) return;  // after the named ones, below
       var same = numbered.filter(function (n) { return sameText(n.name, a.ach_name); });
       if (same.length > 1) result.shared[same[0].name] = same.length;
-      var match = a.apiname && byApi[a.apiname];
+      // A link gives Steam's API name; a paste sorted "by API name" shows
+      // it in place of the name. Either is unique, so it's tried first.
+      var match = (a.apiname && byApi[a.apiname.toLowerCase()]) || (!same.length && byApi[a.ach_name.toLowerCase()]);
       if (!match) {
         var free = same.filter(function (n) { return !used[n.number]; });
         if (free.length > 1 && a.description) {
@@ -205,6 +260,16 @@
       if (!match) { result.missing.push(a.ach_name); a.ach_id = null; return; }
       used[match.number] = true;
       a.ach_id = match.number;
+      if (match.restricted) result.restricted.push(a.ach_name);
+    });
+    sorted.forEach(function (a) {
+      if (!a.nameless) return;
+      var match = inOrder && byNumber[a.order];
+      if (!match || used[match.number]) { result.namelessMissing++; a.ach_id = null; return; }
+      used[match.number] = true;
+      a.ach_id = match.number;
+      a.ach_name = match.name;
+      result.nameless++;
       if (match.restricted) result.restricted.push(a.ach_name);
     });
     return result;
@@ -498,8 +563,9 @@
     inputAlertSlot: document.getElementById("input-alert-slot")
   };
 
-  function sortedByMsg(key) {
-    return "This paste looks sorted by " + key + ", not the game's default order. Achievement numbering needs default order, so the generated IDs will be wrong. Re-copy the page with the default sort.";
+  // how: e.g. "sorted by name" or "grouped by DLC & update".
+  function sortedByMsg(how) {
+    return "This paste looks " + how + ", not in the game's default order. Achievement numbering needs default order, so the generated IDs will be wrong. Re-copy the page with no grouping and the default sort.";
   }
 
   var NAV_TITLES = {
@@ -579,6 +645,13 @@
     return '<div class="notice ' + kind + '">' + escapeHtml(text) + "</div>";
   }
 
+  // A problem with a title (what happened) over what to do about it.
+  function problemHtml(kind, title, text) {
+    if (!title) return noticeHtml(kind, text);
+    return '<div class="notice ' + kind + ' problem"><div><div class="notice-title">' + escapeHtml(title) +
+      "</div><div>" + escapeHtml(text) + "</div></div></div>";
+  }
+
   function emptyHtml(glyph, text) {
     return '<div class="empty-hint"><div class="glyph">' + glyph + "</div><p>" + escapeHtml(text) + "</p></div>";
   }
@@ -638,7 +711,10 @@
         latest = {errors: ["Reading the achievements from Steam\u2026"], pending: true};
         return;
       }
-      if (source.status === "error") { latest = {errors: [source.message], inputNotice: "danger"}; return; }
+      if (source.status === "error") {
+        latest = {errors: [source.message], errorTitle: source.title, inputNotice: "danger"};
+        return;
+      }
       linked = source.data;
     }
 
@@ -659,6 +735,7 @@
 
     // Numbers from ArchiSteamFarm (app only); see assignNumbers.
     var numberDangers = [], numberWarnings = [];
+    var namelessFate = null;  // what happened to hidden ones pasted without a name
     if (local) {
       var numbering = loadNumbers(appidVal);
       if (numbering.status === "loading") {
@@ -666,13 +743,14 @@
         return;
       }
       if (numbering.status === "ok") {
-        var match = assignNumbers(parsed.list, numbering.data.achievements);
+        var match = assignNumbers(parsed.list, numbering.data.achievements, !linked && !parsed.sortedBy);
         parsed.list = parsed.list.filter(function (a) { return a.ach_id; });
         parsed.sortedBy = null;  // numbers no longer depend on the paste's order
         if (match.missing.length) {
           numberDangers.push("Not in this game's achievements, so left out: " + match.missing.join(", ") +
             ". Check the App ID, or that the paste is from this game.");
         }
+        namelessFate = match.namelessMissing ? "left out" : "numbered by their position in the default order";
         var shared = sharedNamesMsg(match, !!linked);
         if (shared) numberWarnings.push(shared);
         if (match.restricted.length) {
@@ -681,10 +759,10 @@
         }
         if (parsed.list.length === 0) { latest = {errors: numberDangers, inputNotice: "danger"}; return; }
       } else if (linked) {
-        latest = {errors: ["Couldn't get the achievement numbers: " + numbering.message], inputNotice: "danger"};
+        latest = {errors: [numbering.message], errorTitle: numbering.title, inputNotice: "danger"};
         return;
       } else {
-        numberDangers.push("Couldn't check the achievement numbers with ArchiSteamFarm: " + numbering.message +
+        numberDangers.push((numbering.title ? numbering.title + ". " : "") + numbering.message +
           " Until then, numbers come from the pasted order, so the paste needs the default sort.");
       }
     }
@@ -705,9 +783,20 @@
     // wrong, so it's surfaced loudly (red Download button, input-pane
     // notice) rather than only as a notice in the output tabs.
     var dangers = numberDangers.slice();
+    if (parsed.namelessCount) {
+      var n = parsed.namelessCount, one = n === 1;
+      dangers.push(n + " unlocked achievement" + (one ? " shows" : "s show") + " only as \u201cThis achievement is hidden.\u201d, " +
+        "with no name. In SteamHunters, turn on Settings \u2192 Show hidden achievements, then copy the page again. Until then " +
+        (one ? "it's " : "they're ") + (namelessFate ||
+          "numbered by position, which is only right in the default order") + ".");
+    }
     if (parsed.sortedBy) dangers.push(sortedByMsg(parsed.sortedBy));
 
     var warnings = numberWarnings.slice();
+    if (parsed.minutesOnly) {
+      warnings.push("The pasted times have no seconds, so every delay is rounded to the minute. For exact times, turn on " +
+        "seconds in SteamHunters' settings and copy the page again" + (local ? ", or paste the player's link instead." : "."));
+    }
     if (simultaneous.length) warnings.push(simultaneous.length + " timestamp(s) have multiple achievements unlocking together.");
     // Problems that can hit many sessions/achievements are listed in one
     // notice each rather than one notice per hit.
@@ -854,7 +943,7 @@
     var dangerHtml = dangers.map(function (d) { return noticeHtml("danger", d); }).join("");
     // Problems with the paste itself (a link, the numbers) show under it too.
     var inputHtml = latest && !ok && latest.inputNotice
-      ? latest.errors.map(function (m) { return noticeHtml(latest.inputNotice, m); }).join("") : "";
+      ? latest.errors.map(function (m) { return problemHtml(latest.inputNotice, latest.errorTitle, m); }).join("") : "";
     els.inputAlertSlot.innerHTML = dangerHtml + inputHtml + editsBannerHtml();
     els.downloadBtn.classList.toggle("btn-danger", dangers.length > 0);
     els.downloadBtn.textContent = local
@@ -870,7 +959,9 @@
 
     if (!latest || latest.errors.length) {
       var msgs = latest ? latest.errors : ["Paste an export first."];
-      slot.innerHTML = msgs.map(function (m) { return noticeHtml(latest && latest.pending ? "info" : "danger", m); }).join("") +
+      slot.innerHTML = msgs.map(function (m) {
+        return latest && latest.pending ? noticeHtml("info", m) : problemHtml("danger", latest && latest.errorTitle, m);
+      }).join("") +
         emptyHtml("{ }", latest && latest.pending ? "This fills in when it's done." : "Fix the issue above to generate this file.");
       return;
     }
