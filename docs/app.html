@@ -94,10 +94,10 @@
           <option value="custom">Other…</option>
         </select>
         <input type="text" id="run-delay-custom" placeholder="1h30m or 23:30" aria-label="Start in or at" spellcheck="false" hidden>
-        <div class="segmented run-mode" id="run-mode" role="group" aria-label="How much to play" title="Just the next session, or every remaining one back to back, waiting out the breaks.">
-          <button type="button" data-every="0" aria-pressed="true" title="Just the next session">Next</button>
-          <button type="button" data-every="1" aria-pressed="false" title="Every remaining session, back to back">All</button>
-        </div>
+        <select id="run-mode" aria-label="How much to play" title="Just the next session, or every remaining one back to back, waiting out the breaks.">
+          <option value="0">1 session</option>
+          <option value="1">All sessions</option>
+        </select>
         <button class="btn-primary run-start" id="run-start" type="button" disabled>Run</button>
       </div>
     </div>

@@ -956,10 +956,6 @@
   .run-options input[type="text"].invalid { border-color: var(--danger); }
   .run-options select:focus-visible, .run-options input[type="text"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   /* Next session / All sessions: two choices, the chosen one tinted. */
-  .run-options .run-mode { height: 2.5rem; padding: 3px; border-radius: 9px; background: var(--surface); }
-  .run-options .run-mode button { flex: none; padding: 0 0.85rem; border-radius: 6px; font-size: 0.8rem; font-weight: 500; white-space: nowrap; }
-  .run-options .run-mode button[aria-pressed="true"] { background: var(--accent-tint); color: var(--accent); }
-  .run-options .run-mode button:disabled { opacity: 0.5; }
   .run-options input[type="text"] { width: 9.5rem; }
   /* One width for Run, Continue, Stop and Dismiss: switching games keeps the bar still. */
   .run-options .run-start { padding: 0 0.5rem; width: 6.5rem; justify-content: center; white-space: nowrap; }
@@ -1451,8 +1447,6 @@
   :root[data-desktop] .topbar .pa { gap: 0.5rem; }
   :root[data-desktop] .topbar :is(.run-options select, .run-start, .page-action) { height: 28px; font-size: 0.78rem; border-radius: 7px; }
   :root[data-desktop] .topbar .run-options { gap: 0.5rem; flex-wrap: nowrap; }
-  :root[data-desktop] .topbar .run-options .run-mode { height: 28px; padding: 2px; border-radius: 8px; }
-  :root[data-desktop] .topbar .run-options .run-mode button { font-size: 0.76rem; padding: 0 0.7rem; }
   :root[data-desktop] .topbar .run-options input[type="text"] { height: 28px; width: 7.5rem; font-size: 0.78rem; }
   :root[data-desktop] .topbar .btn-hero {
     padding: 0 1rem;

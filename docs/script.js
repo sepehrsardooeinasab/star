@@ -1692,17 +1692,15 @@
   }
 
   // The bar acts on the selected game: Run or Continue it, or while it's
-  // running, Stop it, with Next / All switching how much it plays.
+  // running, Stop it, with 1 session / All sessions switching how much it plays.
   function selectedGame() {
     return (runsData ? runsData.games : []).filter(function (x) { return x.name === selectedRun; })[0];
   }
 
-  // Next (session) / All (sessions), shown as pressed.
+  // 1 session / All sessions.
   function setRunMode(every, disabled) {
-    byId("run-mode").querySelectorAll("button").forEach(function (b) {
-      b.setAttribute("aria-pressed", String((b.getAttribute("data-every") === "1") === !!every));
-      b.disabled = !!disabled;
-    });
+    byId("run-mode").value = every ? "1" : "0";
+    byId("run-mode").disabled = !!disabled;
   }
 
   function renderRunBar(games) {
@@ -2192,12 +2190,10 @@
   byId("run-delay-custom").addEventListener("input", function () {
     renderRunBar(runsData ? runsData.games : []);
   });
-  // While the selected game runs, All changes how much it plays;
+  // While the selected game runs, it changes how much that run plays;
   // otherwise it's how the next Run starts.
-  byId("run-mode").addEventListener("click", function (e) {
-    var b = e.target.closest("button[data-every]");
-    if (!b || b.disabled) return;
-    var every = b.getAttribute("data-every") === "1", g = selectedGame();
+  byId("run-mode").addEventListener("change", function () {
+    var every = this.value === "1", g = selectedGame();
     if (g && g.running) {
       if (every !== !g.stop_after) runAction(every ? "keep-going" : "stop-after", g.name);
       return;
