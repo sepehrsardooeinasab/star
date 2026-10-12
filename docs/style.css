@@ -1493,7 +1493,9 @@
     border-right: 1px solid var(--border);
   }
   :root[data-desktop] .runs-log { padding: 0.9rem 1.2rem 1rem; }
-  :root[data-desktop] .runs-list { gap: 2px; }
+  /* The list runs to the sidebar's edge, so its scrollbar sits on the
+     border line instead of beside the games. */
+  :root[data-desktop] .runs-list { gap: 2px; margin-right: -0.6rem; padding-right: 0.6rem; }
   :root[data-desktop] .run-card {
     padding: 0.5rem 0.7rem;
     background: transparent;

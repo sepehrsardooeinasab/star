@@ -1571,11 +1571,20 @@
   }
 
   // Clock time `seconds` from now, with the weekday when it isn't today.
+  // When something happens: the time today, "Tomorrow", a weekday within
+  // the coming week, and past that the date ("Nov 6"), so a day name never
+  // means a later week's.
   function fmtAt(seconds) {
-    var at = new Date(Date.now() + seconds * 1000);
+    var now = new Date(), at = new Date(now.getTime() + seconds * 1000);
     var time = at.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
-    return at.toDateString() === new Date().toDateString()
-      ? time : at.toLocaleDateString([], {weekday: "short"}) + " " + time;
+    var day = function (d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); };
+    var days = Math.round((day(at) - day(now)) / 86400000);
+    if (days <= 0) return time;
+    if (days === 1) return "Tomorrow " + time;
+    if (days < 7) return at.toLocaleDateString([], {weekday: "short"}) + " " + time;
+    var date = {month: "short", day: "numeric"};
+    if (at.getFullYear() !== now.getFullYear()) date.year = "numeric";
+    return at.toLocaleDateString([], date) + ", " + time;
   }
 
   // Countdowns come from the last fetch; count them down in between.
@@ -1606,14 +1615,9 @@
     if (g.state === "invalid") meta = "The config has a problem.";
     else if (g.finished || g.state === "completed") meta = "All achievements unlocked.";
     else if (!g.session) meta = g.total ? g.done + " / " + g.total + " achievements" : "";
-    else {
-      meta = "Session " + g.session + " of " + g.sessions;
-      if (g.state === "in_session") {
-        meta += " · " + (g.next_unlock_in == null ? "unlocking…" : "next unlock in " + fmtDur(left(g.next_unlock_in)));
-      } else if (g.running) {
-        meta += " · " + (wait > 0 ? "starts " + fmtAt(wait) : "starting…");
-      }
-    }
+    // Just the session: Playing / Waiting is the badge, and the next
+    // unlock or start is in the selected game's summary.
+    else meta = "Session " + g.session + " of " + g.sessions;
     // On a break: dimmed, with a clock; when it can play is on hover and
     // in the line over its sessions.
     var clock = resting ? '<svg class="run-rest" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" ' +
