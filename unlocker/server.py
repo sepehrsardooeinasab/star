@@ -192,14 +192,15 @@ def run_settings():
         raise AppError(f"settings.json is {e}. Fix it or delete it.")
     return {"settings": [{"key": key, "value": overrides.get(key, settings_module.DEFAULTS[key]),
                           "default": settings_module.DEFAULTS[key]}
-                         for key in settings_module.APP_EDITABLE]}
+                         for key in settings_module.APP_EDITABLE + settings_module.APP_TOGGLES]}
 
 
 def save_run_settings(values):
     """Writes the app's settings into settings.json, keeping its other keys
     and leaving out any that are back at their default. Runs started after
     this use them."""
-    if not isinstance(values, dict) or any(k not in settings_module.APP_EDITABLE for k in values):
+    editable = settings_module.APP_EDITABLE + settings_module.APP_TOGGLES
+    if not isinstance(values, dict) or any(k not in editable for k in values):
         raise AppError("Unknown setting.")
     try:
         overrides = settings_module.read_overrides()
@@ -210,7 +211,7 @@ def save_run_settings(values):
     if found:
         raise AppError(found[0][0].upper() + found[0][1:] + ".")
     kept = {k: v for k, v in overrides.items()
-            if k not in settings_module.APP_EDITABLE or v != settings_module.DEFAULTS[k]}
+            if k not in editable or v != settings_module.DEFAULTS[k]}
     if kept:
         SETTINGS_PATH.write_text(json.dumps(kept, indent=2) + "\n")
     else:
@@ -480,7 +481,7 @@ def test_keep_awake():
 
 
 def test_notification():
-    notify("Test", "Notifications work. You'll get one when a session ends or a run stops.")
+    notify("Test", "Notifications work. You'll get one when a session ends or a run stops.", force=True)
     return {"sent": True}
 
 

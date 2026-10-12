@@ -122,16 +122,19 @@ def ensure_asf_running():
             start_new_session=True)
 
 
-def start_keep_awake():
+def start_keep_awake(force=False):
     """Keeps the system (and display) from sleeping or locking for the
     duration of a run: `caffeinate` on macOS, `systemd-inhibit` on Linux.
     Returns the process to hand to stop_keep_awake(), or None if neither
     tool is available or the inhibitor couldn't be taken — callers should
-    skip printing anything about it then.
+    skip printing anything about it then. Also None when the keep_awake
+    setting is off, unless force (the app's test).
 
     Either way the process watches this one and exits on its own once it's
     gone, so a run that's force-killed (kill -9, Force Quit) — which never
     gets to call stop_keep_awake() — can't leave the system awake forever."""
+    if not (force or SETTINGS["keep_awake"]):
+        return None
     pid = str(os.getpid())
     if shutil.which("caffeinate"):
         # -w: exit when that process exits.
@@ -213,7 +216,7 @@ def _app_notify(app, game, message, error):
     return True
 
 
-def notify(game, message, error=False):
+def notify(game, message, error=False, force=False):
     """Desktop notification: title "STAR", the game as subtitle.
     Uses the best tool available and quietly does nothing when there's
     none — a missing tool never affects a run.
@@ -225,7 +228,12 @@ def notify(game, message, error=False):
       (terminal-notifier isn't used: its notifications don't show on current
       macOS.)
     - Linux + notify-send: logo; errors are marked critical, others ask to
-      expire after NOTIFY_REMOVE_AFTER (some desktops ignore that)."""
+      expire after NOTIFY_REMOVE_AFTER (some desktops ignore that).
+
+    Nothing when the notifications setting is off, unless force (the
+    app's test)."""
+    if not (force or SETTINGS["notifications"]):
+        return
     icon = str(NOTIFY_ICON) if NOTIFY_ICON.exists() else None
     try:
         app = _app_binary() if sys.platform == "darwin" else None

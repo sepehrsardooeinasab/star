@@ -583,10 +583,34 @@
     cursor: pointer;
   }
   .setup-step .setting-check input { accent-color: var(--accent); margin: 0; }
+  /* Switches that belong together: one block, close to each other. */
+  .setting-checks { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.7rem; }
+  .setting-checks .setting-check { margin: 0; }
+  .setting-checks .setting-why { margin: -0.25rem 0 0 1.55rem; color: var(--text-dim); }
   .run-settings-box { margin-top: 0.8rem; border-top: 1px solid var(--border); padding-top: 0.7rem; }
   .run-settings-box summary { cursor: pointer; font-size: 0.82rem; font-weight: 500; color: var(--text); list-style-position: inside; }
   .run-settings-box summary span { color: var(--text-dim); font-weight: 400; }
-  .run-settings-box:not([open]) #run-settings-note { display: none; }
+  .run-settings-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 0.7rem; }
+  .run-settings-top .step-text { color: var(--text-dim); font-size: 0.76rem; }
+  .lock-toggle {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+  }
+  .lock-toggle svg { width: 14px; height: 14px; }
+  .lock-toggle:hover:not(:disabled):not([aria-pressed="true"]) { color: var(--text); }
+  .lock-toggle:disabled { opacity: 0.45; cursor: not-allowed; }
+  /* Unlocked: the shackle swings open and it takes the accent. */
+  .lock-toggle[aria-pressed="true"] { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); background: var(--accent-tint); }
+  .lock-toggle[aria-pressed="true"] .lock-shackle { transform: translateX(-2.5px) translateY(-1px); }
+  .lock-shackle { transition: transform 0.15s ease; }
   .run-settings { display: flex; flex-direction: column; gap: 0.9rem; margin-top: 0.4rem; }
   .run-settings .setting-row .setting-check { margin: 0; }
   .run-settings.locked input:disabled { opacity: 0.75; cursor: default; }
@@ -612,7 +636,7 @@
   }
   .run-settings input:disabled { opacity: 0.45; }
   .run-settings input.invalid { border-color: var(--danger); }
-  #run-settings-note { margin-top: 0.6rem; color: var(--text-dim); font-size: 0.76rem; }
+
   .setup-form { display: flex; flex-wrap: wrap; gap: 0.5rem; }
   .setup-form input { flex: 1 1 9rem; width: auto; font-family: var(--font); }
   .setup-error { color: var(--danger); font-size: 0.82rem; }

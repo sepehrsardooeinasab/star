@@ -164,35 +164,54 @@
       </li>
       <li class="setup-step" id="step-extras" hidden>
         <div class="step-head"><span class="step-mark"></span><b>Keep awake &amp; notifications</b></div>
-        <p class="step-text" id="awake-text"></p>
-        <p class="step-text" id="notify-text"></p>
-        <div class="install-line" id="notify-install" hidden><code id="notify-cmd"></code><button class="btn-ghost" id="notify-copy" type="button">Copy</button></div>
-        <div class="step-actions">
-          <button class="btn-ghost" id="awake-check" type="button">Test keep awake</button>
-          <button class="btn-ghost" id="notify-test" type="button">Send a test notification</button>
+        <div class="setting-checks">
+          <label class="setting-check"><input type="checkbox" id="keep-awake-on" disabled> Keep the computer awake during runs</label>
+          <p class="step-text setting-why" id="awake-text" hidden></p>
+          <label class="setting-check"><input type="checkbox" id="notify-on" disabled> Notify when a session ends or a run stops</label>
+          <p class="step-text setting-why" id="notify-text" hidden></p>
         </div>
+        <div class="install-line" id="notify-install" hidden><code id="notify-cmd"></code><button class="btn-ghost" id="notify-copy" type="button">Copy</button></div>
+        <details class="test-menu">
+          <summary class="btn-ghost">Test</summary>
+          <div class="test-menu-list">
+            <button type="button" id="awake-check">Keep awake</button>
+            <button type="button" id="notify-test">A notification</button>
+          </div>
+        </details>
       </li>
       <li class="setup-step done" id="step-runs" hidden>
         <div class="step-head"><span class="step-mark"></span><b>Runs</b></div>
         <label class="setting-check"><input type="checkbox" id="show-done"> Show finished games in Runs</label>
         <details class="run-settings-box" id="run-settings-box">
           <summary>Advanced run settings <span id="run-settings-summary"></span></summary>
-          <form class="run-settings" id="run-settings" autocomplete="off"></form>
-          <div class="step-actions">
-            <button class="btn-ghost" id="run-settings-edit" type="button">Edit</button>
-            <button class="btn-ghost primary-ghost" id="run-settings-save" type="button" hidden disabled>Save</button>
-            <button class="btn-ghost" id="run-settings-cancel" type="button" hidden>Cancel</button>
-            <button class="btn-ghost" id="run-settings-reset" type="button" hidden>Set all to defaults</button>
+          <div class="run-settings-top">
+            <span class="step-text" id="run-settings-note">Runs started after saving use these. Saved in settings.json in the data folder.</span>
+            <button class="lock-toggle" id="run-settings-lock" type="button" aria-pressed="false" title="Unlock to change these">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path class="lock-shackle" d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>
+              <span id="run-settings-lock-label">Locked</span>
+            </button>
           </div>
-          <p class="step-text" id="run-settings-note">Locked so they don't change by accident: press Edit to change them. Runs started after saving use them. Saved in settings.json in the data folder.</p>
+          <form class="run-settings" id="run-settings" autocomplete="off"></form>
+          <div class="step-actions" id="run-settings-actions" hidden>
+            <button class="btn-ghost primary-ghost" id="run-settings-save" type="button" disabled>Save</button>
+            <button class="btn-ghost" id="run-settings-reset" type="button">Set all to defaults</button>
+          </div>
         </details>
       </li>
       <li class="setup-step done" id="step-data" hidden>
         <div class="step-head"><span class="step-mark"></span><b>Data folder</b></div>
-        <p class="step-text">Your games' schedules, progress and finished games, ArchiSteamFarm and settings. Updating the app keeps it. Copy it to back up or move to another computer.</p>
         <code class="data-path" id="data-path"></code>
         <div class="step-actions">
           <button class="btn-ghost" id="open-folder" type="button">Show in Finder</button>
+        </div>
+      </li>
+      <li class="setup-step done" id="step-about">
+        <div class="step-head"><span class="step-mark"></span><b>About STAR</b></div>
+        <div class="update-row" id="update-row">
+          <span id="update-text">STAR</span>
+          <a class="btn-ghost" id="repo-link" href="https://github.com/sepehrsardooeinasab/star" target="_blank" rel="noopener">GitHub</a>
+          <button class="btn-ghost" id="update-check" type="button">Check for updates</button>
+          <button class="btn-ghost primary-ghost" id="update-now" type="button" hidden>Update now</button>
         </div>
       </li>
     </ol>

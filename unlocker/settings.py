@@ -44,6 +44,10 @@ DEFAULTS = {
     "jitter_enabled": False,
     "jitter_min_delay": 60,
     "jitter_percent": 10,
+    # Keep the computer from sleeping while a run waits or plays.
+    "keep_awake": True,
+    # A desktop notification when a session ends or a run stops.
+    "notifications": True,
 }
 
 # Accepted types per setting; None means null is allowed.
@@ -61,6 +65,8 @@ _TYPES = {
     "jitter_enabled": (bool,),
     "jitter_min_delay": (int,),
     "jitter_percent": (int, float),
+    "keep_awake": (bool,),
+    "notifications": (bool,),
 }
 
 
@@ -73,6 +79,8 @@ APP_EDITABLE = [
     "warm_settle_delay", "reconnect_settle_delay", "play_check_interval",
     "bot_connect_timeout", "asf_shutdown_delay",
 ]
+# On/off switches the app shows on their own, outside the run settings.
+APP_TOGGLES = ["keep_awake", "notifications"]
 
 
 def problems(overrides):

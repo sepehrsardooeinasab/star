@@ -2129,7 +2129,7 @@
 
   function loadRunSettings() {
     runSettings = [];
-    api("/api/settings").then(function (d) { runSettings = d.settings; renderRunSettings(); })
+    api("/api/settings").then(function (d) { runSettings = d.settings; renderRunSettings(); syncToggles(); })
       .catch(function (err) {
         runSettings = null;
         byId("run-settings").innerHTML = noticeHtml("danger", err.message);
@@ -2145,7 +2145,7 @@
   function renderRunSettings() {
     var byKey = {};
     runSettings.forEach(function (s) { byKey[s.key] = s; });
-    var changed = runSettings.filter(function (s) { return s.value !== s.default; }).length;
+    var changed = runSettings.filter(function (s) { return RUN_SETTINGS[s.key] && s.value !== s.default; }).length;
     byId("run-settings-summary").textContent = changed ? "· " + changed + " changed" : "· defaults";
     byId("run-settings").innerHTML = RUN_SETTING_GROUPS.map(function (group) {
       return '<div class="setting-group"><div class="setting-group-title">' + group[0] + "</div>" +
@@ -2187,7 +2187,7 @@
 
   function syncRunSettings() {
     var values = runSettingsForm();
-    var changed = !!values && (runSettings || []).some(function (s) { return values[s.key] !== s.value; });
+    var changed = !!values && (runSettings || []).some(function (s) { return s.key in values && values[s.key] !== s.value; });
     var form = byId("run-settings");
     form.classList.toggle("locked", !editingSettings);
     form.querySelectorAll("[data-key]").forEach(function (el) { el.disabled = !editingSettings; });
@@ -2199,10 +2199,11 @@
       var button = form.querySelector('[data-reset="' + s.key + '"]');
       if (button) button.hidden = !editingSettings || !values || values[s.key] === s.default;
     });
-    byId("run-settings-edit").hidden = editingSettings;
-    ["run-settings-save", "run-settings-cancel", "run-settings-reset"].forEach(function (id) {
-      byId(id).hidden = !editingSettings;
-    });
+    var lock = byId("run-settings-lock");
+    lock.setAttribute("aria-pressed", String(editingSettings));
+    lock.title = editingSettings ? "Lock again (unsaved changes are dropped)" : "Unlock to change these";
+    byId("run-settings-lock-label").textContent = editingSettings ? "Unlocked" : "Locked";
+    byId("run-settings-actions").hidden = !editingSettings;
     byId("run-settings-save").disabled = !changed;
   }
 
@@ -2221,13 +2222,11 @@
     var values = runSettingsForm();
     if (values) saveRunSettings(values);
   });
-  byId("run-settings-edit").addEventListener("click", function () {
-    editingSettings = true;
-    syncRunSettings();
-  });
-  byId("run-settings-cancel").addEventListener("click", function () {
-    editingSettings = false;
-    renderRunSettings();  // back to what's saved
+  // The lock: open to change the settings; closing it again drops
+  // anything not saved.
+  byId("run-settings-lock").addEventListener("click", function () {
+    editingSettings = !editingSettings;
+    if (editingSettings) syncRunSettings(); else renderRunSettings();
   });
   // Defaults fill the form; Save keeps them.
   function setToDefault(s) {
@@ -2254,8 +2253,33 @@
     renderRuns();
   });
 
-  // Keep awake & notifications: what this computer has, and how to get
-  // what's missing. Shown once setup is done.
+  // Keep awake & notifications: switched on or off here (saved in
+  // settings.json, used by runs started after), and what this computer
+  // is missing for them. Shown once setup is done.
+  var extrasTools = {};
+  var TOGGLES = {keep_awake: "keep-awake-on", notifications: "notify-on"};
+  function syncToggles() {
+    Object.keys(TOGGLES).forEach(function (key) {
+      var box = byId(TOGGLES[key]);
+      var s = (runSettings || []).filter(function (x) { return x.key === key; })[0];
+      box.disabled = !s || !extrasTools[key];
+      box.checked = !!(s && s.value && extrasTools[key]);
+    });
+  }
+  Object.keys(TOGGLES).forEach(function (key) {
+    byId(TOGGLES[key]).addEventListener("change", function () {
+      var box = this, values = {};
+      values[key] = box.checked;
+      box.disabled = true;
+      api("/api/settings", {settings: values}).then(function (d) {
+        // Keep the run settings form as is while it's being edited.
+        runSettings = d.settings;
+        if (!editingSettings) renderRunSettings();
+      }).catch(function (err) { showToast("Couldn't save: " + err.message); })
+        .then(syncToggles);
+    });
+  });
+
   function renderExtras(d) {
     var x = d.extras;
     byId("step-extras").hidden = !x || !(d.asf && d.plugin);
@@ -2263,14 +2287,13 @@
     var awake = x.keep_awake, notes = x.notifications;
     var mac = notes.tool === "osascript";
     byId("step-extras").className = "setup-step" + (awake.tool && notes.full ? " done" : "");
-    byId("awake-text").textContent = awake.tool
-      ? "Keep awake: on. While a game runs, " + awake.tool + (mac ? " (built into macOS)" : "") +
-        " keeps the computer from sleeping."
-      : "Keep awake: not available. systemd-inhibit (part of systemd) isn't here, so the computer may sleep during a run.";
+    extrasTools = {keep_awake: !!awake.tool, notifications: !!notes.tool};
+    byId("awake-text").hidden = !!awake.tool;
+    byId("awake-text").textContent = "Not available here: needs systemd-inhibit.";
     byId("awake-check").hidden = !awake.tool;
-    byId("notify-text").textContent = notes.full
-      ? "Notifications: on (" + (mac ? "built into macOS" : notes.tool) + "). You get one when a session ends, a game is done, or a run stops."
-      : "Notifications: off. Install notify-send to get one when a session ends, a game is done, or a run stops.";
+    byId("notify-text").hidden = !!notes.full;
+    byId("notify-text").textContent = "Not available here: install notify-send.";
+    syncToggles();
     var command = !notes.full && notes.install;
     byId("notify-install").hidden = !command;
     byId("notify-cmd").textContent = command || "";
@@ -2299,13 +2322,17 @@
     api("/api/setup/test-awake", {}).then(function (d) {
       showToast(d.works ? "Keep awake works: " + d.found + "." : "Keep awake doesn't work here: " + d.found + ".");
     }).catch(function (err) { showToast(err.message); })
-      .then(function () { button.disabled = false; button.textContent = "Test keep awake"; });
+      .then(function () { button.disabled = false; button.textContent = "Keep awake"; });
   });
   byId("notify-test").addEventListener("click", function () {
     api("/api/setup/test-notification", {}).then(function () { showToast(/Mac/.test(navigator.platform)
       ? "Sent. If nothing showed up, allow notifications for Script Editor in System Settings → Notifications."
       : "Sent. If nothing showed up, check your desktop's notification settings."); })
       .catch(function (err) { showToast(err.message); });
+  });
+  // Picking a test closes the Test menu.
+  document.querySelector(".test-menu-list").addEventListener("click", function () {
+    document.querySelector(".test-menu").open = false;
   });
   byId("open-folder").addEventListener("click", function () {
     api("/api/open-folder", {}).catch(function (err) { showToast(err.message); });
