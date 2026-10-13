@@ -1020,7 +1020,11 @@
     inset: 0;
     z-index: -1;
     pointer-events: none;
-    background: var(--card-hero, none) center 35% / cover no-repeat;
+    /* Several pictures, stacked: the first that loads covers the rest. */
+    background-image: var(--card-hero, none);
+    background-position: center 35%;
+    background-size: cover;
+    background-repeat: no-repeat;
     opacity: 0.22;
     -webkit-mask-image: linear-gradient(to left, #000 20%, rgba(0, 0, 0, 0.35));
     mask-image: linear-gradient(to left, #000 20%, rgba(0, 0, 0, 0.35));

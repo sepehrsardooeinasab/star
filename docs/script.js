@@ -1684,18 +1684,30 @@
       try { localStorage.setItem("game-tints", JSON.stringify(tints)); } catch (e) {}
       if (tintWanted === appid) done(tint);
     };
-    img.onerror = function () { if (tintWanted === appid) done(null); };
-    img.src = HERO_URL.replace("{appid}", appid);
+    // No library art: the next picture Steam has for the game.
+    var tries = heroUrls(appid);
+    img.onerror = function () {
+      if (tries.length) img.src = tries.shift();
+      else if (tintWanted === appid) done(null);
+    };
+    img.src = tries.shift();
   }
 
-  // The game's wide art from Steam's library (no logo), as a CSS url, or
-  // "none" without an appid. Steam serves it straight from the appid.
+  // The game's wide art, as CSS urls, or "none" without an appid: its
+  // library art (no logo), else its store page's background, else its
+  // header. Stacked, the first that loads covers the rest.
   function heroUrl(g) {
-    return g && g.appid > 0 ? 'url("' + HERO_URL.replace("{appid}", g.appid) + '")' : "none";
+    return g && g.appid > 0 ? heroUrls(g.appid).map(function (u) { return 'url("' + u + '")'; }).join(", ") : "none";
   }
   // Steam's current image host (the older cdn.cloudflare one lacks newer
   // games' images).
-  var HERO_URL = "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_hero.jpg";
+  // Some games have no library art (Attack on Titan 2, ReCore): then the
+  // store page's background, then the header image.
+  function heroUrls(appid) {
+    return ["library_hero.jpg", "page_bg_raw.jpg", "header.jpg"].map(function (f) {
+      return "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/" + appid + "/" + f;
+    });
+  }
   // A game's or achievement's icon from Steam; when there's none, or it
   // doesn't load, a stand-in: the game's first letter, or a trophy.
   var TROPHY = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
