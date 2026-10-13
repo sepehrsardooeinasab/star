@@ -2016,6 +2016,8 @@
   .lib-default { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; font-size: 0.8rem; color: var(--text-dim); }
   .lib-default > span { min-width: 9.5rem; }
   .lib-default select { margin-top: 0 !important; display: inline-block !important; }
+  /* Its choices change with the sort; one width, so nothing moves. */
+  #default-order { box-sizing: border-box; width: 8.4rem; }
   /* Games: icon, name, progress bar; when it was played on the right. */
   .library-games { margin-top: 0.6rem; }
   .library-games[hidden] { display: none; }
