@@ -527,6 +527,13 @@ def recent_unlocks(refresh):
         raise AppError(str(e), 409, title=e.title, has_key=bool(unlocks._key()))
 
 
+def mark_finished(appid, finished):
+    try:
+        return unlocks.set_finished(appid, finished)
+    except unlocks.Problem as e:
+        raise AppError(str(e), 400, title=e.title)
+
+
 def unlocks_game(appid):
     try:
         return unlocks.game_page(appid)
@@ -770,6 +777,7 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/setup/login": lambda: setup_login(body.get("username"), body.get("password")),
             "/api/setup/code": lambda: setup_code(body.get("code")),
             "/api/unlocks/key": lambda: save_unlocks_key(body.get("key")),
+            "/api/unlocks/finished": lambda: mark_finished(body.get("appid"), bool(body.get("finished"))),
             "/api/update": app_update,
             "/api/quit": quit_server,
         }

@@ -47,6 +47,9 @@ from unlocker.state import COMPLETED_DIR, JSONS_DIR, list_profiles
 
 STEAMID_PATH = JSONS_DIR / ".steamid"
 STORE_PATH = JSONS_DIR / ".unlocks.json"
+# Games the player marked finished (done with, for good), from the
+# Library: a list of appids.
+FINISHED_PATH = JSONS_DIR / ".finished.json"
 SHOWN = 50000      # unlocks returned (all saved, in practice)
 # How often Steam is checked (settings' library_check), unless refreshed;
 # "manual": only on Refresh (and a first check).
@@ -374,12 +377,37 @@ def _to_read(store, star, owned, refresh):
     return [a for a in order if a in star] + [a for a in order if a not in star], want
 
 
+def finished_games():
+    """The appids marked finished in the Library."""
+    try:
+        return {a for a in json.loads(FINISHED_PATH.read_text()) if isinstance(a, int)}
+    except (OSError, ValueError, TypeError):
+        return set()
+
+
+def set_finished(appid, finished):
+    """Marks a game finished, or not; saved in jsons/.finished.json."""
+    try:
+        appid = int(appid)
+    except (TypeError, ValueError):
+        raise Problem("No such game", "Pick a game from the list.")
+    with _lock:
+        games = finished_games()
+        games.add(appid) if finished else games.discard(appid)
+        JSONS_DIR.mkdir(parents=True, exist_ok=True)
+        tmp = FINISHED_PATH.with_suffix(".tmp")
+        tmp.write_text(json.dumps(sorted(games)) + "\n")
+        tmp.replace(FINISHED_PATH)
+    return {"appid": appid, "finished": appid in games}
+
+
 def _games_list(store, key, marks):
     """Every game, for the Library's Games: the library's (with a key) and
     those read, each with its achievement progress, most recently played
     first."""
     games = store["games"]
     owned = {g["appid"]: g for g in (store.get("owned") or [])} if key else {}
+    finished = finished_games()
     out = []
     for appid in set(owned) | {int(a) for a in games}:
         o, saved = owned.get(appid, {}), games.get(str(appid), {})
@@ -390,6 +418,7 @@ def _games_list(store, key, marks):
             "played": o.get("played") or saved.get("played") or 0, "playtime": o.get("playtime"),
             "stats": o.get("stats", True), "read": bool(saved) and "total" in saved,
             "counters": achievements.app_counters(appid) if o.get("stats", True) else 0,
+            "finished": appid in finished,
             "unlocked": saved.get("unlocked", len(unlocks)), "total": saved.get("total"),
             "last_unlock": max((u["time"] for u in unlocks), default=None),
             "unreadable": bool(saved.get("unreadable")), "hidden": appid in marks[0],
@@ -452,6 +481,7 @@ def game_page(appid):
         "read": "total" in saved, "full": _current(saved), "unreadable": bool(saved.get("unreadable")),
         "hidden": appid in hidden, "private": appid in private or bool(saved.get("private")), "star": star,
         "counters": achievements.app_counters(appid), "stats": owned.get("stats", True),
+        "finished": appid in finished_games(),
         "unlocks": sorted((icon(u) for u in saved.get("unlocks") or []), key=lambda u: u["time"], reverse=True),
         "untimed": [icon(u) for u in saved.get("untimed") or []],
         "locked": [icon(u) for u in saved.get("locked") or []],
