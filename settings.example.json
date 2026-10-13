@@ -14,5 +14,6 @@
   "jitter_percent": 10,
   "keep_awake": true,
   "auto_update": true,
-  "show_finished": false
+  "show_finished": false,
+  "clock": "system"
 }

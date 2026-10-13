@@ -507,10 +507,21 @@
     return parts.join(" ") || "0s";
   }
 
+  // Clock times as Settings → Clock says: the computer's way, 12-hour
+  // ("2:30 PM") or 24-hour ("14:30").
+  var clockPref = "system";
+  function clockOpts(opts) {
+    if (clockPref === "12h") { opts.hour = "numeric"; opts.hour12 = true; }
+    else { opts.hour = "2-digit"; if (clockPref === "24h") opts.hourCycle = "h23"; }
+    opts.minute = "2-digit";
+    return opts;
+  }
+  function fmtClock(d) { return d.toLocaleTimeString([], clockOpts({})); }
+
   // The app's timeline, written for people: "Oct 9, 21:25" and "1h 21m".
   function prettyTime(text) {
     var d = new Date(String(text).replace(" ", "T"));
-    return isNaN(d) ? text : d.toLocaleString([], {month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"});
+    return isNaN(d) ? text : d.toLocaleString([], clockOpts({month: "short", day: "numeric"}));
   }
   function prettyLabel(r) {
     var secs = Number(r[CSV_DELAY_COL + 1]) || 0, m;
@@ -1611,7 +1622,7 @@
   // means a later week's.
   function fmtAt(seconds) {
     var now = new Date(), at = new Date(now.getTime() + seconds * 1000);
-    var time = at.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+    var time = fmtClock(at);
     var day = function (d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); };
     var days = Math.round((day(at) - day(now)) / 86400000);
     if (days <= 0) return time;
@@ -2432,6 +2443,7 @@
     renderExtras(d);
     byId("step-runs").hidden = !(d.asf && d.plugin);
     if (!runSettings) loadRunSettings();
+    byId("step-clock").hidden = !d.data_dir;
     byId("step-data").hidden = !d.data_dir;
     byId("data-path").textContent = d.data_dir || "";
     byId("open-folder").textContent = document.documentElement.getAttribute("data-desktop") === "linux"
@@ -2589,12 +2601,27 @@
       box.disabled = !s || !extrasTools[key];
       box.checked = !!(s && s.value && extrasTools[key]);
     });
+    var clock = (runSettings || []).filter(function (x) { return x.key === "clock"; })[0];
+    if (clock && clock.value !== clockPref) {
+      clockPref = clock.value;
+      byId("clock-format").value = clockPref;
+      renderRuns();
+    }
     var show = (runSettings || []).filter(function (x) { return x.key === "show_finished"; })[0];
     if (show && !!show.value !== showDone) {
       showDone = !!show.value;
       renderRuns();
     }
   }
+  byId("clock-format").addEventListener("change", function () {
+    var select = this;
+    select.disabled = true;
+    api("/api/settings", {settings: {clock: select.value}}).then(function (d) {
+      runSettings = d.settings;
+      if (!editingSettings) renderRunSettings();
+    }).catch(function (err) { showToast("Couldn't save: " + err.message); })
+      .then(function () { select.disabled = false; syncToggles(); });
+  });
   Object.keys(TOGGLES).forEach(function (key) {
     byId(TOGGLES[key]).addEventListener("change", function () {
       var box = this, values = {};

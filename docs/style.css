@@ -1913,3 +1913,18 @@
     color: var(--text);
     outline: none;
   }
+
+  /* Like the Runs options' dropdowns. */
+  #step-clock select {
+    display: block;
+    height: 2.2rem;
+    margin-top: 0.6rem;
+    padding: 0 0.5rem;
+    font: inherit;
+    font-size: 0.8rem;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+  }
+  #step-clock select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }

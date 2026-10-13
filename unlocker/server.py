@@ -211,14 +211,15 @@ def run_settings():
         raise AppError(f"settings.json is {e}. Fix it or delete it.")
     return {"settings": [{"key": key, "value": overrides.get(key, settings_module.DEFAULTS[key]),
                           "default": settings_module.DEFAULTS[key]}
-                         for key in settings_module.APP_EDITABLE + settings_module.APP_TOGGLES]}
+                         for key in settings_module.APP_EDITABLE + settings_module.APP_TOGGLES
+                         + list(settings_module.APP_CHOICES)]}
 
 
 def save_run_settings(values):
     """Writes the app's settings into settings.json, keeping its other keys
     and leaving out any that are back at their default. Runs started after
     this use them."""
-    editable = settings_module.APP_EDITABLE + settings_module.APP_TOGGLES
+    editable = settings_module.APP_EDITABLE + settings_module.APP_TOGGLES + list(settings_module.APP_CHOICES)
     if not isinstance(values, dict) or any(k not in editable for k in values):
         raise AppError("Unknown setting.")
     try:

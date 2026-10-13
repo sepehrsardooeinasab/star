@@ -50,6 +50,9 @@ DEFAULTS = {
     "auto_update": True,
     # The app's Runs list: show finished games too (at the bottom).
     "show_finished": False,
+    # How the app writes clock times: "system" (the computer's way),
+    # "12h" (2:30 PM) or "24h" (14:30).
+    "clock": "system",
 }
 
 # Accepted types per setting; None means null is allowed.
@@ -70,6 +73,7 @@ _TYPES = {
     "keep_awake": (bool,),
     "auto_update": (bool,),
     "show_finished": (bool,),
+    "clock": (str,),
 }
 
 
@@ -84,6 +88,8 @@ APP_EDITABLE = [
 ]
 # On/off switches the app shows on their own, outside the run settings.
 APP_TOGGLES = ["keep_awake", "auto_update", "show_finished"]
+# Choices the app shows on their own, with what each can be.
+APP_CHOICES = {"clock": ["system", "12h", "24h"]}
 
 # Settings older versions had, ignored (and dropped on the next save from
 # the app) rather than refused as unknown.
@@ -113,6 +119,9 @@ def problems(overrides):
         found.append("'play_check_interval' must be at least 1")
     if overrides.get("jitter_percent", 0) > 100:
         found.append("'jitter_percent' can't be more than 100")
+    for key, choices in APP_CHOICES.items():
+        if key in overrides and overrides[key] not in choices:
+            found.append(f"{key!r} must be one of: {', '.join(choices)}")
     return found
 
 
