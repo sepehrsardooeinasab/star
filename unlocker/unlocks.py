@@ -52,8 +52,10 @@ LIVE_EVERY = 1800  # …so it's read again this often (or on refresh)
 KEY_RE = re.compile(r"[0-9A-Fa-f]{32}")
 # What a saved game was read with; one read with less (older STAR) is
 # read again once. 2: counts unlocks Steam keeps no time for; 3: keeps
-# every achievement (locked ones too), for a game's own page.
-READ_VERSION = 3
+# every achievement (locked ones too), for a game's own page; 4: asks the
+# Web API whether a game with nothing unlocked is Private (only those are
+# read again: a v3 read with unlocks is still current).
+READ_VERSION = 4
 
 _lock = threading.Lock()
 # The check in the background: running, games read so far of how many,
@@ -191,27 +193,51 @@ def _star_appids():
 # other failure (busy, unreachable, an error page) is worth trying again.
 HIDDEN = {"This player's Steam profile is private", "Steam shows no achievements for this player and game"}
 FAILED = "failed"
+PRIVATE = "private"
+
+
+def _current(saved):
+    """Whether a saved game was read with what this STAR reads."""
+    return saved.get("v") == READ_VERSION or (saved.get("v") == 3 and bool(saved.get("unlocked")))
+
+
+def _private(key, sid, appid):
+    """Whether the game is marked Private in Steam: the Web API then says
+    the (public) profile "is not public" for it alone. Steam's stats page
+    can't tell: for a Private game it shows every achievement locked, or
+    none. None when Steam can't be asked."""
+    player = (_api(key, "ISteamUserStats/GetPlayerAchievements/v1/", steamid=sid, appid=appid) or {}).get("playerstats")
+    if not player:
+        return None
+    return not player.get("success") and player.get("error") == "Profile is not public"
 
 
 def _game_unlocks(sid, appid, key=None):
     """The game as Steam shows it: {"game", "total", "unlocked" (how many),
     "unlocks" (unlocked, with their times), "untimed" (unlocked, but Steam
     keeps no time for them), "locked"}; None when Steam won't show it
-    (private, no achievements); FAILED when the read failed (Steam busy or
-    unreachable), to try again next check. With a key, a game whose stats
-    page fails (some do, and Valve's own games have no readable page) is
-    read through the Web API instead."""
+    (no achievements); PRIVATE when it's marked Private (known with a
+    key); FAILED when the read failed (Steam busy or unreachable), to try
+    again next check. With a key, a game whose stats page fails (some do,
+    and Valve's own games have no readable page) is read through the Web
+    API instead."""
     for attempt in range(2):
         try:
             stats = achievements._steam_stats("profiles", sid, appid)
             break
         except achievements.Problem as e:
             if e.title in HIDDEN:
-                return None
+                return PRIVATE if key and _private(key, sid, appid) else None
             if attempt == 0:
                 time.sleep(3)
     else:
         return _api_unlocks(key, sid, appid) if key else FAILED
+    if key and stats["achievements"] and not any(a["unlocked"] for a in stats["achievements"]):
+        private = _private(key, sid, appid)
+        if private is None:
+            return FAILED
+        if private:
+            return PRIVATE
     return _game(stats["game"], [
         (a["name"], a["description"], a["icon"] if a["unlocked"] else a.get("icon_locked") or a["icon"],
          a["unlocked"], a["unlock_time"]) for a in stats["achievements"]])
@@ -249,6 +275,8 @@ def _api_unlocks(key, sid, appid):
         return FAILED
     if not player.get("success"):
         # Not public (a Private game) or no achievements: Steam won't show them.
+        if player.get("error") == "Profile is not public":
+            return PRIVATE
         return None if player.get("error") else FAILED
     got = player.get("achievements") or []
     schema = (_api(key, "ISteamUserStats/GetSchemaForGame/v2/", appid=appid, l="english") or {}).get("game") or {}
@@ -285,7 +313,8 @@ def _to_read(store, star, owned, refresh):
     again: a game is read when it isn't saved yet, when Steam says it was
     played since (with a key), when STAR played it since (its progress
     changed), or, played in the last day and so maybe still unlocking,
-    every LIVE_EVERY or on refresh."""
+    every LIVE_EVERY or on refresh; on refresh, too, a Private game read
+    over a day ago, in case it's public again."""
     now = time.time()
     games = store["games"]
     want = {}
@@ -293,18 +322,21 @@ def _to_read(store, star, owned, refresh):
     def live(played, saved):
         return played >= now - LIVE_FOR and (refresh or now - saved["read"] >= LIVE_EVERY)
 
+    def unmarked(saved):  # a Private game may have been made public again
+        return refresh and saved.get("private") and now - saved["read"] >= LIVE_FOR
+
     for g in owned or []:
         if not g["stats"] or not g["played"]:
             continue  # no achievements, or never played: nothing unlocked
         saved = games.get(str(g["appid"]))
-        if saved is None or g["played"] != saved.get("played") or saved.get("v") != READ_VERSION or live(g["played"], saved):
+        if saved is None or g["played"] != saved.get("played") or not _current(saved) or live(g["played"], saved) or unmarked(saved):
             want[g["appid"]] = g["played"]
     owned_ids = {g["appid"] for g in owned or []}
     for appid, changed in star.items():
         saved = games.get(str(appid))
-        if appid in want or (appid in owned_ids and saved is not None and saved.get("v") == READ_VERSION):
+        if appid in want or (appid in owned_ids and saved is not None and _current(saved)):
             continue  # Steam's own last-played time decides, above
-        if saved is None or saved.get("v") != READ_VERSION or changed > saved["read"] or live(changed, saved):
+        if saved is None or not _current(saved) or changed > saved["read"] or live(changed, saved):
             want[appid] = saved.get("played") if saved else None
     order = sorted(want, key=lambda appid: want[appid] or 0, reverse=True)
     return [a for a in order if a in star] + [a for a in order if a not in star], want
@@ -327,7 +359,8 @@ def _games_list(store, key, marks):
             "stats": o.get("stats", True), "read": bool(saved) and "total" in saved,
             "unlocked": saved.get("unlocked", len(unlocks)), "total": saved.get("total"),
             "last_unlock": max((u["time"] for u in unlocks), default=None),
-            "unreadable": bool(saved.get("unreadable")), "hidden": appid in marks[0], "private": appid in marks[1]})
+            "unreadable": bool(saved.get("unreadable")), "hidden": appid in marks[0],
+            "private": appid in marks[1] or bool(saved.get("private"))})
     out.sort(key=lambda g: (g["played"] or 0, g["last_unlock"] or 0), reverse=True)
     return out
 
@@ -336,7 +369,8 @@ def _result(store):
     games = store["games"]
     marks = steam_marks(store["steamid"])
     unlocks = [{**u, "icon": achievements.current_host(u.get("icon")), "appid": int(appid),
-                "game": g.get("game") or "", "hidden": int(appid) in marks[0], "private": int(appid) in marks[1]}
+                "game": g.get("game") or "", "hidden": int(appid) in marks[0],
+                "private": int(appid) in marks[1] or bool(g.get("private"))}
                for appid, g in games.items() for u in g.get("unlocks") or []]
     unlocks.sort(key=lambda u: u["time"], reverse=True)
     key = bool(_key())
@@ -369,8 +403,8 @@ def game_page(appid):
         "icon": achievements.current_host(owned.get("icon")) or achievements.app_icon(appid),
         "played": owned.get("played") or saved.get("played") or 0, "playtime": owned.get("playtime"),
         "total": saved.get("total"), "unlocked": saved.get("unlocked", len(saved.get("unlocks") or [])),
-        "read": "total" in saved, "full": saved.get("v") == READ_VERSION, "unreadable": bool(saved.get("unreadable")),
-        "hidden": appid in hidden, "private": appid in private, "star": star, "stats": owned.get("stats", True),
+        "read": "total" in saved, "full": _current(saved), "unreadable": bool(saved.get("unreadable")),
+        "hidden": appid in hidden, "private": appid in private or bool(saved.get("private")), "star": star, "stats": owned.get("stats", True),
         "unlocks": sorted(({**u, "icon": icon(u)} for u in saved.get("unlocks") or []), key=lambda u: u["time"], reverse=True),
         "untimed": [{**u, "icon": icon(u)} for u in saved.get("untimed") or []],
         "locked": [{**u, "icon": icon(u)} for u in saved.get("locked") or []],
@@ -432,8 +466,9 @@ def _sync(sid, refresh):
                     failed += 1
                     continue  # keeps what was saved; read again next check
                 saved = store["games"].setdefault(str(appid), {"game": "", "unlocks": []})
-                saved.update(read=time.time(), played=played[appid], unreadable=got is None, v=READ_VERSION)
-                if got:
+                saved.update(read=time.time(), played=played[appid], unreadable=got in (None, PRIVATE),
+                             private=got == PRIVATE, v=READ_VERSION)
+                if isinstance(got, dict):
                     saved.update(got)
                 if done % 10 == 0:
                     _save_store(store)
