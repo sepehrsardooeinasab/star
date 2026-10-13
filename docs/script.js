@@ -2882,7 +2882,9 @@
   // first, read from Steam (see unlocks.py). Read when the screen opens;
   // the server asks Steam again at most every few minutes, or on Refresh.
   var unlocksData = null, unlocksError = null, unlocksBusy = false, unlocksHiddenOpen = false;
-  var unlocksHasKey = false, unlocksKeyOpen = false, unlocksKeyError = null, unlocksKeyLoaded = false;
+  // Whether a Steam Web API key is set: null until the server says, so
+  // neither screen shows the wrong text first.
+  var unlocksHasKey = null, unlocksKeyOpen = false, unlocksKeyError = null, unlocksKeyLoaded = false;
   function loadUnlocks(refresh) {
     if (unlocksBusy) return;
     unlocksBusy = true;
@@ -2953,8 +2955,8 @@
       list.innerHTML = html + (lastDay ? "</div>" : "");
     } else if (!unlocksBusy) list.innerHTML = "";
     // Which games, in a line; the key itself is in Settings.
-    byId("unlocks-note").hidden = unlocksHasKey;
-    byId("unlocks-note").innerHTML = unlocksHasKey ? ""
+    byId("unlocks-note").hidden = unlocksHasKey !== false;
+    byId("unlocks-note").innerHTML = unlocksHasKey !== false ? ""
       : 'The games in STAR. To include every game you play, add a Steam Web API key in <button class="link-btn" type="button" data-go-settings>Settings</button>.';
     var go = byId("unlocks-note").querySelector("[data-go-settings]");
     if (go) go.addEventListener("click", showGuide);
@@ -2963,13 +2965,14 @@
   // Settings → Unlocks: the Steam Web API key, so Unlocks covers the
   // whole library.
   function renderUnlocksKey() {
+    var unknown = unlocksHasKey === null;
     var link = '<a href="https://steamcommunity.com/dev/apikey" target="_blank" rel="noopener">steamcommunity.com/dev/apikey</a>';
-    byId("unlocks-key-text").innerHTML = unlocksHasKey
+    byId("unlocks-key-text").innerHTML = unknown ? "" : unlocksHasKey
       ? "Uses your Steam Web API key to cover every game you play and display its unlocked achievements."
       : "Unlocks covers the games in STAR. To include every game you play, add a Steam Web API key: get one free at " +
         link + " (any domain name works).";
-    byId("unlocks-key-actions").hidden = !unlocksHasKey || unlocksKeyOpen;
-    byId("unlocks-key-form").hidden = unlocksHasKey && !unlocksKeyOpen;
+    byId("unlocks-key-actions").hidden = unknown || !unlocksHasKey || unlocksKeyOpen;
+    byId("unlocks-key-form").hidden = unknown || (unlocksHasKey && !unlocksKeyOpen);
     byId("unlocks-key-error").hidden = !unlocksKeyError;
     byId("unlocks-key-error").textContent = unlocksKeyError || "";
   }
@@ -3000,6 +3003,11 @@
   byId("unlocks-refresh").addEventListener("click", function () { loadUnlocks(true); });
   function showUnlocks() {
     showScreen("unlocks");
+    if (unlocksHasKey === null) {
+      api("/api/unlocks/key").then(function (r) {
+        if (unlocksHasKey === null) { unlocksHasKey = r.has_key; renderUnlocks(); }
+      }).catch(function () {});
+    }
     loadUnlocks(false);
   }
 
