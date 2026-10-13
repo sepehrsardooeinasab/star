@@ -1687,8 +1687,9 @@
     if (g.session) {
       part(g.state === "in_session" ? "Playing session" : "Session", g.session + " of " + g.sessions +
         (g.running ? ' <span class="summary-note">· ' + (g.stop_after ? "this one only" : "all sessions") + "</span>" : ""));
+      // While it plays, how long it has left; otherwise how long it lasts.
       part("This session", g.count + " achievement" + (g.count === 1 ? "" : "s") + " · " +
-        fmtDur(g.duration));
+        (g.state === "in_session" && g.session_left != null ? fmtDur(left(g.session_left)) + " left" : fmtDur(g.duration)));
     }
     if (g.total) part("Unlocked", g.done + " / " + g.total);
     if (g.state === "in_session") {

@@ -104,6 +104,19 @@ def _finished_config(name):
     return None
 
 
+def _session_left(config, progress, next_unlock_in):
+    """Seconds until the session playing ends: until its next unlock, then
+    the delays of the rest of the session (the config's; randomness, when
+    on, moves them a little)."""
+    achievements = config["achievements"]
+    following = progress["last_completed"] + 2
+    rest = 0
+    while following < len(achievements) and not achievements[following].get("new_session"):
+        rest += achievements[following]["delay"]
+        following += 1
+    return (next_unlock_in or 0) + rest
+
+
 def _game_state(name, session_label):
     config_path, progress_path = profile_paths(name)
     auto = lock_info(auto_lock_path(name))
@@ -149,6 +162,7 @@ def _game_state(name, session_label):
                 duration=duration, ready_in=wait)
     if in_session:
         game["next_unlock_in"] = _seconds_until(progress["next_unlock_at"])
+        game["session_left"] = _session_left(config, progress, game["next_unlock_in"])
     elif running:
         try:
             game["starts_in"] = _seconds_until(_starts_path(name).read_text().strip()) or None
