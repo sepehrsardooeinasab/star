@@ -2108,11 +2108,19 @@
   .to-top:hover { background: var(--surface-3); }
   .unlocks-hidden { margin: 0.2rem 0 0.6rem; padding: 0.6rem 0.8rem; font-size: 0.78rem; color: var(--text-dim); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
   /* Like the Runs options' dropdowns. */
+  /* Not macOS's own pop-up look (its own corners and arrows): drawn like
+     the buttons beside them, with a chevron. */
   :is(#step-clock, #step-unlocks, .games-sort) select {
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%238a8a8a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 0.55rem center !important;
+    background-size: 12px !important;
     display: block;
     height: 2.2rem;
     margin-top: 0.6rem;
-    padding: 0 0.5rem;
+    padding: 0 1.8rem 0 0.7rem;
     font: inherit;
     font-size: 0.8rem;
     color: var(--text);
