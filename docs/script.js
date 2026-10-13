@@ -1685,19 +1685,36 @@
       if (tintWanted === appid) done(tint);
     };
     img.onerror = function () { if (tintWanted === appid) done(null); };
-    img.src = "https://cdn.cloudflare.steamstatic.com/steam/apps/" + appid + "/library_hero.jpg";
+    img.src = HERO_URL.replace("{appid}", appid);
   }
 
   // The game's wide art from Steam's library (no logo), as a CSS url, or
   // "none" without an appid. Steam serves it straight from the appid.
   function heroUrl(g) {
-    return g && g.appid > 0 ? 'url("https://cdn.cloudflare.steamstatic.com/steam/apps/' + g.appid + '/library_hero.jpg")' : "none";
+    return g && g.appid > 0 ? 'url("' + HERO_URL.replace("{appid}", g.appid) + '")' : "none";
   }
-  // The game's small icon from Steam, or an empty square of its size
-  // until it's known, so names line up.
-  function gameIconHtml(g) {
-    return g.icon ? '<img class="game-icon" src="' + escapeHtml(g.icon) + '" alt="" loading="lazy">' : '<span class="game-icon"></span>';
+  // Steam's current image host (the older cdn.cloudflare one lacks newer
+  // games' images).
+  var HERO_URL = "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_hero.jpg";
+  // A game's or achievement's icon from Steam; when there's none, or it
+  // doesn't load, a stand-in: the game's first letter, or a trophy.
+  var TROPHY = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M5 2.5h6v3.2a3 3 0 0 1-6 0z"/><path d="M5 3.6H3.2a2 2 0 0 0 2 2.6M11 3.6h1.8a2 2 0 0 1-2 2.6M8 8.7v2.6M5.6 13.5h4.8M6.4 11.3h3.2l.4 2.2H6z"/></svg>';
+  function iconHtml(cls, url, stand) {
+    var ph = stand === "ach" ? "ach" : (String(stand || "?").trim().charAt(0) || "?").toUpperCase();
+    if (url) return '<img class="' + cls + '" src="' + escapeHtml(url) + '" alt="" loading="lazy" data-ph="' + escapeHtml(ph) + '">';
+    return '<span class="' + cls + ' icon-ph" aria-hidden="true">' + (ph === "ach" ? TROPHY : escapeHtml(ph)) + "</span>";
   }
+  document.addEventListener("error", function (e) {
+    var img = e.target;
+    if (!img || img.tagName !== "IMG" || !img.hasAttribute("data-ph")) return;
+    var ph = img.getAttribute("data-ph"), span = document.createElement("span");
+    span.className = img.className + " icon-ph";
+    span.setAttribute("aria-hidden", "true");
+    if (ph === "ach") span.innerHTML = TROPHY; else span.textContent = ph;
+    img.replaceWith(span);
+  }, true);
+  function gameIconHtml(g) { return iconHtml("game-icon", g.icon, gameTitle(g)); }
 
   // When the game's next session can start: its break, and for a run
   // started with Start in, that delay too.
@@ -3001,7 +3018,7 @@
       }
       var done = g.total && g.unlocked >= g.total;
       return '<div class="lib-game' + (g.hidden ? " hidden-game" : "") + (done ? " complete" : "") + '">' +
-        (g.icon ? '<img class="lib-icon" src="' + escapeHtml(g.icon) + '" alt="" loading="lazy">' : '<span class="lib-icon"></span>') +
+        iconHtml("lib-icon", g.icon, g.name) +
         '<div class="lib-text"><div class="lib-name">' + escapeHtml(g.name) + (g.hidden ? ' <span class="tag">Hidden</span>' : "") + "</div>" +
         '<div class="lib-progress">' + progress + "</div></div>" +
         '<div class="unlock-meta"><div>' + (g.played ? "Played " + escapeHtml(fmtDay(g.played)) : "Never played") + "</div>" +
@@ -3095,7 +3112,7 @@
           lastDay = day;
         }
         html += '<div class="unlock' + (u.hidden ? " hidden-game" : "") + '">' +
-          (u.icon ? '<img class="unlock-icon" src="' + escapeHtml(u.icon) + '" alt="" loading="lazy">' : '<span class="unlock-icon"></span>') +
+          iconHtml("unlock-icon", u.icon, "ach") +
           '<div class="unlock-text"><div class="unlock-name">' + escapeHtml(u.name) + "</div>" +
           (u.description ? '<div class="unlock-desc">' + escapeHtml(u.description) + "</div>" : "") + "</div>" +
           '<div class="unlock-meta"><div class="unlock-game">' + (u.hidden ? '<span class="tag">Hidden</span> ' : "") + escapeHtml(u.game) + "</div>" +

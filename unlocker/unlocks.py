@@ -245,7 +245,7 @@ def _games_list(store, key, hidden):
         unlocks = saved.get("unlocks") or []
         out.append({
             "appid": appid, "name": saved.get("game") or o.get("name") or achievements.app_title(appid) or f"App {appid}",
-            "icon": o.get("icon") or achievements.app_icon(appid),
+            "icon": achievements.current_host(o.get("icon")) or achievements.app_icon(appid),
             "played": o.get("played") or saved.get("played") or 0, "playtime": o.get("playtime"),
             "stats": o.get("stats", True), "read": bool(saved) and "total" in saved,
             "unlocked": len(unlocks), "total": saved.get("total"),
@@ -258,7 +258,8 @@ def _games_list(store, key, hidden):
 def _result(store):
     games = store["games"]
     hidden = hidden_games(store["steamid"])
-    unlocks = [{**u, "appid": int(appid), "game": g.get("game") or "", "hidden": int(appid) in hidden}
+    unlocks = [{**u, "icon": achievements.current_host(u.get("icon")), "appid": int(appid),
+                "game": g.get("game") or "", "hidden": int(appid) in hidden}
                for appid, g in games.items() for u in g.get("unlocks") or []]
     unlocks.sort(key=lambda u: u["time"], reverse=True)
     key = bool(_key())

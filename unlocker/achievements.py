@@ -303,7 +303,15 @@ def app_title(appid):
 
 
 ICONS_PATH = JSONS_DIR / ".icons.json"
-ICON_URL = "https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/apps/{appid}/{icon}.jpg"
+# Steam's current image host: the older one (cdn.cloudflare…/steamcommunity/
+# public/images/apps/) lacks newer games' icons.
+ICON_URL = "https://shared.fastly.steamstatic.com/community_assets/images/apps/{appid}/{icon}.jpg"
+OLD_ICON_HOST = "https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/apps/"
+
+
+def current_host(url):
+    """An icon address moved to Steam's current image host."""
+    return url.replace(OLD_ICON_HOST, ICON_URL.split("{appid}")[0]) if url else url
 _icons_lock = threading.Lock()
 _icons_pending = set()
 _icons_failed = {}  # appid -> when a lookup last failed
