@@ -342,9 +342,7 @@ def _result(store):
     key = bool(_key())
     return {"unlocks": unlocks[:SHOWN], "games_list": _games_list(store, key, marks),
             "has_key": key, "library": store.get("library") if key else None,
-            "games": len(games), "unreadable": sum(1 for g in games.values() if g.get("unreadable")),
-            "unreadable_games": sorted(g.get("game") or achievements.app_title(int(appid)) or f"App {appid}"
-                                       for appid, g in games.items() if g.get("unreadable")),
+            "games": len(games),
             "fetched_at": int(store["checked"]),
             "offline": SYNC["notice"] or (f"{SYNC['error'][0]}: showing what was saved." if SYNC["error"] else None),
             "syncing": {"done": SYNC["done"], "total": SYNC["total"]} if SYNC["running"] else None}

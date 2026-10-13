@@ -2934,7 +2934,7 @@
   // Unlocks: the account's latest achievements across its games, newest
   // first, read from Steam (see unlocks.py). Read when the screen opens;
   // the server asks Steam again at most every few minutes, or on Refresh.
-  var unlocksData = null, unlocksError = null, unlocksBusy = false, unlocksHiddenOpen = false;
+  var unlocksData = null, unlocksError = null, unlocksBusy = false, unshownOpen = false;
   // Whether a Steam Web API key is set: null until the server says, so
   // neither screen shows the wrong text first.
   var unlocksHasKey = null, unlocksKeyOpen = false, unlocksKeyError = null, unlocksKeyLoaded = false;
@@ -3031,6 +3031,7 @@
     var complete = games.filter(function (g) { return g.total && g.unlocked >= g.total; }).length;
     var hiddenCount = games.filter(function (g) { return g.hidden; }).length;
     var privateCount = games.filter(function (g) { return g.private; }).length;
+    var unshown = games.filter(function (g) { return g.unreadable && !g.private; });
     var parts = [];
     if (d && !unlocksError) {
       parts.push("<b>" + games.length.toLocaleString() + "</b> game" + (games.length === 1 ? "" : "s"));
@@ -3039,8 +3040,24 @@
       if (complete) parts.push(complete + " complete");
       if (privateCount) parts.push(privateCount + " private");
       if (hiddenCount) parts.push(hiddenCount + " hidden");
+      if (unshown.length) {
+        parts.push('<button class="link-btn" type="button" id="games-unshown-btn" aria-expanded="' + unshownOpen + '">' +
+          unshown.length + " not shown by Steam</button>");
+      }
     }
     byId("games-status").innerHTML = parts.length ? "<div>" + parts.join(" \u00b7 ") + "</div>" : "";
+    // Games Steam doesn't show though they aren't Private (a Private
+    // game's achievements are never shown, so it's counted as private).
+    byId("games-unshown").hidden = !(unshown.length && unshownOpen);
+    if (unshown.length) {
+      byId("games-unshown").textContent = "Steam doesn't show the achievements of " +
+        unshown.map(function (g) { return g.name; }).sort().join(", ") + ", though " +
+        (unshown.length === 1 ? "it isn't" : "they aren't") + " marked Private.";
+      byId("games-unshown-btn").addEventListener("click", function () {
+        unshownOpen = !unshownOpen;
+        renderGames(unlocksData);
+      });
+    }
     var shown = searchGames(games);
     if (gamesQuery.trim() && d && !unlocksError)
       byId("games-status").innerHTML += "<div>" + (shown.length ? "<b>" + shown.length.toLocaleString() + "</b> matching" : "No games match \u201c" + escapeHtml(gamesQuery.trim()) + "\u201d") + "</div>";
@@ -3048,7 +3065,7 @@
     byId("games-list").innerHTML = shown.map(function (g) {
       var progress;
       if (!g.stats) progress = '<span class="lib-dim">No achievements</span>';
-      else if (g.unreadable) progress = '<span class="lib-dim">Not shown by Steam</span>';
+      else if (g.unreadable) progress = '<span class="lib-dim">' + (g.private ? "Not shown while Private" : "Not shown by Steam") + "</span>";
       else if (!g.read) progress = '<span class="lib-dim">' + (g.played ? "Not read yet" : "Never played") + "</span>";
       else {
         var pct = g.total ? Math.round(100 * g.unlocked / g.total) : 0;
@@ -3122,7 +3139,8 @@
         p.unlocked + " / " + p.total + (done ? " \u00b7 Complete" : " \u00b7 " + pct + "%") + "</span></div>" : "") +
       '<div class="game-meta">' + escapeHtml([p.played ? "Played " + fmtDay(p.played) : "Never played", fmtPlaytime(p.playtime)].filter(Boolean).join(" \u00b7 ")) + "</div>" +
       "</div></div>" + '<div class="game-links">' + links + "</div>";
-    if (p.unreadable) html += noticeHtml("warn", "Steam doesn't show this game's achievements: its game details may be private, or it has none.");
+    if (p.unreadable && p.private) html += noticeHtml("info", "Steam doesn't show the achievements of a game marked Private. To show them, right-click it in Steam \u2192 Manage \u2192 Unmark as Private.");
+    else if (p.unreadable) html += noticeHtml("warn", "Steam doesn't show this game's achievements, though it isn't marked Private.");
     else if (!p.read && !p.stats) html += noticeHtml("info", "This game has no achievements.");
     else if (!p.read && !p.played) html += noticeHtml("info", "Never played, so nothing is unlocked yet.");
     else if (!p.read) html += noticeHtml("info", "Not read from Steam yet. It's read on a coming check.");
@@ -3199,10 +3217,6 @@
     else if (d && !unlocksError) {
       var line = "<b>" + shown.length.toLocaleString() + "</b> achievement" + (shown.length === 1 ? "" : "s") + " in <b>" +
         gameCount + "</b> game" + (gameCount === 1 ? "" : "s") + " " + range[1];
-      if (d.unreadable) {
-        line += ' \u00b7 <button class="link-btn" type="button" id="unlocks-hidden-btn" aria-expanded="' + unlocksHiddenOpen + '">' +
-          escapeHtml(d.unreadable + " not shown by Steam") + "</button>";
-      }
       if (d.offline) line = '<span class="warn">' + escapeHtml(d.offline) + "</span> " + line;
       lines.push(line);
       if (syncing) {
@@ -3214,16 +3228,6 @@
     byId("unlocks-status").innerHTML = lines.map(function (l) { return "<div>" + l + "</div>"; }).join("");
     if (syncing) byId("games-status").innerHTML += "<div>" + lines[lines.length - 1] + "</div>";
     byId("unlocks-updated").textContent = d && !unlocksError && d.fetched_at ? "Updated " + fmtClock(new Date(d.fetched_at * 1000)) : "";
-    var hidden = d && !unlocksError && d.unreadable;
-    byId("unlocks-hidden").hidden = !(hidden && unlocksHiddenOpen);
-    if (hidden) {
-      byId("unlocks-hidden").textContent = "Steam doesn't show the achievements of " + (d.unreadable_games || []).join(", ") +
-        ". Their game details may be private (Steam: Edit Profile \u2192 Privacy Settings), or the game has no achievements.";
-      byId("unlocks-hidden-btn").addEventListener("click", function () {
-        unlocksHiddenOpen = !unlocksHiddenOpen;
-        renderUnlocks();
-      });
-    }
     if (unlocksError) {
       list.innerHTML = problemHtml("warn", (unlocksError.data || {}).title, unlocksError.message);
     } else if (d && !shown.length) {
