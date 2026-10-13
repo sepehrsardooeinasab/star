@@ -2031,8 +2031,11 @@
   .icon-ph svg { width: 55%; height: 55%; }
   .game-icon.icon-ph { font-size: 0.7rem; }
   .lib-text { flex: 1; min-width: 0; }
+  /* Two lines a side, each the same height, so the left and right line up. */
+  :is(.lib-game, .unlock) :is(.lib-text, .unlock-text, .unlock-meta) > * { line-height: 1.35rem; }
+  .lib-game .lib-progress { height: 1.35rem; }
   .lib-name { font-size: 0.86rem; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .lib-progress { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.2rem; font-size: 0.76rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .lib-progress { display: flex; align-items: center; gap: 0.6rem; font-size: 0.76rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
   .lib-bar { flex: 0 1 12rem; height: 4px; background: var(--surface-3); border-radius: 2px; overflow: hidden; }
   .lib-bar span { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
   .lib-count { display: inline-flex; margin-left: 0.2rem; }
