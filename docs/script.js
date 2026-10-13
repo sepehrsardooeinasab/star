@@ -3110,6 +3110,8 @@
       '<div class="game-meta">' + escapeHtml([p.played ? "Played " + fmtDay(p.played) : "Never played", fmtPlaytime(p.playtime)].filter(Boolean).join(" \u00b7 ")) + "</div>" +
       "</div></div>" + '<div class="game-links">' + links + "</div>";
     if (p.unreadable) html += noticeHtml("warn", "Steam doesn't show this game's achievements: its game details may be private, or it has none.");
+    else if (!p.read && !p.stats) html += noticeHtml("info", "This game has no achievements.");
+    else if (!p.read && !p.played) html += noticeHtml("info", "Never played, so nothing is unlocked yet.");
     else if (!p.read) html += noticeHtml("info", "Not read from Steam yet. It's read on a coming check.");
     else {
       if (!p.full) html += noticeHtml("info", "Its locked achievements show after its next read from Steam.");

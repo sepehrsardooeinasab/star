@@ -372,7 +372,7 @@ def game_page(appid):
         "played": owned.get("played") or saved.get("played") or 0, "playtime": owned.get("playtime"),
         "total": saved.get("total"), "unlocked": saved.get("unlocked", len(saved.get("unlocks") or [])),
         "read": "total" in saved, "full": saved.get("v") == READ_VERSION, "unreadable": bool(saved.get("unreadable")),
-        "hidden": appid in hidden, "private": appid in private, "star": star,
+        "hidden": appid in hidden, "private": appid in private, "star": star, "stats": owned.get("stats", True),
         "unlocks": sorted(({**u, "icon": icon(u)} for u in saved.get("unlocks") or []), key=lambda u: u["time"], reverse=True),
         "untimed": [{**u, "icon": icon(u)} for u in saved.get("untimed") or []],
         "locked": [{**u, "icon": icon(u)} for u in saved.get("locked") or []],
