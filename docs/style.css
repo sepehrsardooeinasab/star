@@ -2055,9 +2055,9 @@
   .hidden-game :is(.lib-name, .unlock-name, .lib-progress, .unlock-desc, .unlock-meta) { color: var(--placeholder); }
   .hidden-game .lib-bar { opacity: 0.5; }
   .hidden-game .unlock-game { color: var(--placeholder); }
-  .mark-off { display: inline-flex; align-items: center; gap: 0.25rem; margin-left: 0.3rem; font-size: 0.7rem; font-weight: 500; line-height: 1; color: var(--placeholder); vertical-align: middle; }
+  .mark-off { display: inline-flex; align-items: center; margin-left: 0.35rem; line-height: 1; color: var(--placeholder); vertical-align: middle; cursor: help; }
   .unlock-game .mark-off { margin: 0 0.35rem 0 0; }
-  .mark-off svg { width: 13px; height: 13px; }
+  .mark-off svg { width: 14px; height: 14px; }
   .mark-counters { display: inline-flex; align-items: center; margin-left: 0.35rem; color: var(--accent); vertical-align: middle; cursor: help; }
   .mark-counters svg { width: 14px; height: 14px; }
   .run-head .mark-counters { flex: none; margin-left: 0; }

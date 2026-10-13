@@ -1669,6 +1669,12 @@
   // When something happens: the time today, "Tomorrow", a weekday within
   // the coming week, and past that the date ("Nov 6"), so a day name never
   // means a later week's.
+  // "Playable at 5:30 PM", "Playable tomorrow 9:00 AM": a game on its
+  // break, on hover.
+  function playableAt(seconds) {
+    var at = fmtAt(seconds);
+    return "Playable " + (/^\d/.test(at) ? "at " + at : at.replace(/^Tomorrow/, "tomorrow"));
+  }
   function fmtAt(seconds) {
     var now = new Date(), at = new Date(now.getTime() + seconds * 1000);
     var time = fmtClock(at);
@@ -1803,7 +1809,7 @@
       'stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 4.8V8l2.2 1.5"/></svg>' : "";
     var over = g.finished || g.state === "completed";
     return '<div class="run-card' + (g.name === selectedRun ? " selected" : "") + (resting ? " resting" : "") + (over ? " over" : "") + (cut ? " cut" : "") +
-      '" data-name="' + escapeHtml(g.name) + '"' + (resting ? ' title="Playable ' + escapeHtml(fmtAt(wait)) + '"' : "") +
+      '" data-name="' + escapeHtml(g.name) + '"' + (resting ? ' data-tip="' + escapeHtml(playableAt(wait)) + '"' : "") +
       (g.appid > 0 ? ' style="--card-hero: ' + escapeHtml(heroUrl(g)) + '"' : "") + ">" +
       '<div class="run-head">' + gameIconHtml(g) + '<span class="run-name">' + escapeHtml(gameTitle(g)) + "</span>" + counterMark(g) + clock +
       (badge ? '<span class="run-badge ' + badge[0] + '">' + badge[1] + "</span>" : "") + "</div>" +
@@ -3063,7 +3069,7 @@
   // (kill 200 enemies), which an unlock doesn't move. Flagged with an
   // icon in Schedule, Runs and Library; what it means is on hover.
   var COUNTER_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">' +
-    '<path d="M3.5 13V9.5M8 13V3.5M12.5 13V7"/></svg>';
+    '<path d="M2.3 11.5a5.7 5.7 0 1 1 11.4 0"/><path d="M8 11.5l2.7-2.9"/><circle cx="8" cy="11.5" r="0.6" fill="currentColor"/></svg>';
   var COUNTERS_TIP = "Some achievements track stats (like kill counts). For a more realistic unlock, change their counters too";
   function counterMark(g) {
     return g.counters > 0 ? ' <span class="mark-counters" data-tip="' + COUNTERS_TIP + '" aria-label="' + COUNTERS_TIP + '">' + COUNTER_ICON + "</span>" : "";
@@ -3071,7 +3077,7 @@
   function markHtml(g) {
     if (!g.private && !g.hidden) return "";
     var label = g.private ? "Private" : "Hidden";
-    return ' <span class="mark-off" title="' + label + ' in Steam">' + EYE_OFF + label + "</span> ";
+    return ' <span class="mark-off" data-tip="' + label + '" aria-label="' + label + '">' + EYE_OFF + "</span>";
   }
   // Search: games whose name has every word typed, in any order.
   var gamesQuery = "";
