@@ -49,14 +49,13 @@ Runs keep going when the window is closed; open the app any time to see where th
 
 ### 3. Settings
 
-**Settings** (⌘,) shows the ArchiSteamFarm and plugin versions with **Check for updates**, the Steam account (**Use another account**), switches for keeping the computer awake and for notifications (with tests), whether finished games are listed in Runs, the **Advanced run settings** (locked until opened), and the data folder (**Show in Finder**). Theme and accent are under the palette button.
+**Settings** (⌘,) shows the ArchiSteamFarm and plugin versions with **Check for updates**, the Steam account (**Use another account**), a switch (and a test) for keeping the computer awake, whether finished games are listed in Runs, the **Advanced run settings** (locked until opened), and the data folder (**Show in Finder**). Theme and accent are under the palette button.
 
 ArchiSteamFarm and the plugin are pinned to versions known to work together, and ASF's own auto-update is off so it can't drift from the plugin. **Check for updates** offers the newest ASF in the series the latest plugin is built for; newer series need a new plugin first. Updates are swapped in between sessions, never during one.
 
 ## Good to know
 
 - **Your data** (schedules, progress, finished games, ArchiSteamFarm, settings) lives in `~/Library/Application Support/STAR` (macOS) or `~/.local/share/star` (Linux). Copy it to back up or move to another computer. Finished games move to `completed/` inside it.
-- **Notifications** come when a session finishes, when every achievement is done, and when a run stops unexpectedly. On macOS they show as **Script Editor**'s (allow it in System Settings → Notifications if nothing appears): notifications under STAR's own name and icon need an app signed with a paid Apple Developer ID, which STAR isn't. On Linux they need `notify-send` (`libnotify-bin` on Debian/Ubuntu, `libnotify` on Fedora/Arch).
 - **Keeping awake:** macOS uses the built-in `caffeinate`; Linux uses `systemd-inhibit`, and a closed laptop lid may still suspend it, depending on your desktop.
 - **Privacy:** the app's page is served on `127.0.0.1` only, and only answers the app itself. Your Steam login is saved only in ArchiSteamFarm's own config on this computer.
 
@@ -135,7 +134,7 @@ Put these lines in `~/.zshrc` — or, if you use oh-my-zsh, in a file under `~/.
 
 ### Settings (optional)
 
-In the app, **Settings** has the two switches and **Advanced run settings** for most of these; it saves them to `settings.json` in the data folder, keeping only what differs from the defaults. The ports and the IPC password are set in that file directly, since they have to match ArchiSteamFarm's own config. Running from a clone, `settings.json` goes in the project folder (gitignored); `settings.example.json` lists every key. An unknown key or a wrong type stops the unlocker with an error, so a typo never quietly falls back to a default.
+In the app, **Settings** has the keep-awake switch and **Advanced run settings** for most of these; it saves them to `settings.json` in the data folder, keeping only what differs from the defaults. The ports and the IPC password are set in that file directly, since they have to match ArchiSteamFarm's own config. Running from a clone, `settings.json` goes in the project folder (gitignored); `settings.example.json` lists every key. An unknown key or a wrong type stops the unlocker with an error, so a typo never quietly falls back to a default.
 
 | Key | Default | What it does |
 | --- | --- | --- |
@@ -153,7 +152,6 @@ In the app, **Settings** has the two switches and **Advanced run settings** for 
 | `jitter_min_delay` | `60` | Only delays longer than this many seconds get randomness. Shorter ones are kept exact. |
 | `jitter_percent` | `10` | How far a delay can move, in either direction, as a percentage of itself (0–100). With the defaults, a 10-minute delay becomes anywhere from 9 to 11 minutes. |
 | `keep_awake` | `true` | Keeps the computer from sleeping while a run waits or plays. |
-| `notifications` | `true` | A notification when a session ends or a run stops. |
 
 With randomness on, it applies to the delays between achievements and to the gaps between sessions. The random value is picked when that delay is scheduled and saved with your progress, so stopping and resuming doesn't pick a new one. Unlocks that happened together in the source data (see `simultaneous_max_delay`) are still sent together. Estimates such as `-t`, `-ls` and the session length shown before you confirm still use the config's exact values.
 
@@ -171,7 +169,7 @@ With randomness on, it applies to the delays between achievements and to the gap
   - `api.py` — talks to ArchiSteamFarm's local Web API (`aset`, `play`, `reset`)
   - `state.py` — reads/writes `jsons/config_*.json` and `jsons/progress_*.json`, and the locks that keep one game running at a time
   - `timeline.py` — `-s`: a game's achievements session by session
-  - `extras.py` — what keeps the computer awake and shows notifications on this system, and their tests
+  - `extras.py` — what keeps the computer awake on this system, and its test
   - `settings.py` — defaults for `settings.json` and its validation
   - `server.py` — the local app (`--ui`): serves `docs/app.html` and the API it uses to save configs and start, stop and follow runs
   - `achievements.py` — the builder's achievement numbers (from the plugin's `alist`, matched with Steam's public stats) and reading a player's achievements from a link

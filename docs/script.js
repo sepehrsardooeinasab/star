@@ -2554,11 +2554,11 @@
     renderRuns();
   });
 
-  // Keep awake & notifications: switched on or off here (saved in
+  // Keep awake: switched on or off here (saved in
   // settings.json, used by runs started after), and what this computer
   // is missing for them. Shown once setup is done.
   var extrasTools = {};
-  var TOGGLES = {keep_awake: "keep-awake-on", notifications: "notify-on"};
+  var TOGGLES = {keep_awake: "keep-awake-on"};
   function syncToggles() {
     Object.keys(TOGGLES).forEach(function (key) {
       var box = byId(TOGGLES[key]);
@@ -2585,20 +2585,13 @@
     var x = d.extras;
     byId("step-extras").hidden = !x || !(d.asf && d.plugin);
     if (!x) return;
-    var awake = x.keep_awake, notes = x.notifications;
-    var mac = notes.tool === "osascript";
-    byId("step-extras").className = "setup-step" + (awake.tool && notes.full ? " done" : "");
-    extrasTools = {keep_awake: !!awake.tool, notifications: !!notes.tool};
+    var awake = x.keep_awake;
+    byId("step-extras").className = "setup-step" + (awake.tool ? " done" : "");
+    extrasTools = {keep_awake: !!awake.tool};
     byId("awake-text").hidden = !!awake.tool;
     byId("awake-text").textContent = "Not available here: needs systemd-inhibit.";
     byId("awake-check").hidden = !awake.tool;
-    byId("notify-text").hidden = !!notes.full;
-    byId("notify-text").textContent = "Not available here: install notify-send.";
     syncToggles();
-    var command = !notes.full && notes.install;
-    byId("notify-install").hidden = !command;
-    byId("notify-cmd").textContent = command || "";
-    byId("notify-test").hidden = !notes.tool || !!d.busy;
   }
 
   function setupPost(path, body) {
@@ -2623,26 +2616,10 @@
     api("/api/setup/test-awake", {}).then(function (d) {
       showToast(d.works ? "Keep awake works: " + d.found + "." : "Keep awake doesn't work here: " + d.found + ".");
     }).catch(function (err) { showToast(err.message); })
-      .then(function () { button.disabled = false; button.textContent = "Keep awake"; });
-  });
-  byId("notify-test").addEventListener("click", function () {
-    api("/api/setup/test-notification", {}).then(function () { showToast(/Mac/.test(navigator.platform)
-      ? "Sent. If nothing showed up, allow notifications for Script Editor in System Settings → Notifications."
-      : "Sent. If nothing showed up, check your desktop's notification settings."); })
-      .catch(function (err) { showToast(err.message); });
-  });
-  // Picking a test closes the Test menu.
-  document.querySelector(".test-menu-list").addEventListener("click", function () {
-    document.querySelector(".test-menu").open = false;
+      .then(function () { button.disabled = false; button.textContent = "Test"; });
   });
   byId("open-folder").addEventListener("click", function () {
     api("/api/open-folder", {}).catch(function (err) { showToast(err.message); });
-  });
-  byId("notify-copy").addEventListener("click", function () {
-    var text = byId("notify-cmd").textContent;
-    (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject())
-      .then(function () { showToast("Copied. Paste it into Terminal."); })
-      .catch(function () { showToast("Select the command and copy it."); });
   });
   byId("setup-close").addEventListener("click", function () {
     setupOpen = setupAutoClose = false;

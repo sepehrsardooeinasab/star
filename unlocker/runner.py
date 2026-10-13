@@ -16,7 +16,6 @@ from unlocker.api import (
     send_aset,
     send_alist,
     ensure_asf_running,
-    notify,
     other_asf_instances,
     schedule_asf_kill,
     start_keep_awake,
@@ -308,7 +307,6 @@ def run_auto(game_name, once=False, delay=None):
             if stop_after.exists():
                 stop_after.unlink(missing_ok=True)
                 print("Stopped after this session. Progress is saved; run it again for the next one.")
-                notify(game_label, "Session done. Run it again for the next one.")
                 break
             print()
     except _Signalled:
@@ -511,7 +509,6 @@ def _run(game_name, force=False, time_only=False, delay=None, wait_ready=False):
         unlocked, reconnected = send_alist(appid)
         if unlocked is None:
             print(f"ERROR: ArchiSteamFarm isn't reachable at {API_URL}")
-            notify(game_label, "Stopped: ArchiSteamFarm isn't reachable.", error=True)
             # ensure_asf_running() may have just started it — don't leave
             # that process orphaned and running for the next session to
             # trip over.
@@ -569,9 +566,6 @@ def _run(game_name, force=False, time_only=False, delay=None, wait_ready=False):
                 send_command("resume")
                 _schedule_asf_shutdown()
                 print(f"Session complete. Next session in {gap // 3600}h {(gap % 3600) // 60}m.")
-                next_at = datetime.now() + timedelta(seconds=gap)
-                notify(game_label, f"Session {session_index + 1}/{len(session_bounds)} done. "
-                              f"Next in {_format_duration(gap)} (at {next_at:%a %H:%M}).")
                 return True  # stop the script
             elif next_i < len(achievements):
                 progress["next_unlock_at"] = (issued_at + timedelta(seconds=_jitter(achievements[next_i]["delay"]))).isoformat()
@@ -644,7 +638,6 @@ def _run(game_name, force=False, time_only=False, delay=None, wait_ready=False):
 
                 if status == "unreachable":
                     print(f"ERROR: ArchiSteamFarm isn't reachable at {API_URL} — is it running?")
-                    notify(game_label, "Stopped mid-session: ArchiSteamFarm isn't reachable.", error=True)
                     progress["next_unlock_at"] = datetime.now().isoformat()
                     save_progress(progress_path, progress)
                     # "play" was already sent above, so leaving ASF running here
@@ -656,7 +649,6 @@ def _run(game_name, force=False, time_only=False, delay=None, wait_ready=False):
 
                 if status == "unknown":
                     print(f"ERROR: unexpected response for {label}: {result}")
-                    notify(game_label, f"Stopped mid-session: unexpected response for {label}.", error=True)
                     progress["next_unlock_at"] = datetime.now().isoformat()
                     save_progress(progress_path, progress)
                     schedule_asf_kill()
@@ -676,7 +668,6 @@ def _run(game_name, force=False, time_only=False, delay=None, wait_ready=False):
         send_command("resume")
         _schedule_asf_shutdown()
         print("\nAll achievements unlocked.")
-        notify(game_label, "All achievements unlocked.")
         cleanup_profile(game_name)
         return "all_done"
     except (_Signalled, KeyboardInterrupt) as e:
@@ -684,15 +675,13 @@ def _run(game_name, force=False, time_only=False, delay=None, wait_ready=False):
         # next run picks up where this one stopped.
         if playing:
             _stop_playing()
-        if isinstance(e, _Signalled) and e.signum == signal.SIGHUP:
-            notify(game_label, "Stopped: the terminal running it was closed.", error=True)
-        else:
+        # A closed terminal (SIGHUP) has no one left to read this.
+        if not (isinstance(e, _Signalled) and e.signum == signal.SIGHUP):
             print("\nStopped. Progress is saved — run it again to continue.")
         return "stopped"
     except Exception as e:
         if playing:
             _stop_playing()
-        notify(game_label, f"Crashed: {e.__class__.__name__}: {e}", error=True)
         raise
     finally:
         stop_keep_awake(keep_awake_proc)

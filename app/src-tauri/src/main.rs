@@ -7,8 +7,6 @@
 // closing the window — or quitting the app — never stops them.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-#[cfg(target_os = "macos")]
-mod notify;
 
 use std::env;
 use std::path::{Path, PathBuf};
@@ -273,14 +271,6 @@ fn on_new_window(url: tauri::Url) -> NewWindowResponse<tauri::Wry> {
 }
 
 fn main() {
-    // Runs post their notifications through the app (see notify.rs).
-    #[cfg(target_os = "macos")]
-    {
-        let args: Vec<String> = env::args().skip(1).collect();
-        if args.first().is_some_and(|a| a.starts_with("--notify")) {
-            std::process::exit(notify::run(&args));
-        }
-    }
     tauri::Builder::default()
         .menu(menu)
         .on_menu_event(on_menu)
@@ -319,10 +309,6 @@ fn main() {
                 .hidden_title(true)
                 .traffic_light_position(tauri::LogicalPosition::new(WINDOW_BUTTONS.0, WINDOW_BUTTONS.1));
             let window = builder.build()?;
-            // Asks for notification permission now, while the app is open,
-            // so runs don't wait on the prompt.
-            #[cfg(target_os = "macos")]
-            thread::spawn(|| notify::authorize(Duration::from_secs(600)));
             let home = home_dir();
             let code = code_dir(app.path().resource_dir().ok(), &home);
             thread::spawn(move || match start_server(code, &home) {

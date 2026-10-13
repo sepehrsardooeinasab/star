@@ -46,8 +46,6 @@ DEFAULTS = {
     "jitter_percent": 10,
     # Keep the computer from sleeping while a run waits or plays.
     "keep_awake": True,
-    # A desktop notification when a session ends or a run stops.
-    "notifications": True,
 }
 
 # Accepted types per setting; None means null is allowed.
@@ -66,7 +64,6 @@ _TYPES = {
     "jitter_min_delay": (int,),
     "jitter_percent": (int, float),
     "keep_awake": (bool,),
-    "notifications": (bool,),
 }
 
 
@@ -80,7 +77,11 @@ APP_EDITABLE = [
     "bot_connect_timeout", "asf_shutdown_delay",
 ]
 # On/off switches the app shows on their own, outside the run settings.
-APP_TOGGLES = ["keep_awake", "notifications"]
+APP_TOGGLES = ["keep_awake"]
+
+# Settings older versions had, ignored (and dropped on the next save from
+# the app) rather than refused as unknown.
+RETIRED = {"notifications"}
 
 
 def problems(overrides):
@@ -110,14 +111,17 @@ def problems(overrides):
 
 
 def read_overrides(path=SETTINGS_PATH):
-    """settings.json's own keys (not the defaults), or {} without one.
-    Raises ValueError when it isn't valid JSON."""
+    """settings.json's own keys (not the defaults, nor RETIRED ones), or {}
+    without one. Raises ValueError when it isn't valid JSON."""
     if not path.exists():
         return {}
     try:
-        return json.loads(path.read_text())
+        overrides = json.loads(path.read_text())
     except json.JSONDecodeError as e:
         raise ValueError(f"not valid JSON ({e})")
+    if isinstance(overrides, dict):
+        overrides = {k: v for k, v in overrides.items() if k not in RETIRED}
+    return overrides
 
 
 def _fail(message):

@@ -27,7 +27,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from unlocker import achievements, asf_setup, extras, updates
 from unlocker import settings as settings_module
-from unlocker.api import notify
 from unlocker.paths import CODE_DIR, DATA_DIR
 from unlocker.runner import _session_status, config_changed
 from unlocker.settings import SETTINGS, SETTINGS_PATH
@@ -480,11 +479,6 @@ def test_keep_awake():
     return {"works": works, "found": found}
 
 
-def test_notification():
-    notify("Test", "Notifications work. You'll get one when a session ends or a run stops.", force=True)
-    return {"sent": True}
-
-
 def _shown_path(path):
     """path with the home folder as ~, so it doesn't show the user's name."""
     path, home = path.resolve(), Path.home().resolve()
@@ -652,7 +646,6 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/settings": lambda: save_run_settings(body.get("settings")),
             "/api/setup/install": lambda: setup_install(bool(body.get("latest"))),
             "/api/setup/asf-check": asf_check,
-            "/api/setup/test-notification": test_notification,
             "/api/setup/test-awake": test_keep_awake,
             "/api/open-folder": open_data_folder,
             "/api/achievements/numbers": lambda: achievement_numbers(body.get("appid")),

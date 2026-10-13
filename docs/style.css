@@ -1709,27 +1709,6 @@
   .details-list { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.4rem 1.2rem; font-size: 0.8rem; }
   .details-list dt { color: var(--text-dim); }
   .details-list dd { margin: 0; color: var(--text); font-variant-numeric: tabular-nums; }
-  /* Settings → Keep awake & notifications: both tests under one button. */
-  .test-menu { position: relative; display: inline-block; margin-top: 0.7rem; }
-  .test-menu summary { list-style: none; display: inline-block; cursor: pointer; padding: 0.45rem 0.95rem; font-size: 0.8rem; font-weight: 500; border: 1px solid var(--border-strong); border-radius: 8px; }
-  .test-menu summary::-webkit-details-marker { display: none; }
-  .test-menu-list {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    z-index: 30;
-    display: flex;
-    flex-direction: column;
-    min-width: 11rem;
-    padding: 4px;
-    background: var(--surface);
-    border: 1px solid var(--border-strong);
-    border-radius: 9px;
-    box-shadow: 0 14px 32px -12px var(--shadow);
-  }
-  .test-menu-list button { text-align: left; padding: 0.4rem 0.6rem; font-size: 0.8rem; background: transparent; border: 0; border-radius: 6px; color: var(--text); }
-  .test-menu-list button:hover { background: var(--accent-tint); color: var(--accent); }
-  .test-menu-list button[hidden] { display: none; }
   .screen-switch .switch-home[hidden] { display: none; }
   .bar-popover label { font-family: var(--font); font-size: 0.76rem; font-weight: 500; letter-spacing: 0; text-transform: none; }
   /* A popover: a pointer to its button, fading in; the three settings in a row. */

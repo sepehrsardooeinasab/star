@@ -163,21 +163,12 @@
         </form>
       </li>
       <li class="setup-step" id="step-extras" hidden>
-        <div class="step-head"><span class="step-mark"></span><b>Keep awake &amp; notifications</b></div>
+        <div class="step-head"><span class="step-mark"></span><b>Keep awake</b></div>
         <div class="setting-checks">
           <label class="setting-check"><input type="checkbox" id="keep-awake-on" disabled> Keep the computer awake during runs</label>
           <p class="step-text setting-why" id="awake-text" hidden></p>
-          <label class="setting-check"><input type="checkbox" id="notify-on" disabled> Notify when a session ends or a run stops</label>
-          <p class="step-text setting-why" id="notify-text" hidden></p>
         </div>
-        <div class="install-line" id="notify-install" hidden><code id="notify-cmd"></code><button class="btn-ghost" id="notify-copy" type="button">Copy</button></div>
-        <details class="test-menu">
-          <summary class="btn-ghost">Test</summary>
-          <div class="test-menu-list">
-            <button type="button" id="awake-check">Keep awake</button>
-            <button type="button" id="notify-test">A notification</button>
-          </div>
-        </details>
+        <button class="btn-ghost" type="button" id="awake-check" title="Checks that the computer really stays awake">Test</button>
       </li>
       <li class="setup-step done" id="step-runs" hidden>
         <div class="step-head"><span class="step-mark"></span><b>Runs</b></div>
