@@ -159,6 +159,7 @@ In the app, **Settings** has the keep-awake and update switches and **Advanced r
 | `theme`, `accent` | `"dark"`, `"violet"` | The app's look, from its Appearance menu: `"dark"` or `"light"`; `"violet"`, `"wine"`, `"blue"`, `"teal"` or `"amber"`. |
 | `unlocks_range` | `"month"` | How far back the app's **Library** lists achievements: `"day"`, `"week"`, `"month"`, `"year"` or `"all"`. Set it in Settings → Library. |
 | `library_tab` | `"achievements"` | Which section **Library** opens on: `"achievements"` or `"games"`. |
+| `library_check` | `"6h"` | How often **Library** checks Steam for new games and achievements, in the background: `"1h"`, `"3h"`, `"6h"`, `"12h"`, `"24h"`, or `"manual"` (only on Refresh). Set it in Settings → Library. |
 | `hidden_descriptions` | `"unlocked"` | When **Library** shows a hidden achievement's description: `"unlocked"` (once you've unlocked it), `"all"` or `"none"`. Set it in Settings → Library. |
 | `library_sort`, `library_order` | `"played"`, `"desc"` | How **Library**'s Games are sorted: `"played"` (last played), `"achievement"` (last achievement), `"name"`, `"progress"` or `"playtime"`; `"desc"` (newest, Z–A, most first) or `"asc"`. Set it in Settings → Library. |
 

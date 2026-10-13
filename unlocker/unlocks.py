@@ -17,7 +17,9 @@ Like SteamHunters and co., what's read is kept (STORE_PATH: each game's
 name, when it was last played and its unlocks), and a check reads again
 only what changed: library games played since they were last read (one
 GetOwnedGames call says which), games played in the last day, and STAR's
-games once the saved copy is CACHE_FOR old. The first check reads every
+games. A check runs every library_check (a setting; 6 hours unless
+changed), in the background or when the Library opens, and on Refresh.
+The first check reads every
 game, which can be hundreds of pages, so checks run in the background
 (SYNC says how far along) and the saved unlocks show meanwhile. Without
 internet, what's saved is shown.
@@ -46,7 +48,9 @@ from unlocker.state import COMPLETED_DIR, JSONS_DIR, list_profiles
 STEAMID_PATH = JSONS_DIR / ".steamid"
 STORE_PATH = JSONS_DIR / ".unlocks.json"
 SHOWN = 50000      # unlocks returned (all saved, in practice)
-CACHE_FOR = 300    # seconds between checks with Steam, unless refreshed
+# How often Steam is checked (settings' library_check), unless refreshed;
+# "manual": only on Refresh (and a first check).
+CHECK_EVERY = {"1h": 3600, "3h": 3 * 3600, "6h": 6 * 3600, "12h": 12 * 3600, "24h": 86400, "manual": None}
 LIVE_FOR = 86400   # a game played this recently may still be unlocking…
 LIVE_EVERY = 1800  # …so it's read again this often (or on refresh)
 KEY_RE = re.compile(r"[0-9A-Fa-f]{32}")
@@ -106,6 +110,34 @@ def _key():
     except ValueError:
         return None
     return key if isinstance(key, str) and key else None
+
+
+def _check_every():
+    """Seconds between checks with Steam, from settings.json; None: only
+    on Refresh."""
+    try:
+        choice = settings_module.read_overrides().get("library_check")
+    except ValueError:
+        choice = None
+    return CHECK_EVERY.get(choice, CHECK_EVERY[settings_module.DEFAULTS["library_check"]])
+
+
+def _due(store):
+    every = _check_every()
+    return not store["checked"] or (every is not None and time.time() - store["checked"] >= every)
+
+
+def auto_check():
+    """Starts a check in the background when one is due, the Library open
+    or not (the server asks every few minutes)."""
+    sid = steamid()
+    if not sid:
+        return
+    with _lock:
+        store = _load_store(sid)
+        if not SYNC["running"] and store["games"] and _due(store):
+            SYNC.update(running=True, done=0, total=0, notice=None, error=None)
+            threading.Thread(target=_sync, args=(sid, False), daemon=True).start()
 
 
 def _owned_games(key, sid):
@@ -444,7 +476,7 @@ def recent(refresh=False):
             title, message = SYNC["error"]
             SYNC["error"] = None  # asked again on the next look
             raise Problem(title, message)
-        if not SYNC["running"] and (refresh or time.time() - store["checked"] >= CACHE_FOR):
+        if not SYNC["running"] and (refresh or _due(store)):
             SYNC.update(running=True, done=0, total=0, notice=None, error=None)
             threading.Thread(target=_sync, args=(sid, refresh), daemon=True).start()
         return _result(store)

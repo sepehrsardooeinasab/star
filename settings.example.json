@@ -23,5 +23,6 @@
   "library_tab": "achievements",
   "library_sort": "played",
   "library_order": "desc",
-  "hidden_descriptions": "unlocked"
+  "hidden_descriptions": "unlocked",
+  "library_check": "6h"
 }

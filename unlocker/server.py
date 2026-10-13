@@ -608,6 +608,18 @@ def _auto_update():
         time.sleep(600)
 
 
+def _check_library():
+    """Checks Steam for new games and achievements as often as Settings →
+    Library says (library_check), the Library open or not."""
+    time.sleep(120)  # let the app settle first
+    while True:
+        try:
+            unlocks.auto_check()
+        except Exception:  # noqa: BLE001 - a background check never stops the server
+            pass
+        time.sleep(300)
+
+
 def _learn_steamid():
     """Saves the account's Steam ID the first time ArchiSteamFarm runs
     signed in (a session, a check), so Unlocks works with it closed."""
@@ -811,6 +823,7 @@ def serve():
     threading.Thread(target=_keep_asf_current, daemon=True).start()
     threading.Thread(target=_auto_update, daemon=True).start()
     threading.Thread(target=_learn_steamid, daemon=True).start()
+    threading.Thread(target=_check_library, daemon=True).start()
     _server = server
     server.serve_forever()
 

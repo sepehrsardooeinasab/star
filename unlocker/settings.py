@@ -70,6 +70,9 @@ DEFAULTS = {
     # Hidden achievements' descriptions in the Library: shown once
     # unlocked, always ("all"), or never ("none").
     "hidden_descriptions": "unlocked",
+    # How often the Library checks Steam for new games and achievements,
+    # in the background: 1h, 3h, 6h, 12h, 24h, or "manual" (on Refresh).
+    "library_check": "6h",
 }
 
 # Accepted types per setting; None means null is allowed.
@@ -99,6 +102,7 @@ _TYPES = {
     "library_order": (str,),
     "library_tab": (str,),
     "hidden_descriptions": (str,),
+    "library_check": (str,),
 }
 
 
@@ -120,7 +124,8 @@ APP_CHOICES = {"clock": ["system", "12h", "24h"], "theme": ["dark", "light"],
                "library_sort": ["played", "achievement", "name", "progress", "playtime"],
                "library_order": ["desc", "asc"],
                "library_tab": ["achievements", "games"],
-               "hidden_descriptions": ["unlocked", "all", "none"]}
+               "hidden_descriptions": ["unlocked", "all", "none"],
+               "library_check": ["1h", "3h", "6h", "12h", "24h", "manual"]}
 
 # Settings older versions had, ignored (and dropped on the next save from
 # the app) rather than refused as unknown.

@@ -2770,6 +2770,7 @@
         if (unlocksData) renderUnlocks();
       }
     }
+    if (lib.library_check) byId("library-check").value = lib.library_check;
     if (lib.hidden_descriptions) {
       byId("hidden-descriptions").value = lib.hidden_descriptions;
       if (lib.hidden_descriptions !== hiddenDesc) {
@@ -3393,6 +3394,7 @@
       .catch(function (err) { showToast("Couldn't save: " + err.message); });
   }
   byId("default-range").addEventListener("change", function () { saveSetting({unlocks_range: this.value}); });
+  byId("library-check").addEventListener("change", function () { saveSetting({library_check: this.value}); });
   byId("hidden-descriptions").addEventListener("change", function () { saveSetting({hidden_descriptions: this.value}); });
   byId("default-sort").addEventListener("change", function () {
     var order = this.value === "name" ? "asc" : "desc";
