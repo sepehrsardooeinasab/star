@@ -2988,7 +2988,16 @@
     return at.toLocaleDateString([], opts);
   }
   // Games: each game's achievement progress, play time and when it was
-  // last played; games hidden in Steam dimmed and tagged.
+  // last played; games marked Private or hidden in Steam faded, with an
+  // eye-off mark, like a game on its break in Runs.
+  // Private or hidden in Steam: an eye-off mark, named on hover.
+  var EYE_OFF = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M2.2 2.2l11.6 11.6M6.6 3.5A6.9 6.9 0 0 1 8 3.4c3.2 0 5.3 2.5 6.1 4.6a8 8 0 0 1-1.9 2.8M4.1 4.9A8.2 8.2 0 0 0 1.9 8c.8 2.1 2.9 4.6 6.1 4.6a6.6 6.6 0 0 0 2.9-.7M6.6 6.7a2 2 0 0 0 2.7 2.7"/></svg>';
+  function markHtml(g) {
+    if (!g.private && !g.hidden) return "";
+    var label = g.private ? "Private" : "Hidden";
+    return ' <span class="mark-off" title="' + label + ' in Steam">' + EYE_OFF + label + "</span> ";
+  }
   function renderGames(d) {
     var games = sortGames(d && !unlocksError ? d.games_list || [] : []);
     byId("games-sort").value = gamesSort;
@@ -2996,13 +3005,15 @@
     var withAch = games.filter(function (g) { return g.stats; });
     var complete = games.filter(function (g) { return g.total && g.unlocked >= g.total; }).length;
     var hiddenCount = games.filter(function (g) { return g.hidden; }).length;
+    var privateCount = games.filter(function (g) { return g.private; }).length;
     var parts = [];
     if (d && !unlocksError) {
       parts.push("<b>" + games.length.toLocaleString() + "</b> game" + (games.length === 1 ? "" : "s"));
       parts.push(withAch.length.toLocaleString() + " with achievements");
       if (games.length > withAch.length) parts.push((games.length - withAch.length).toLocaleString() + " without");
       if (complete) parts.push(complete + " complete");
-      if (hiddenCount) parts.push(hiddenCount + " hidden in Steam");
+      if (privateCount) parts.push(privateCount + " private");
+      if (hiddenCount) parts.push(hiddenCount + " hidden");
     }
     byId("games-status").innerHTML = parts.length ? "<div>" + parts.join(" \u00b7 ") + "</div>" : "";
     byId("games-list").hidden = !games.length;
@@ -3017,9 +3028,9 @@
           '<span class="lib-count">' + g.unlocked + " / " + g.total + (g.total && g.unlocked >= g.total ? " \u00b7 Complete" : " \u00b7 " + pct + "%") + "</span>";
       }
       var done = g.total && g.unlocked >= g.total;
-      return '<div class="lib-game' + (g.hidden ? " hidden-game" : "") + (done ? " complete" : "") + '">' +
+      return '<div class="lib-game' + (g.hidden || g.private ? " hidden-game" : "") + (done ? " complete" : "") + '">' +
         iconHtml("lib-icon", g.icon, g.name) +
-        '<div class="lib-text"><div class="lib-name">' + escapeHtml(g.name) + (g.hidden ? ' <span class="tag">Hidden</span>' : "") + "</div>" +
+        '<div class="lib-text"><div class="lib-name">' + escapeHtml(g.name) + markHtml(g) + "</div>" +
         '<div class="lib-progress">' + progress + "</div></div>" +
         '<div class="unlock-meta"><div>' + (g.played ? "Played " + escapeHtml(fmtDay(g.played)) : "Never played") + "</div>" +
         "<div>" + escapeHtml(fmtPlaytime(g.playtime)) + "</div></div></div>";
@@ -3111,11 +3122,11 @@
           html += (lastDay ? "</div>" : "") + '<div class="unlocks-day">' + escapeHtml(day) + '</div><div class="unlocks-group">';
           lastDay = day;
         }
-        html += '<div class="unlock' + (u.hidden ? " hidden-game" : "") + '">' +
+        html += '<div class="unlock' + (u.hidden || u.private ? " hidden-game" : "") + '">' +
           iconHtml("unlock-icon", u.icon, "ach") +
           '<div class="unlock-text"><div class="unlock-name">' + escapeHtml(u.name) + "</div>" +
           (u.description ? '<div class="unlock-desc">' + escapeHtml(u.description) + "</div>" : "") + "</div>" +
-          '<div class="unlock-meta"><div class="unlock-game">' + (u.hidden ? '<span class="tag">Hidden</span> ' : "") + escapeHtml(u.game) + "</div>" +
+          '<div class="unlock-meta"><div class="unlock-game">' + markHtml(u) + escapeHtml(u.game) + "</div>" +
           '<div class="unlock-time">' + escapeHtml(fmtClock(at)) + "</div></div></div>";
       });
       list.innerHTML = html + (lastDay ? "</div>" : "");

@@ -21,7 +21,7 @@ It installs the **STAR** app and ArchiSteamFarm with its achievement plugin (fro
 
 ## Using the app
 
-Open STAR and sign in to Steam. The title bar switches between **Schedule**, **Runs**, **Library** and **Settings** (or the **Go** menu, ⌘1 to ⌘3; Settings is ⌘,). **Library** shows your achievements from Steam, newest first, and your games with their achievement progress; games hidden in Steam are tagged.
+Open STAR and sign in to Steam. The title bar switches between **Schedule**, **Runs**, **Library** and **Settings** (or the **Go** menu, ⌘1 to ⌘3; Settings is ⌘,). **Library** shows your achievements from Steam, newest first, and your games with their achievement progress; games marked Private or hidden in Steam are faded and marked.
 
 ### 1. Make a schedule
 

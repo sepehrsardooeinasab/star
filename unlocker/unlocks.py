@@ -22,9 +22,10 @@ game, which can be hundreds of pages, so checks run in the background
 (SYNC says how far along) and the saved unlocks show meanwhile. Without
 internet, what's saved is shown.
 
-Games hidden in the Steam client (its "hidden" collection) are marked:
-Steam keeps that list on the computer, not online, so it's read from the
-Steam client's own files when Steam is installed here.
+Games marked Private in the Steam client, or hidden (its "hidden"
+collection), are marked: Steam keeps those lists on the computer, not
+online, so they're read from the Steam client's own files when Steam is
+installed here.
 """
 import json
 import re
@@ -131,26 +132,33 @@ STEAM_DIRS = [Path.home() / "Library/Application Support/Steam", Path.home() / "
               Path.home() / ".local/share/Steam", Path.home() / ".var/app/com.valvesoftware.Steam/.local/share/Steam"]
 
 
-def hidden_games(sid):
-    """The appids hidden in this account's Steam client (its "hidden"
-    collection), from the client's files on this computer; empty when
-    Steam isn't installed here."""
+def steam_marks(sid):
+    """(hidden, private): the appids this account hid in the Steam client
+    (its "hidden" collection) and marked Private (PrivateApps_<account> in
+    localconfig.vdf), from the client's files on this computer; empty
+    when Steam isn't installed here."""
     account = str(int(sid) - 76561197960265728)
     for base in STEAM_DIRS:
-        path = base / "userdata" / account / "config" / "cloudstorage" / "cloud-storage-namespace-1.json"
-        try:
-            entries = json.loads(path.read_text())
-        except (OSError, ValueError):
+        config = base / "userdata" / account / "config"
+        if not config.is_dir():
             continue
-        for entry in entries if isinstance(entries, list) else []:
-            if isinstance(entry, list) and len(entry) == 2 and entry[0] == "user-collections.hidden":
-                try:
+        hidden, private = set(), set()
+        try:
+            for entry in json.loads((config / "cloudstorage" / "cloud-storage-namespace-1.json").read_text()):
+                if isinstance(entry, list) and len(entry) == 2 and entry[0] == "user-collections.hidden":
                     value = json.loads(entry[1].get("value") or "{}")
-                except (ValueError, AttributeError):
-                    return set()
-                return {a for a in value.get("added") or [] if isinstance(a, int)}
-        return set()
-    return set()
+                    hidden = {a for a in value.get("added") or [] if isinstance(a, int)}
+        except (OSError, ValueError, TypeError, AttributeError):
+            pass
+        try:
+            vdf = (config / "localconfig.vdf").read_text(encoding="utf-8", errors="replace")
+            found = re.search(r'"PrivateApps_' + account + r'"\s+"(\[[^"]*\])"', vdf)
+            if found:
+                private = {a for a in json.loads(found.group(1)) if isinstance(a, int)}
+        except (OSError, ValueError):
+            pass
+        return hidden, private
+    return set(), set()
 
 
 def _star_appids():
@@ -250,7 +258,7 @@ def _to_read(store, star, owned, refresh):
     return [a for a in order if a in star] + [a for a in order if a not in star], want
 
 
-def _games_list(store, key, hidden):
+def _games_list(store, key, marks):
     """Every game, for the Library's Games: the library's (with a key) and
     those read, each with its achievement progress, most recently played
     first."""
@@ -267,20 +275,20 @@ def _games_list(store, key, hidden):
             "stats": o.get("stats", True), "read": bool(saved) and "total" in saved,
             "unlocked": len(unlocks), "total": saved.get("total"),
             "last_unlock": max((u["time"] for u in unlocks), default=None),
-            "unreadable": bool(saved.get("unreadable")), "hidden": appid in hidden})
+            "unreadable": bool(saved.get("unreadable")), "hidden": appid in marks[0], "private": appid in marks[1]})
     out.sort(key=lambda g: (g["played"] or 0, g["last_unlock"] or 0), reverse=True)
     return out
 
 
 def _result(store):
     games = store["games"]
-    hidden = hidden_games(store["steamid"])
+    marks = steam_marks(store["steamid"])
     unlocks = [{**u, "icon": achievements.current_host(u.get("icon")), "appid": int(appid),
-                "game": g.get("game") or "", "hidden": int(appid) in hidden}
+                "game": g.get("game") or "", "hidden": int(appid) in marks[0], "private": int(appid) in marks[1]}
                for appid, g in games.items() for u in g.get("unlocks") or []]
     unlocks.sort(key=lambda u: u["time"], reverse=True)
     key = bool(_key())
-    return {"unlocks": unlocks[:SHOWN], "games_list": _games_list(store, key, hidden),
+    return {"unlocks": unlocks[:SHOWN], "games_list": _games_list(store, key, marks),
             "has_key": key, "library": store.get("library") if key else None,
             "games": len(games), "unreadable": sum(1 for g in games.values() if g.get("unreadable")),
             "unreadable_games": sorted(g.get("game") or achievements.app_title(int(appid)) or f"App {appid}"
