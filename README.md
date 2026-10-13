@@ -15,7 +15,7 @@ curl -fsSL https://raw.githubusercontent.com/sepehrsardooeinasab/star/main/insta
 It installs the **STAR** app and ArchiSteamFarm with its achievement plugin (from their official releases, checked against their published checksums). Open STAR and sign in to Steam; it asks for the Steam Guard code if needed.
 
 - Python 3.8+ is the only requirement. On macOS, the installer offers to install it if it's missing. Nothing needs `sudo`.
-- Run the same command again to update; the app can also do it for you (**Check for Updates…**). Your games and settings are kept.
+- STAR updates itself: when a new release is out, it installs it once no game is in a session, closing and reopening the app (turn this off with **Update automatically** in Settings). **Check for Updates…** or running the same command again does it right away. Your games and settings are kept.
 - `... | sh -s -- --uninstall` removes the app and keeps your data.
 - Downloading the macOS app by hand from Releases instead means macOS asks you to allow it once in **System Settings → Privacy & Security**; the install command avoids that.
 
@@ -134,7 +134,7 @@ Put these lines in `~/.zshrc` — or, if you use oh-my-zsh, in a file under `~/.
 
 ### Settings (optional)
 
-In the app, **Settings** has the keep-awake switch and **Advanced run settings** for most of these; it saves them to `settings.json` in the data folder, keeping only what differs from the defaults. The ports and the IPC password are set in that file directly, since they have to match ArchiSteamFarm's own config. Running from a clone, `settings.json` goes in the project folder (gitignored); `settings.example.json` lists every key. An unknown key or a wrong type stops the unlocker with an error, so a typo never quietly falls back to a default.
+In the app, **Settings** has the keep-awake and update switches and **Advanced run settings** for most of these; it saves them to `settings.json` in the data folder, keeping only what differs from the defaults. The ports and the IPC password are set in that file directly, since they have to match ArchiSteamFarm's own config. Running from a clone, `settings.json` goes in the project folder (gitignored); `settings.example.json` lists every key. An unknown key or a wrong type stops the unlocker with an error, so a typo never quietly falls back to a default.
 
 | Key | Default | What it does |
 | --- | --- | --- |
@@ -152,6 +152,7 @@ In the app, **Settings** has the keep-awake switch and **Advanced run settings**
 | `jitter_min_delay` | `60` | Only delays longer than this many seconds get randomness. Shorter ones are kept exact. |
 | `jitter_percent` | `10` | How far a delay can move, in either direction, as a percentage of itself (0–100). With the defaults, a 10-minute delay becomes anywhere from 9 to 11 minutes. |
 | `keep_awake` | `true` | Keeps the computer from sleeping while a run waits or plays. |
+| `auto_update` | `true` | Installs a new STAR release by itself, once no game is in a session. |
 
 With randomness on, it applies to the delays between achievements and to the gaps between sessions. The random value is picked when that delay is scheduled and saved with your progress, so stopping and resuming doesn't pick a new one. Unlocks that happened together in the source data (see `simultaneous_max_delay`) are still sent together. Estimates such as `-t`, `-ls` and the session length shown before you confirm still use the config's exact values.
 

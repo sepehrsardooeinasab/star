@@ -42,7 +42,6 @@
     <button type="button" id="switch-guide" title="Setup, updates and how it works">Settings</button>
   </div>
   <div class="topbar-right">
-    <button class="topbar-pill accent" id="update-btn" type="button" hidden>Update</button>
     <button class="topbar-pill" id="guide-btn" type="button" title="How to set up and use it">Guide</button>
     <div class="appearance">
       <button class="icon-btn" id="appearance-toggle" type="button" aria-label="Appearance" aria-expanded="false" aria-controls="appearance-menu" title="Appearance">
@@ -204,6 +203,7 @@
           <button class="btn-ghost" id="update-check" type="button">Check for updates</button>
           <button class="btn-ghost primary-ghost" id="update-now" type="button" hidden>Update now</button>
         </div>
+        <label class="setting-check" id="auto-update-row"><input type="checkbox" id="auto-update-on" disabled> Update automatically (when no game is playing)</label>
       </li>
     </ol>
     <p class="setup-error" id="setup-error" hidden></p>

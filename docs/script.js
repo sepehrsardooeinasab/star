@@ -2576,7 +2576,7 @@
   // settings.json, used by runs started after), and what this computer
   // is missing for them. Shown once setup is done.
   var extrasTools = {};
-  var TOGGLES = {keep_awake: "keep-awake-on"};
+  var TOGGLES = {keep_awake: "keep-awake-on", auto_update: "auto-update-on"};
   function syncToggles() {
     Object.keys(TOGGLES).forEach(function (key) {
       var box = byId(TOGGLES[key]);
@@ -2605,7 +2605,7 @@
     if (!x) return;
     var awake = x.keep_awake;
     byId("step-extras").className = "setup-step" + (awake.tool ? " done" : "");
-    extrasTools = {keep_awake: !!awake.tool};
+    extrasTools.keep_awake = !!awake.tool;
     byId("awake-text").hidden = !!awake.tool;
     byId("awake-text").textContent = "Not available here: needs systemd-inhibit.";
     byId("awake-check").hidden = !awake.tool;
@@ -2681,8 +2681,10 @@
       text = "STAR " + u.current + ". " + u.error;
     }
     byId("update-text").textContent = text;
-    byId("update-btn").hidden = !u.available || u.updating;
-    byId("update-btn").title = u.available ? "Version " + u.latest + " is out" : "";
+    // Only installs made by the install command can update themselves.
+    extrasTools.auto_update = !!u.can_update;
+    byId("auto-update-row").hidden = !u.can_update;
+    syncToggles();
     byId("update-now").hidden = !u.available || !u.can_update || u.updating;
     byId("update-check").hidden = u.updating;
   }
@@ -2722,7 +2724,6 @@
   }
 
   byId("guide-btn").addEventListener("click", showGuide);
-  byId("update-btn").addEventListener("click", showGuide);
   byId("update-check").addEventListener("click", function () { checkUpdates(true); });
   byId("update-now").addEventListener("click", function () {
     api("/api/update", {}).then(function (u) {
