@@ -113,7 +113,7 @@ APP_TOGGLES = ["keep_awake", "auto_update", "show_finished"]
 APP_CHOICES = {"clock": ["system", "12h", "24h"], "theme": ["dark", "light"],
                "accent": ["violet", "wine", "blue", "teal", "amber"],
                "unlocks_range": ["day", "week", "month", "year", "all"],
-               "library_sort": ["played", "achievement", "name", "progress"],
+               "library_sort": ["played", "achievement", "name", "progress", "playtime"],
                "library_order": ["desc", "asc"],
                "library_tab": ["achievements", "games"]}
 

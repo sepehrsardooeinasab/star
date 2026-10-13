@@ -159,7 +159,7 @@ In the app, **Settings** has the keep-awake and update switches and **Advanced r
 | `theme`, `accent` | `"dark"`, `"violet"` | The app's look, from its Appearance menu: `"dark"` or `"light"`; `"violet"`, `"wine"`, `"blue"`, `"teal"` or `"amber"`. |
 | `unlocks_range` | `"month"` | How far back the app's **Library** lists achievements: `"day"`, `"week"`, `"month"`, `"year"` or `"all"`. Set it in Settings → Library. |
 | `library_tab` | `"achievements"` | Which section **Library** opens on: `"achievements"` or `"games"`. |
-| `library_sort`, `library_order` | `"played"`, `"desc"` | How **Library**'s Games are sorted: `"played"` (last played), `"achievement"` (last achievement), `"name"` or `"progress"`; `"desc"` (newest, Z–A, most first) or `"asc"`. Set it in Settings → Library. |
+| `library_sort`, `library_order` | `"played"`, `"desc"` | How **Library**'s Games are sorted: `"played"` (last played), `"achievement"` (last achievement), `"name"`, `"progress"` or `"playtime"`; `"desc"` (newest, Z–A, most first) or `"asc"`. Set it in Settings → Library. |
 
 With randomness on, it applies to the delays between achievements and to the gaps between sessions. The random value is picked when that delay is scheduled and saved with your progress, so stopping and resuming doesn't pick a new one. Unlocks that happened together in the source data (see `simultaneous_max_delay`) are still sent together. Estimates such as `-t`, `-ls` and the session length shown before you confirm still use the config's exact values.
 

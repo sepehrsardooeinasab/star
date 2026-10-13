@@ -2971,7 +2971,7 @@
   // How Games are sorted (defaults: library_sort, library_order).
   var gamesSort = "played", gamesOrder = "desc", appliedLib = {};
   var ORDER_NAMES = {played: ["Newest first", "Oldest first"], achievement: ["Newest first", "Oldest first"],
-    name: ["Z \u2192 A", "A \u2192 Z"], progress: ["Most first", "Least first"]};
+    name: ["Z \u2192 A", "A \u2192 Z"], progress: ["Most first", "Least first"], playtime: ["Most first", "Least first"]};
   function orderName(sort, order) { return ORDER_NAMES[sort][order === "desc" ? 0 : 1]; }
   function syncOrderOptions(select, sort, order) {
     select.innerHTML = ["desc", "asc"].map(function (o) {
@@ -2983,6 +2983,7 @@
     function key(g) {
       if (gamesSort === "name") return g.name.toLowerCase();
       if (gamesSort === "achievement") return g.last_unlock || 0;
+      if (gamesSort === "playtime") return g.playtime || 0;
       if (gamesSort === "progress") return g.total ? g.unlocked / g.total : -1;
       return g.played || 0;
     }
