@@ -1255,9 +1255,10 @@
     tipBox.textContent = el.getAttribute("data-tip");
     tipBox.hidden = false;
     var r = el.getBoundingClientRect(), w = tipBox.offsetWidth, h = tipBox.offsetHeight;
-    // Under the icon, running to its left (above it at the window's foot).
-    var left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8));
-    var top = r.bottom + 6 + h > window.innerHeight - 8 ? r.top - h - 6 : r.bottom + 6;
+    // Above the icon, running to its right, the pointer at its bottom-left
+    // corner (under it at the window's top, left of it at its edge).
+    var left = Math.max(8, Math.min(r.left + r.width / 2, window.innerWidth - w - 8));
+    var top = r.top - h - 4 < 8 ? r.bottom + 4 : r.top - h - 4;
     tipBox.style.left = left + "px";
     tipBox.style.top = top + "px";
   });
@@ -3070,15 +3071,15 @@
   // (kill 200 enemies), which an unlock doesn't move. Flagged with an
   // icon in Schedule, Runs and Library; what it means is on hover.
   var COUNTER_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">' +
-    '<path d="M2.3 11.5a5.7 5.7 0 1 1 11.4 0"/><path d="M8 11.5l2.7-2.9"/><circle cx="8" cy="11.5" r="0.6" fill="currentColor"/></svg>';
+    '<path d="M3.5 3.5v9M6.5 3.5v9M9.5 3.5v9M12.5 3.5v9M2 10.5l12-5"/></svg>';
   var COUNTERS_TIP = "Some achievements track stats (like kill counts)";
   function counterMark(g) {
-    return g.counters > 0 ? ' <span class="mark-counters" data-tip="' + COUNTERS_TIP + '" aria-label="' + COUNTERS_TIP + '">' + COUNTER_ICON + "</span>" : "";
+    return g.counters > 0 ? '<span class="mark-counters" data-tip="' + COUNTERS_TIP + '" aria-label="' + COUNTERS_TIP + '">' + COUNTER_ICON + "</span>" : "";
   }
   function markHtml(g) {
     if (!g.private && !g.hidden) return "";
     var label = g.private ? "Private" : "Hidden";
-    return ' <span class="mark-off" data-tip="' + label + '" aria-label="' + label + '">' + EYE_OFF + "</span>";
+    return '<span class="mark-off" data-tip="' + label + '" aria-label="' + label + '">' + EYE_OFF + "</span>";
   }
   // Search: games whose name has every word typed, in any order.
   var gamesQuery = "";
@@ -3147,7 +3148,7 @@
       return '<div class="lib-game' + (g.hidden || g.private ? " hidden-game" : "") + (done ? " complete" : "") +
         '" data-appid="' + g.appid + '" role="button" tabindex="0">' +
         iconHtml("lib-icon", g.icon, g.name) +
-        '<div class="lib-text"><div class="lib-name">' + escapeHtml(g.name) + markHtml(g) + counterMark(g) + "</div>" +
+        '<div class="lib-text"><div class="lib-name"><span class="name-text">' + escapeHtml(g.name) + "</span>" + markHtml(g) + counterMark(g) + "</div>" +
         '<div class="lib-progress">' + progress + "</div></div>" +
         '<div class="unlock-meta"><div>' + (g.played ? "Played " + escapeHtml(fmtDay(g.played)) : "Never played") + "</div>" +
         "<div>" + escapeHtml(fmtPlaytime(g.playtime)) + "</div></div></div>";

@@ -2089,7 +2089,12 @@
   /* Two lines a side, each the same height, so the left and right line up. */
   :is(.lib-game, .unlock) :is(.lib-text, .unlock-text, .unlock-meta) > * { line-height: 1.35rem; }
   .lib-game .lib-progress { height: 1.35rem; }
-  .lib-name { font-size: 0.86rem; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lib-name { font-size: 0.86rem; font-weight: 600; color: var(--text); }
+  /* A game's name, then its marks (Private, counters) close by, all
+     centred on the name's line; a long name ends in "…". */
+  :is(.lib-name, .game-title) { display: flex; align-items: center; gap: 0.4rem; min-width: 0; }
+  .name-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  :is(.lib-name, .game-title) :is(.mark-off, .mark-counters) { flex: none; margin: 0; }
   .lib-progress { display: flex; align-items: center; gap: 0.6rem; font-size: 0.76rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
   .lib-bar { flex: 0 1 12rem; height: 4px; background: var(--surface-3); border-radius: 2px; overflow: hidden; }
   .lib-bar span { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
@@ -2110,7 +2115,7 @@
   .mark-off { display: inline-flex; align-items: center; margin-left: 0.35rem; line-height: 1; color: var(--placeholder); vertical-align: middle; cursor: help; }
   .unlock-game .mark-off { margin: 0 0.35rem 0 0; }
   .mark-off svg { width: 14px; height: 14px; }
-  .mark-counters { display: inline-flex; align-items: center; margin-left: 0.35rem; color: var(--accent); vertical-align: middle; cursor: help; }
+  .mark-counters { display: inline-flex; align-items: center; margin-left: 0.35rem; color: var(--placeholder); vertical-align: middle; cursor: help; }
   .mark-counters svg { width: 14px; height: 14px; }
   .run-head .mark-counters { flex: none; margin-left: 0; }
   .bar-counters:empty { display: none; }
