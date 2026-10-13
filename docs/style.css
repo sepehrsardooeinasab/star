@@ -956,10 +956,6 @@
   .run-options input[type="text"].invalid { border-color: var(--danger); }
   .run-options select:focus-visible, .run-options input[type="text"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   /* Next session / All sessions: two choices, the chosen one tinted. */
-  .run-options .run-mode { height: 2.5rem; padding: 3px; border-radius: 9px; background: var(--surface); }
-  .run-options .run-mode button { flex: none; padding: 0 0.85rem; border-radius: 6px; font-size: 0.8rem; font-weight: 500; white-space: nowrap; }
-  .run-options .run-mode button[aria-pressed="true"] { background: var(--accent-tint); color: var(--accent); }
-  .run-options .run-mode button:disabled { opacity: 0.5; }
   .run-options input[type="text"] { width: 9.5rem; }
   /* One width for Run, Continue, Stop and Dismiss: switching games keeps the bar still. */
   .run-options .run-start { padding: 0 0.5rem; width: 6.5rem; justify-content: center; white-space: nowrap; }
@@ -1451,8 +1447,6 @@
   :root[data-desktop] .topbar .pa { gap: 0.5rem; }
   :root[data-desktop] .topbar :is(.run-options select, .run-start, .page-action) { height: 28px; font-size: 0.78rem; border-radius: 7px; }
   :root[data-desktop] .topbar .run-options { gap: 0.5rem; flex-wrap: nowrap; }
-  :root[data-desktop] .topbar .run-options .run-mode { height: 28px; padding: 2px; border-radius: 8px; }
-  :root[data-desktop] .topbar .run-options .run-mode button { font-size: 0.76rem; padding: 0 0.7rem; }
   :root[data-desktop] .topbar .run-options input[type="text"] { height: 28px; width: 7.5rem; font-size: 0.78rem; }
   :root[data-desktop] .topbar .btn-hero {
     padding: 0 1rem;
@@ -1499,7 +1493,9 @@
     border-right: 1px solid var(--border);
   }
   :root[data-desktop] .runs-log { padding: 0.9rem 1.2rem 1rem; }
-  :root[data-desktop] .runs-list { gap: 2px; }
+  /* The list runs to the sidebar's edge, so its scrollbar sits on the
+     border line instead of beside the games. */
+  :root[data-desktop] .runs-list { gap: 2px; margin-right: -0.6rem; padding-right: 0.6rem; }
   :root[data-desktop] .run-card {
     padding: 0.5rem 0.7rem;
     background: transparent;
@@ -1635,9 +1631,6 @@
   .bar-stats { margin-left: auto; }
   .bar-stats .stats-strip { gap: 0.2rem 1.1rem; font-size: 0.76rem; }
   .bar-help .hover-help { display: none; }
-  .paste-summary .hover-help { display: none; margin-left: 0; }
-  body.local .box.has-timeline.sched-full .paste-summary .hover-help { display: block; }
-  .paste-summary .hover-help-panel { right: 0; left: auto; }
 
   body.local .view-pane[data-view="input"].active { grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); }
   /* The how-to shows inside the empty paste box, like a placeholder, and
@@ -1698,14 +1691,21 @@
      timeline gives the whole space to every session. */
   .runs-log:not(.full) .runs-timeline { flex: none; max-height: 45%; }
   /* The sessions overview: the session it's on stands out. */
-  table.sessions-summary td, table.sessions-summary th { font-family: var(--font); }
+  /* The same type as the full timeline's, so both tables match. */
+  table.sessions-summary td, table.sessions-summary th { font-family: var(--font); font-size: 0.82rem; }
   /* Same columns for every game: set widths, not sized to the numbers,
      and no scrollbar strip (it still scrolls) to narrow a long one. */
   table.sessions-summary { table-layout: fixed; }
-  table.sessions-summary th:nth-child(1) { width: 18%; }
-  table.sessions-summary th:nth-child(2) { width: 26%; }
-  table.sessions-summary th:nth-child(3) { width: 30%; }
-  :root[data-desktop] .table-wrap:has(> table.sessions-summary)::-webkit-scrollbar { display: none; }
+  /* The sessions table and the full timeline share their columns, so they
+     line up when switching between them. */
+  :is(table.sessions-summary, table.csv-table.pretty) { table-layout: fixed; }
+  :is(table.sessions-summary, table.csv-table.pretty) th:nth-child(1) { width: 12%; }
+  :is(table.sessions-summary, table.csv-table.pretty) th:nth-child(2) { width: 44%; }
+  :is(table.sessions-summary, table.csv-table.pretty) th:nth-child(3) { width: 24%; }
+  :is(table.sessions-summary, table.csv-table.pretty) th:nth-child(4) { width: 20%; }
+  /* The app's tables scroll without a scrollbar strip, so rows always
+     reach the right edge (trackpad and wheel still scroll them). */
+  :root[data-desktop] .table-wrap::-webkit-scrollbar { display: none; }
   table.sessions-summary tr.next-row td { color: var(--accent); font-weight: 600; }
   .run-activity { flex: 1; min-height: 6rem; display: flex; margin-top: 0.7rem; }
   .run-activity #runs-log { flex: 1; margin: 0; }
@@ -1713,27 +1713,6 @@
   .details-list { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.4rem 1.2rem; font-size: 0.8rem; }
   .details-list dt { color: var(--text-dim); }
   .details-list dd { margin: 0; color: var(--text); font-variant-numeric: tabular-nums; }
-  /* Settings → Keep awake & notifications: both tests under one button. */
-  .test-menu { position: relative; display: inline-block; margin-top: 0.7rem; }
-  .test-menu summary { list-style: none; display: inline-block; cursor: pointer; padding: 0.45rem 0.95rem; font-size: 0.8rem; font-weight: 500; border: 1px solid var(--border-strong); border-radius: 8px; }
-  .test-menu summary::-webkit-details-marker { display: none; }
-  .test-menu-list {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    z-index: 30;
-    display: flex;
-    flex-direction: column;
-    min-width: 11rem;
-    padding: 4px;
-    background: var(--surface);
-    border: 1px solid var(--border-strong);
-    border-radius: 9px;
-    box-shadow: 0 14px 32px -12px var(--shadow);
-  }
-  .test-menu-list button { text-align: left; padding: 0.4rem 0.6rem; font-size: 0.8rem; background: transparent; border: 0; border-radius: 6px; color: var(--text); }
-  .test-menu-list button:hover { background: var(--accent-tint); color: var(--accent); }
-  .test-menu-list button[hidden] { display: none; }
   .screen-switch .switch-home[hidden] { display: none; }
   .bar-popover label { font-family: var(--font); font-size: 0.76rem; font-weight: 500; letter-spacing: 0; text-transform: none; }
   /* A popover: a pointer to its button, fading in; the three settings in a row. */
@@ -1797,7 +1776,8 @@
   table.csv-table.pretty td:first-child { color: var(--text-dim); width: 3rem; }
   table.csv-table.pretty tr.session-row td { font-weight: 600; }
   table.csv-table.pretty tr.gap-row td { font-style: normal; }
-  table.csv-table.pretty td:last-child, table.csv-table.pretty th:last-child { text-align: right; width: 8rem; }
+  /* Durations on the left, like the sessions table's. */
+
   table.csv-table.pretty .undo-edit { margin: 0 0.45rem 0 0; }
   /* Numbers take a fixed width, so the + buttons after them line up. */
   table.csv-table.pretty .row-num { display: inline-block; min-width: 1.6em; }
@@ -1825,6 +1805,29 @@
   }
   .summary-part { display: flex; flex-direction: column; gap: 0.1rem; padding: 0.45rem 0.8rem; border-left: 1px solid var(--border); min-width: 0; }
   .summary-part:first-child { border-left: 0; }
+  /* The info arrow, at the right of the last part (Playable). */
+  .summary-part:last-child { position: relative; padding-right: 2.4rem; }
+  .summary-more {
+    position: absolute;
+    right: 0.55rem;
+    top: 50%;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    margin-top: -12px;
+    padding: 0;
+    color: var(--text-dim);
+    background: none;
+    border: 1px solid var(--border-strong);
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  .summary-more:hover { color: var(--text); background: var(--surface-3); }
+  .summary-more svg { width: 14px; height: 14px; transition: transform 0.15s ease; }
+  .summary-more[aria-expanded="true"] { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
+  .summary-more[aria-expanded="true"] svg { transform: rotate(180deg); }
+  .run-summary-line .summary-more { position: static; display: inline-grid; margin: 0 0 0 0.6rem; vertical-align: middle; }
   .summary-label { font-size: 0.7rem; font-weight: 500; color: var(--text-dim); }
   .summary-value { font-size: 0.86rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
   .summary-note { font-weight: 400; color: var(--text-dim); }
@@ -1870,3 +1873,39 @@
     background: linear-gradient(var(--surface-3) 0 calc(var(--th-h) - 1px), var(--border-strong) 0 var(--th-h), transparent 0);
   }
   :root[data-desktop] .table-wrap::-webkit-scrollbar-track { margin-top: var(--th-h); }
+
+  /* Locked or unlocked, the full timeline's rows keep their height: the
+     + / − buttons sit inside the line instead of growing it. */
+  /* A number or label and its + / − in one line, centred on the row. */
+  .cell-line { display: flex; align-items: center; gap: 0.4rem; }
+  table.csv-table.pretty .gap-btn { display: grid; place-items: center; box-sizing: border-box; line-height: 1; height: 1rem; min-width: 1.05rem; padding: 0 0.25rem; margin: 0; }
+  /* A long achievement name ends in … rather than widening its column. */
+  table.csv-table.pretty td:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* The steps of a wait (checking achievement numbers): ticked when done,
+     a spinner on the current one. */
+  .step-list { list-style: none; margin: 0.45rem 0 0; padding: 0; display: grid; gap: 0.3rem; }
+  .step-list li { display: flex; align-items: center; gap: 0.55rem; margin: 0; color: var(--text-dim); }
+  .step-list li::before { content: ""; flex: none; width: 12px; height: 12px; box-sizing: border-box; border-radius: 50%; }
+  .step-list li.done::before { content: "✓"; display: grid; place-items: center; font-size: 11px; line-height: 1; color: var(--accent); }
+  .step-list li.now { color: var(--text); }
+  .step-list li.now::before { border: 1.5px solid var(--accent); border-right-color: transparent; animation: step-spin 0.8s linear infinite; }
+  /* Editing a time: the box takes the value's own line, so the row keeps
+     its height and the column its width. */
+  table.csv-table td.delay-cell .delay-input {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 7.5rem;
+    height: 1rem;
+    /* Pulled left by its padding, so the time doesn't move. */
+    margin: 0 0 0 calc(-0.3rem - 1px);
+    padding: 0 0.3rem;
+    font: inherit;
+    line-height: 1;
+    vertical-align: top;
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+  }

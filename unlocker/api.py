@@ -1,15 +1,13 @@
 import json
 import os
-import plistlib
 import re
 import shutil
 import signal
 import subprocess
 import sys
 import time
-from pathlib import Path
 
-from unlocker.paths import CODE_DIR, DATA_DIR
+from unlocker.paths import DATA_DIR
 from unlocker.settings import SETTINGS
 
 API_URL = f"http://127.0.0.1:{SETTINGS['asf_port']}/Api/Command"
@@ -122,13 +120,18 @@ def ensure_asf_running():
             start_new_session=True)
 
 
-def start_keep_awake(force=False):
+def start_keep_awake(force=False, game=None):
     """Keeps the system (and display) from sleeping or locking for the
     duration of a run: `caffeinate` on macOS, `systemd-inhibit` on Linux.
     Returns the process to hand to stop_keep_awake(), or None if neither
     tool is available or the inhibitor couldn't be taken — callers should
     skip printing anything about it then. Also None when the keep_awake
     setting is off, unless force (the app's test).
+
+    On Linux it also holds off shutdown, reboot and logout for as long, and
+    the desktop's power-off dialog names the game ("STAR: Playing …"), so
+    the computer isn't turned off mid-session by mistake (the dialog still
+    lets it).
 
     Either way the process watches this one and exits on its own once it's
     gone, so a run that's force-killed (kill -9, Force Quit) — which never
@@ -142,8 +145,9 @@ def start_keep_awake(force=False):
     elif shutil.which("systemd-inhibit"):
         # Holds the sleep/idle inhibitor for as long as the wrapped command
         # runs; the command polls this process and ends once it's gone.
-        cmd = ["systemd-inhibit", "--what=sleep:idle", "--mode=block",
-               "--who=STAR", "--why=Unlocking achievements",
+        why = f"Playing {game}: shutting down stops it" if game else "Unlocking achievements"
+        cmd = ["systemd-inhibit", "--what=sleep:idle:shutdown", "--mode=block",
+               "--who=STAR", f"--why={why}",
                "sh", "-c", 'while kill -0 "$0" 2>/dev/null; do sleep 5; done', pid]
     else:
         return None
@@ -175,96 +179,6 @@ def stop_keep_awake(proc):
     proc.wait()
 
 
-NOTIFY_TITLE = "STAR"
-NOTIFY_ICON = CODE_DIR / "docs" / "logo.png"
-APP_NOTIFY_SINCE = (3, 0, 4)  # the first app with --notify
-NOTIFY_REMOVE_AFTER = 1800  # "done" notifications clear themselves after 30 min
-
-
-def _app_binary():
-    """The installed Mac app's binary, which can post notifications as the
-    app: the one this code ships in, else the usual install places."""
-    candidates = [CODE_DIR.parent / "MacOS" / "star"] if CODE_DIR.parent.name == "Contents" else []
-    candidates += [Path(base).expanduser() / "STAR.app/Contents/MacOS/star"
-                   for base in ("/Applications", "~/Applications")]
-    for binary in candidates:
-        try:
-            with open(binary.parent.parent / "Info.plist", "rb") as f:
-                version = plistlib.load(f).get("CFBundleShortVersionString", "")
-        except (OSError, plistlib.InvalidFileException):
-            continue
-        # Older apps don't know --notify: they'd open their window instead.
-        if tuple(int(p) for p in re.findall(r"\d+", version)[:3]) >= APP_NOTIFY_SINCE:
-            return str(binary)
-    return None
-
-
-def _app_notify(app, game, message, error):
-    """Shows it through the app; False if it couldn't (not allowed yet, an
-    older app without --notify, …)."""
-    group = f"steam-unlocker-{game}-{time.time_ns()}"
-    result = subprocess.run([app, "--notify", group, NOTIFY_TITLE, game, message],
-                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
-    if result.returncode != 0:
-        return False
-    if not error:
-        subprocess.Popen(
-            [sys.executable, "-c",
-             f"import time, subprocess; time.sleep({NOTIFY_REMOVE_AFTER}); "
-             f"subprocess.run([{app!r}, '--notify-remove', {group!r}], timeout=30)"],
-            start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    return True
-
-
-def notify(game, message, error=False, force=False):
-    """Desktop notification: title "STAR", the game as subtitle.
-    Uses the best tool available and quietly does nothing when there's
-    none — a missing tool never affects a run.
-
-    - macOS + the app: posted as the app's own (its icon and name), and
-      non-error notifications are removed again after NOTIFY_REMOVE_AFTER.
-    - macOS without the app (or before it's allowed to): the built-in one,
-      through osascript, shown as Script Editor's; errors get their own sound.
-      (terminal-notifier isn't used: its notifications don't show on current
-      macOS.)
-    - Linux + notify-send: logo; errors are marked critical, others ask to
-      expire after NOTIFY_REMOVE_AFTER (some desktops ignore that).
-
-    Nothing when the notifications setting is off, unless force (the
-    app's test)."""
-    if not (force or SETTINGS["notifications"]):
-        return
-    icon = str(NOTIFY_ICON) if NOTIFY_ICON.exists() else None
-    try:
-        app = _app_binary() if sys.platform == "darwin" else None
-        if app and _app_notify(app, game, message, error):
-            return
-        if sys.platform == "darwin":
-            # Passed as argv rather than spliced into the script, so quotes
-            # in achievement/game names can't break the AppleScript.
-            subprocess.run(
-                ["osascript",
-                 "-e", "on run argv",
-                 "-e", "display notification (item 3 of argv) with title (item 1 of argv) "
-                       "subtitle (item 2 of argv) sound name (item 4 of argv)",
-                 "-e", "end run",
-                 NOTIFY_TITLE, game, message, "Basso" if error else "Glass"],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
-        elif shutil.which("notify-send"):
-            cmd = ["notify-send", "-a", NOTIFY_TITLE,
-                   "-h", f"string:sound-name:{'dialog-error' if error else 'complete'}"]
-            if error:
-                cmd += ["-u", "critical"]
-            else:
-                cmd += ["-t", str(NOTIFY_REMOVE_AFTER * 1000)]
-            if icon:
-                cmd += ["-i", icon]
-            cmd += [f"{NOTIFY_TITLE} · {game}", message]
-            subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
-    except (OSError, subprocess.SubprocessError):
-        pass
-
-
 def schedule_asf_kill(delay_seconds=60):
     """Detached background timer: force-kills ArchiSteamFarm (same as
     runsteamunlocker's own `pkill -f`) after delay_seconds, regardless of
@@ -277,7 +191,7 @@ def schedule_asf_kill(delay_seconds=60):
         start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def send_command(command):
+def send_command(command, on_wait=None):
     """Returns (result, reconnected). result is the response's Result string,
     or None if ASF wasn't reachable. reconnected is True if this call had to
     sit through the retry loop below before getting a real response — i.e.
@@ -285,6 +199,10 @@ def send_command(command):
     was just started fresh or because it silently reconnected after a
     mid-session network blip (including one triggered by the retried command
     itself — see the "exception" handling below).
+
+    on_wait (optional) is called with what it's waiting on, each time that
+    changes: "unreachable" (ArchiSteamFarm starting up), "not_connected"
+    (the bot signing in to Steam) or "error" (a plugin error, retried).
 
     Retries for a while if: the IPC server itself isn't up yet (e.g. right
     after ASF was just started — it can take longer than any fixed guess to
@@ -300,6 +218,7 @@ def send_command(command):
     deadline = time.monotonic() + BOT_CONNECT_TIMEOUT
     printed_waiting = False
     reconnected = False
+    waiting_on = None
 
     while True:
         try:
@@ -317,6 +236,11 @@ def send_command(command):
 
         if not_connected and time.monotonic() < deadline:
             reconnected = True
+            state = ("unreachable" if response is None else "error" if "exception" in result.lower()
+                     else "not_connected")
+            if on_wait and state != waiting_on:
+                on_wait(state)
+            waiting_on = state
             if not printed_waiting:
                 if response is None:
                     print("ArchiSteamFarm isn't reachable yet, waiting...")

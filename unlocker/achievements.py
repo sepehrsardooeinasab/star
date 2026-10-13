@@ -130,12 +130,33 @@ def from_link(url):
     }
 
 
+# What a numbers() check is doing, for the app to show while it waits:
+# appid -> [[step, "done" | "now"], ...], oldest first.
+PROGRESS = {}
+
+_WAITING = {"unreachable": "Waiting for ArchiSteamFarm to start up",
+            "not_connected": "Signing in to Steam",
+            "error": "ArchiSteamFarm is still getting ready"}
+
+
+def _step(appid, text, state="now"):
+    steps = PROGRESS.setdefault(appid, [])
+    for step in steps:
+        step[1] = "done"
+    if not steps or steps[-1][0] != text:
+        steps.append([text, state])
+    else:
+        steps[-1][1] = state
+
+
 def _alist(appid):
     """alist's rows. Right after ArchiSteamFarm signs in, the plugin can
     answer without a list (it couldn't retrieve the stats yet), so an
     empty answer is asked again a few times before it counts."""
     for attempt in range(4):
-        result, _ = send_command(f"alist {appid}")
+        if attempt:
+            _step(appid, "The list wasn't ready yet; asking again")
+        result, _ = send_command(f"alist {appid}", on_wait=lambda state: _step(appid, _WAITING[state]))
         if result is None:
             raise Problem("Couldn't check the achievement numbers",
                           "ArchiSteamFarm didn't answer. Check Settings, then try again.")
@@ -146,6 +167,7 @@ def _alist(appid):
                 rows.append({"number": int(m[1]), "unlocked": m[2] == "✅",
                              "restricted": bool(m[3]), "name": _clean(m[4])})
         if rows:
+            _step(appid, f"Got the game's list: {len(rows)} achievements", "done")
             return rows
         time.sleep(3)
     raise Problem("Couldn't check the achievement numbers",
@@ -192,14 +214,20 @@ def numbers(appid):
         if cached and time.monotonic() - cached[0] < CACHE_FOR:
             return cached[1]
         started = not asf_running()
+        PROGRESS[appid] = []
         try:
+            _step(appid, "Starting ArchiSteamFarm" if started else "ArchiSteamFarm is running")
             ensure_asf_running()
+            _step(appid, "Asking ArchiSteamFarm for the game's achievements")
             rows = _alist(appid)
+            _step(appid, "Matching them with Steam's achievement details")
             mine = _steam_stats("profiles", _bot_steamid(), appid)["achievements"]
             result = {"appid": appid, "achievements": _merge(rows, mine)}
         finally:
             if started and not lock_info(SESSION_LOCK):
+                _step(appid, "Closing ArchiSteamFarm")
                 asf_setup._stop_idle_asf()  # waits until it's gone
+            PROGRESS.pop(appid, None)
         _cache[appid] = (time.monotonic(), result)
         return result
 

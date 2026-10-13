@@ -1,4 +1,4 @@
-"""The local app: serves the Unlock Scheduler page from docs/ at
+"""The local app: serves the app's page (docs/app.html) at
 http://127.0.0.1:<ui_port>, plus a small JSON API the page uses when it's
 opened from here — save a config straight into jsons/, start a game's
 sessions in the background, stop them, and follow their output.
@@ -27,7 +27,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from unlocker import achievements, asf_setup, extras, updates
 from unlocker import settings as settings_module
-from unlocker.api import notify
 from unlocker.paths import CODE_DIR, DATA_DIR
 from unlocker.runner import _session_status, config_changed
 from unlocker.settings import SETTINGS, SETTINGS_PATH
@@ -467,6 +466,16 @@ def achievement_numbers(appid):
         raise AppError(str(e), 409, title=e.title)
 
 
+def numbers_progress(appid):
+    """The steps of an achievement-numbers check still going, for the
+    builder to show while it waits."""
+    try:
+        steps = achievements.PROGRESS.get(int(appid), [])
+    except (TypeError, ValueError):
+        steps = []
+    return {"steps": [{"text": text, "done": state == "done"} for text, state in steps]}
+
+
 def achievements_from_link(url):
     """A player's unlocked achievements, from a SteamHunters or Steam link."""
     try:
@@ -478,11 +487,6 @@ def achievements_from_link(url):
 def test_keep_awake():
     works, found = extras.test_keep_awake()
     return {"works": works, "found": found}
-
-
-def test_notification():
-    notify("Test", "Notifications work. You'll get one when a session ends or a run stops.", force=True)
-    return {"sent": True}
 
 
 def _shown_path(path):
@@ -607,6 +611,9 @@ class Handler(SimpleHTTPRequestHandler):
             return
         url = urlparse(self.path)
         if not url.path.startswith("/api/"):
+            # The app's page is app.html; index.html is the website's.
+            if url.path in ("/", "/index.html"):
+                self.path = "/app.html" + (f"?{url.query}" if url.query else "")
             return super().do_GET()
         query = {k: v[0] for k, v in parse_qs(url.query).items()}
         routes = {
@@ -617,6 +624,7 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/update": lambda: updates.update_state(force=query.get("force") == "1"),
             "/api/log": lambda: read_log(query.get("name")),
             "/api/timeline": lambda: read_timeline(query.get("name")),
+            "/api/achievements/progress": lambda: numbers_progress(query.get("appid")),
             "/api/settings": run_settings,
         }
         self._route(routes.get(url.path))
@@ -649,7 +657,6 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/settings": lambda: save_run_settings(body.get("settings")),
             "/api/setup/install": lambda: setup_install(bool(body.get("latest"))),
             "/api/setup/asf-check": asf_check,
-            "/api/setup/test-notification": test_notification,
             "/api/setup/test-awake": test_keep_awake,
             "/api/open-folder": open_data_folder,
             "/api/achievements/numbers": lambda: achievement_numbers(body.get("appid")),
@@ -658,6 +665,7 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/setup/login": lambda: setup_login(body.get("username"), body.get("password")),
             "/api/setup/code": lambda: setup_code(body.get("code")),
             "/api/update": app_update,
+            "/api/quit": quit_server,
         }
         self._route(routes.get(urlparse(self.path).path))
 
@@ -684,7 +692,22 @@ def _keep_asf_current():
         time.sleep(600)
 
 
+_server = None  # the running ThreadingHTTPServer, for quit_server()
+
+
+def quit_server():
+    """The desktop app closing: stops this server, which nothing needs
+    once its window is gone (games run on their own and keep going), so
+    macOS doesn't list STAR as running in the background. Not while
+    ArchiSteamFarm is being installed, which runs in this process."""
+    if _setup["busy"]:
+        raise AppError("ArchiSteamFarm is being set up; the server stays until it's done.", 409)
+    threading.Thread(target=_server.shutdown, daemon=True).start()
+    return {"quit": True}
+
+
 def serve():
+    global _server
     if not acquire_lock(SERVER_LOCK, "app", keep=True):
         print("The app is already running.")
         return
@@ -692,6 +715,7 @@ def serve():
     server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     print(f"Serving {URL} (started {datetime.now():%a %H:%M}).")
     threading.Thread(target=_keep_asf_current, daemon=True).start()
+    _server = server
     server.serve_forever()
 
 

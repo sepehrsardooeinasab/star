@@ -8,11 +8,14 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 #[cfg(target_os = "macos")]
-mod notify;
+mod background;
 
 use std::env;
 use std::path::{Path, PathBuf};
+use std::io::{Read, Write};
+use std::net::TcpStream;
 use std::process::Command;
+use std::sync::OnceLock;
 use std::thread;
 use std::time::Duration;
 
@@ -98,6 +101,31 @@ fn start_server(code: Option<PathBuf>, home: &Path) -> Result<String, String> {
             String::from_utf8_lossy(&output.stderr).trim()
         )),
     }
+}
+
+/// The server's URL once it's up, to stop it when the window closes.
+static SERVER_URL: OnceLock<String> = OnceLock::new();
+
+/// A request to the server (once it's up); the response's body, or None.
+/// POST bodies are JSON.
+fn server_request(method: &str, path: &str, body: Option<&str>) -> Option<String> {
+    let host = SERVER_URL.get()?.strip_prefix("http://")?.split('/').next()?;
+    let addr = host.parse().ok()?;
+    let mut stream = TcpStream::connect_timeout(&addr, Duration::from_secs(1)).ok()?;
+    let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
+    let body = body.unwrap_or(if method == "POST" { "{}" } else { "" });
+    let request = format!("{method} {path} HTTP/1.1\r\nHost: {host}\r\nContent-Type: application/json\r\n\
+                           Content-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
+    stream.write_all(request.as_bytes()).ok()?;
+    let mut response = String::new();
+    let _ = stream.read_to_string(&mut response);
+    response.split_once("\r\n\r\n").map(|(_, body)| body.to_string())
+}
+
+/// Asks the server to stop (POST /api/quit). Games are their own processes
+/// and keep running; the next launch starts the server again.
+fn quit_server() {
+    let _ = server_request("POST", "/api/quit", None);
 }
 
 /// Where the window buttons sit on macOS, centred in the page's 52px top bar.
@@ -220,6 +248,10 @@ const REPO: &str = "https://github.com/sepehrsardooeinasab/star";
 /// there checking for an update when asked. (Before the page has loaded,
 /// nothing happens.) Help links open in the browser.
 fn on_menu(app: &AppHandle, event: MenuEvent) {
+    #[cfg(target_os = "macos")]
+    if background::on_menu(app, event.id().as_ref()) {
+        return;
+    }
     let click = |id: &str| format!("document.getElementById('{id}') && document.getElementById('{id}').click()");
     let script = match event.id().as_ref() {
         "settings" => "window.unlockerShowGuide && unlockerShowGuide()".to_string(),
@@ -251,18 +283,27 @@ fn on_new_window(url: tauri::Url) -> NewWindowResponse<tauri::Wry> {
 }
 
 fn main() {
-    // Runs post their notifications through the app (see notify.rs).
-    #[cfg(target_os = "macos")]
-    {
-        let args: Vec<String> = env::args().skip(1).collect();
-        if args.first().is_some_and(|a| a.starts_with("--notify")) {
-            std::process::exit(notify::run(&args));
-        }
-    }
     tauri::Builder::default()
         .menu(menu)
         .on_menu_event(on_menu)
         .on_window_event(|_window, event| {
+            // While a game runs, closing the window leaves STAR in the menu
+            // bar (macOS; see background.rs).
+            #[cfg(target_os = "macos")]
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if background::hide_instead_of_close(_window) {
+                    api.prevent_close();
+                    return;
+                }
+            }
+            // Otherwise closing the window quits STAR, rather than leaving
+            // it open with no window ("Running in Background" in the Dock).
+            // Games are their own processes and keep running either way.
+            if matches!(event, tauri::WindowEvent::Destroyed) {
+                quit_server();
+                _window.app_handle().exit(0);
+                return;
+            }
             #[cfg(target_os = "macos")]
             if matches!(event, tauri::WindowEvent::Focused(_) | tauri::WindowEvent::Resized(_)
                 | tauri::WindowEvent::ThemeChanged(_) | tauri::WindowEvent::ScaleFactorChanged { .. })
@@ -289,14 +330,16 @@ fn main() {
                 .hidden_title(true)
                 .traffic_light_position(tauri::LogicalPosition::new(WINDOW_BUTTONS.0, WINDOW_BUTTONS.1));
             let window = builder.build()?;
-            // Asks for notification permission now, while the app is open,
-            // so runs don't wait on the prompt.
             #[cfg(target_os = "macos")]
-            thread::spawn(|| notify::authorize(Duration::from_secs(600)));
+            {
+                background::start(app.handle())?;
+                background::guard_system_quit();
+            }
             let home = home_dir();
             let code = code_dir(app.path().resource_dir().ok(), &home);
             thread::spawn(move || match start_server(code, &home) {
                 Ok(url) => {
+                    let _ = SERVER_URL.set(url.clone());
                     // Tells the page it's in the app, which lays out its top
                     // bar as the window's title bar. A dev build adds dev=1:
                     // all text selectable and the full right-click menu
@@ -316,6 +359,13 @@ fn main() {
             });
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running the app");
+        .build(tauri::generate_context!())
+        .expect("error while building the app")
+        .run(|_app, _event| {
+            // The Dock icon clicked with the window hidden (macOS).
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = _event {
+                background::show_window(_app);
+            }
+        });
 }

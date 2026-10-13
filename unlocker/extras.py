@@ -1,7 +1,5 @@
-"""The optional pieces runs use, for Settings: what keeps the computer awake
-during a run (caffeinate on macOS, systemd-inhibit on Linux) and what shows
-notifications (built in on macOS, notify-send on Linux), whether each is
-there, and how to install what's missing."""
+"""For Settings: what keeps the computer awake during a run (caffeinate on
+macOS, systemd-inhibit on Linux), whether it's there, and a test of it."""
 import os
 import shutil
 import subprocess
@@ -20,48 +18,11 @@ def extend_path():
     os.environ["PATH"] = ":".join(parts + [p for p in EXTRA_PATH if p not in parts])
 
 
-def _linux_notify_install():
-    """The command that installs notify-send on this Linux, or None."""
-    ids = set()
-    try:
-        for line in open("/etc/os-release"):
-            key, _, value = line.strip().partition("=")
-            if key in ("ID", "ID_LIKE"):
-                ids.update(value.strip('"').split())
-    except OSError:
-        pass
-    for family, command in (("debian", "sudo apt install libnotify-bin"),
-                            ("ubuntu", "sudo apt install libnotify-bin"),
-                            ("fedora", "sudo dnf install libnotify"),
-                            ("rhel", "sudo dnf install libnotify"),
-                            ("arch", "sudo pacman -S libnotify"),
-                            ("suse", "sudo zypper install libnotify-tools"),
-                            ("opensuse", "sudo zypper install libnotify-tools")):
-        if family in ids:
-            return command
-    return None
-
-
 def status():
-    """{"keep_awake": {...}, "notifications": {...}}, each with the tool in
-    use (None if there's none), whether that's the full experience, and an
-    install command (with can_run: whether the app can run it itself)."""
-    if sys.platform == "darwin":
-        return {
-            "keep_awake": {"tool": "caffeinate" if shutil.which("caffeinate") else None, "full": True},
-            "notifications": {"tool": "osascript", "full": True, "install": None, "can_run": False},
-        }
-    notify_send = shutil.which("notify-send")
-    return {
-        "keep_awake": {"tool": "systemd-inhibit" if shutil.which("systemd-inhibit") else None, "full": True},
-        "notifications": {
-            "tool": "notify-send" if notify_send else None,
-            "full": bool(notify_send),
-            "install": None if notify_send else _linux_notify_install(),
-            "can_run": False,  # needs sudo: shown for the user to run
-        },
-    }
-
+    """{"keep_awake": {"tool": ...}}: the tool runs use to keep the computer
+    awake, or None if there's none."""
+    tool = "caffeinate" if sys.platform == "darwin" else "systemd-inhibit"
+    return {"keep_awake": {"tool": tool if shutil.which(tool) else None, "full": True}}
 
 
 def test_keep_awake():

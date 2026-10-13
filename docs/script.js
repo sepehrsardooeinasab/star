@@ -216,7 +216,17 @@
       numbersWanted = appid;
       clearTimeout(numbersTimer);
       numbersTimer = setTimeout(function () {
-        numberings[appid] = {status: "loading"};
+        var loading = numberings[appid] = {status: "loading", steps: []};
+        // What the check is doing (starting ArchiSteamFarm, signing in…),
+        // shown as it goes.
+        var poll = setInterval(function () {
+          if (numberings[appid] !== loading) { clearInterval(poll); return; }
+          api("/api/achievements/progress?appid=" + appid).then(function (d) {
+            if (numberings[appid] !== loading || JSON.stringify(d.steps) === JSON.stringify(loading.steps)) return;
+            loading.steps = d.steps;
+            scheduleRecompute();
+          }).catch(function () {});
+        }, 700);
         api("/api/achievements/numbers", {appid: appid}).then(function (d) {
           numberings[appid] = {status: "ok", data: d};
         }).catch(function (err) {
@@ -515,78 +525,95 @@
     return row[3] === "";
   }
 
-  // ui (optional) = {targets, gapActions, edits, originals, breaks,
-  // autoBreaks} makes delay_s cells clickable to edit (edited ones are
-  // highlighted with an undo button) and adds small add/remove-gap
-  // buttons after the session number / gap label. achievementClass
-  // (optional) gives each achievement row a class, by its index.
-  function rowsToTable(rows, ui, achievementClass) {
-    var achievement = -1;
-    var head = rows[0];
-    var body = rows.slice(1);
+  // The full timeline, for Schedule and Runs alike: one row per
+  // achievement under its session's heading, and a row for each break.
+  // Where the rows come from, what can be edited and which + / − apply is
+  // up to the caller, through hooks:
+  //   rowClass(index)  a class for the index-th achievement row, or ""
+  //   edit(ri)         null, or {cls, attr, undoAttr, original, title} for
+  //                    a delay that can be changed (original: the value
+  //                    before an edit, when it was edited)
+  //   gapButton(ri, r) the + / − after a row's number or break label
+  function timelineTable(rows, hooks) {
     var pretty = combined;  // the app: friendlier columns (see prettyTime)
-    var html = '<div class="table-wrap"><table class="csv-table' + (pretty ? " pretty" : "") + '"><thead><tr>';
-    (pretty ? ["#", "Achievement", "Player's time", "After"] : head).forEach(function (h) { html += "<th>" + escapeHtml(h) + "</th>"; });
-    html += "</tr></thead><tbody>";
-    var shown = function (r) { return pretty ? exactDuration(r[CSV_DELAY_COL + 1]) : r[CSV_DELAY_COL + 1]; };
-
+    var achievement = -1;
+    var html = '<div class="table-wrap"><table class="csv-table' + (pretty ? " pretty" : "") + '"><thead><tr>' +
+      (pretty ? ["#", "Achievement", "Player's time", "After"] : rows[0]).map(function (h) {
+        return "<th>" + escapeHtml(h) + "</th>";
+      }).join("") + "</tr></thead><tbody>";
+    var shown = function (seconds) { return pretty ? exactDuration(seconds) : String(seconds); };
+    function gap(ri, r) { return hooks.gapButton ? hooks.gapButton(ri, r) : ""; }
     function delayCell(r, ri) {
-      var id = ui && ui.targets[ri + 1];
-      if (!id) return "<td>" + escapeHtml(shown(r)) + "</td>";
-      var edited = id in ui.edits;
+      var value = escapeHtml(shown(r[CSV_DELAY_COL + 1]));
+      var e = hooks.edit && hooks.edit(ri);
+      if (!e) return '<td class="delay-cell">' + value + "</td>";
+      var edited = e.original !== undefined;
       // In the app the undo goes before the time, so the times line up.
-      var undo = edited ? '<button class="undo-edit" type="button" data-undo="' + escapeHtml(id) + '" title="Undo this edit">↺</button>' : "";
-      var title = edited
-        ? "Edited (was " + ui.originals[id] + "s) — click to change"
-        : "Click to edit this delay";
-      return '<td class="delay-cell editable' + (edited ? " edited" : "") + '" data-id="' + escapeHtml(id) +
-        '" title="' + escapeHtml(title) + '">' + (pretty ? undo + escapeHtml(shown(r)) : escapeHtml(shown(r)) + undo) +
-        "</td>";
+      var undo = edited ? '<button class="undo-edit" type="button" ' + e.undoAttr + ' title="Undo (was ' +
+        escapeHtml(shown(e.original)) + ')">↺</button>' : "";
+      return '<td class="delay-cell ' + e.cls + (edited ? " edited" : "") + '" ' + e.attr +
+        (e.title ? ' title="' + escapeHtml(e.title) + '"' : "") + ">" + (pretty ? undo + value : value + undo) + "</td>";
     }
-
-    // A gap is manual when it differs from what the limits would decide:
-    // an added gap shows a highlighted −, a removed one a highlighted +.
-    function gapButton(ri) {
-      var act = ui && ui.gapActions[ri + 1];
-      if (!act) return "";
-      var manual = act.id in ui.breaks && ui.breaks[act.id] !== ui.autoBreaks[act.id];
-      var add = act.kind === "add";
-      var title = add
-        ? (manual ? "A gap was removed here — click to put it back" : "Start a new session at this achievement")
-        : (manual ? "You added this gap — click to remove it" : "Remove this gap (merge into the previous session)");
-      return '<button class="gap-btn' + (manual ? " edited" : "") + '" type="button" data-gap="' +
-        escapeHtml(act.id) + '" data-kind="' + act.kind + '" title="' + escapeHtml(title) + '">' +
-        (add ? "+" : "−") + "</button>";
-    }
-
-    body.forEach(function (r, ri) {
+    rows.slice(1).forEach(function (r, i) {
+      var ri = i + 1;
       if (pretty) {
         if (/^Copied from:/.test(r[0])) return;
         if (isLabelRow(r)) {
           var kind = /^Gap/.test(r[0]) ? "gap-row" : "session-row";
-          html += '<tr class="' + kind + '"><td colspan="3">' + escapeHtml(prettyLabel(r)) + gapButton(ri) + "</td>" +
+          html += '<tr class="' + kind + '"><td colspan="3"><span class="cell-line">' + escapeHtml(prettyLabel(r)) + gap(ri, r) + "</span></td>" +
             (kind === "gap-row" ? delayCell(r, ri) : "<td></td>") + "</tr>";
-        } else {
-          var cls2 = achievementClass ? achievementClass(++achievement) : "";
-          html += "<tr" + (cls2 ? ' class="' + cls2 + '"' : "") + '><td><span class="row-num">' + escapeHtml(r[1]) + "</span>" +
-            gapButton(ri) + "</td><td>" +
-            escapeHtml(r[2]) + "</td><td>" + escapeHtml(prettyTime(r[4])) + "</td>" + delayCell(r, ri) + "</tr>";
+          return;
         }
+        var rc = hooks.rowClass ? hooks.rowClass(++achievement) : "";
+        html += "<tr" + (rc ? ' class="' + rc + '"' : "") + '><td><span class="cell-line"><span class="row-num">' + escapeHtml(r[1]) + "</span>" +
+          gap(ri, r) + "</span></td><td>" + escapeHtml(r[2]) + "</td><td>" + escapeHtml(prettyTime(r[4])) + "</td>" +
+          delayCell(r, ri) + "</tr>";
         return;
       }
       if (isLabelRow(r)) {
         var cls = /^Gap/.test(r[0]) ? "gap-row" : /^Copied from:/.test(r[0]) ? "meta-row" : "session-row";
-        html += '<tr class="' + cls + '"><td colspan="' + CSV_DELAY_COL + '">' + escapeHtml(r[0]) + gapButton(ri) + "</td>" +
+        html += '<tr class="' + cls + '"><td colspan="' + CSV_DELAY_COL + '">' + escapeHtml(r[0]) + gap(ri, r) + "</td>" +
           "<td>" + escapeHtml(r[CSV_DELAY_COL]) + "</td>" + delayCell(r, ri) + "</tr>";
-      } else {
-        var rowClass = achievementClass ? achievementClass(++achievement) : "";
-        html += "<tr" + (rowClass ? ' class="' + rowClass + '"' : "") + "><td>" + escapeHtml(r[0]) + gapButton(ri) + "</td>" +
-          r.slice(1, CSV_DELAY_COL).map(function (c) { return "<td>" + escapeHtml(c) + "</td>"; }).join("") +
-          "<td>" + escapeHtml(r[CSV_DELAY_COL]) + "</td>" + delayCell(r, ri) + "</tr>";
+        return;
+      }
+      var rowClass = hooks.rowClass ? hooks.rowClass(++achievement) : "";
+      html += "<tr" + (rowClass ? ' class="' + rowClass + '"' : "") + "><td>" + escapeHtml(r[0]) + gap(ri, r) + "</td>" +
+        r.slice(1, CSV_DELAY_COL).map(function (c) { return "<td>" + escapeHtml(c) + "</td>"; }).join("") +
+        "<td>" + escapeHtml(r[CSV_DELAY_COL]) + "</td>" + delayCell(r, ri) + "</tr>";
+    });
+    return html + "</tbody></table></div>";
+  }
+
+  // Schedule's full timeline. ui (optional) = {targets, gapActions, edits,
+  // originals, breaks, autoBreaks} makes delays clickable to edit (edited
+  // ones highlighted, with an undo) and adds the + / − for breaks.
+  // achievementClass (optional) gives each achievement row a class.
+  function rowsToTable(rows, ui, achievementClass) {
+    return timelineTable(rows, {
+      rowClass: achievementClass,
+      edit: function (ri) {
+        var id = ui && ui.targets[ri];
+        if (!id) return null;
+        var edited = id in ui.edits;
+        return {cls: "editable", attr: 'data-id="' + escapeHtml(id) + '"', undoAttr: 'data-undo="' + escapeHtml(id) + '"',
+                original: edited ? ui.originals[id] : undefined,
+                title: edited ? "Edited — click to change" : "Click to edit this delay"};
+      },
+      // A gap is manual when it differs from what the limits would decide:
+      // an added gap shows a highlighted −, a removed one a highlighted +.
+      gapButton: function (ri) {
+        var act = ui && ui.gapActions[ri];
+        if (!act) return "";
+        var manual = act.id in ui.breaks && ui.breaks[act.id] !== ui.autoBreaks[act.id];
+        var add = act.kind === "add";
+        var title = add
+          ? (manual ? "A gap was removed here — click to put it back" : "Start a new session at this achievement")
+          : (manual ? "You added this gap — click to remove it" : "Remove this gap (merge into the previous session)");
+        return '<button class="gap-btn' + (manual ? " edited" : "") + '" type="button" data-gap="' +
+          escapeHtml(act.id) + '" data-kind="' + act.kind + '" title="' + escapeHtml(title) + '">' +
+          (add ? "+" : "−") + "</button>";
       }
     });
-    html += "</tbody></table></div>";
-    return html;
   }
 
   function highlightJson(json) {
@@ -723,6 +750,16 @@
     navButtons[key].addEventListener("click", function () { setView(key); });
   });
 
+  // A wait in progress: what it's for, then each step so far, done ones
+  // ticked and the current one spinning.
+  function stepsHtml(title, steps) {
+    if (!steps || !steps.length) return noticeHtml("info", title);
+    return '<div class="notice info steps"><div><div class="notice-title">' + escapeHtml(title) + '</div><ul class="step-list">' +
+      steps.map(function (s) {
+        return '<li class="' + (s.done ? "done" : "now") + '">' + escapeHtml(s.text) + (s.done ? "" : "\u2026") + "</li>";
+      }).join("") + "</ul></div></div>";
+  }
+
   function noticeHtml(kind, text) {
     return '<div class="notice ' + kind + '">' + escapeHtml(text) + "</div>";
   }
@@ -836,7 +873,8 @@
     if (local) {
       var numbering = loadNumbers(appidVal);
       if (numbering.status === "loading") {
-        latest = {errors: ["Checking the achievement numbers with ArchiSteamFarm\u2026"], pending: true};
+        latest = {errors: ["Checking the achievement numbers with ArchiSteamFarm\u2026"], pending: true,
+                  steps: numbering.steps};
         return;
       }
       if (numbering.status === "ok") {
@@ -1070,7 +1108,7 @@
         // What's still missing (like the App ID) says so here; problems
         // with the paste itself already show under it.
         var missing = latest && !latest.inputNotice && els.exportText.value.trim() ? latest.errors : [];
-        slot.innerHTML = latest && latest.pending ? noticeHtml("info", latest.errors[0])
+        slot.innerHTML = latest && latest.pending ? stepsHtml(latest.errors[0], latest.steps)
           : missing.map(function (m) { return noticeHtml("info", m); }).join("") +
             emptyHtml("☰", "The timeline shows up here once the paste reads cleanly.");
         return;
@@ -1241,12 +1279,8 @@
     saveDraft();
     recompute();
     render();
-    // A new gap starts as the achievement's old delay; open its duration
-    // for editing right away.
-    if (on) {
-      var cell = document.querySelector('tr.gap-row td.delay-cell.editable[data-id="' + id.replace(/["\\]/g, "\\$&") + '"]');
-      if (cell) startEditing(cell);
-    }
+    // A new gap starts as the achievement's old delay, as in Runs; click
+    // it to change it.
   }
 
   document.addEventListener("click", function (e) {
@@ -1571,11 +1605,20 @@
   }
 
   // Clock time `seconds` from now, with the weekday when it isn't today.
+  // When something happens: the time today, "Tomorrow", a weekday within
+  // the coming week, and past that the date ("Nov 6"), so a day name never
+  // means a later week's.
   function fmtAt(seconds) {
-    var at = new Date(Date.now() + seconds * 1000);
+    var now = new Date(), at = new Date(now.getTime() + seconds * 1000);
     var time = at.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
-    return at.toDateString() === new Date().toDateString()
-      ? time : at.toLocaleDateString([], {weekday: "short"}) + " " + time;
+    var day = function (d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); };
+    var days = Math.round((day(at) - day(now)) / 86400000);
+    if (days <= 0) return time;
+    if (days === 1) return "Tomorrow " + time;
+    if (days < 7) return at.toLocaleDateString([], {weekday: "short"}) + " " + time;
+    var date = {month: "short", day: "numeric"};
+    if (at.getFullYear() !== now.getFullYear()) date.year = "numeric";
+    return at.toLocaleDateString([], date) + ", " + time;
   }
 
   // Countdowns come from the last fetch; count them down in between.
@@ -1606,14 +1649,9 @@
     if (g.state === "invalid") meta = "The config has a problem.";
     else if (g.finished || g.state === "completed") meta = "All achievements unlocked.";
     else if (!g.session) meta = g.total ? g.done + " / " + g.total + " achievements" : "";
-    else {
-      meta = "Session " + g.session + " of " + g.sessions;
-      if (g.state === "in_session") {
-        meta += " · " + (g.next_unlock_in == null ? "unlocking…" : "next unlock in " + fmtDur(left(g.next_unlock_in)));
-      } else if (g.running) {
-        meta += " · " + (wait > 0 ? "starts " + fmtAt(wait) : "starting…");
-      }
-    }
+    // Just the session: Playing / Waiting is the badge, and the next
+    // unlock or start is in the selected game's summary.
+    else meta = "Session " + g.session + " of " + g.sessions;
     // On a break: dimmed, with a clock; when it can play is on hover and
     // in the line over its sessions.
     var clock = resting ? '<svg class="run-rest" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" ' +
@@ -1632,10 +1670,15 @@
   function summaryHtml(g) {
     if (!g) return "";
     var title = '<div class="run-summary-title">' + escapeHtml(gameTitle(g)) + "</div>";
+    // A small arrow opens the schedule's info (App ID, where it came from)
+    // under the summary.
+    var more = '<button class="summary-more" type="button" data-run-info aria-expanded="' + !!runInfoOpen + '" title="' +
+      (runInfoOpen ? "Hide" : "Show") + ' App ID and where it came from" aria-label="Schedule info">' +
+      '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5 8 10l3.5-3.5"/></svg></button>';
     if (g.state === "invalid") {
-      return title + '<div class="run-summary-line"><span class="bad">' + escapeHtml(g.error || "The config has a problem.") + "</span></div>";
+      return title + '<div class="run-summary-line"><span class="bad">' + escapeHtml(g.error || "The config has a problem.") + "</span>" + more + "</div>";
     }
-    if (g.finished || g.state === "completed") return title + '<div class="run-summary-line">All achievements unlocked</div>';
+    if (g.finished || g.state === "completed") return title + '<div class="run-summary-line">All achievements unlocked' + more + "</div>";
     var parts = [];
     function part(label, value) {
       parts.push('<div class="summary-part"><span class="summary-label">' + label + '</span><span class="summary-value">' +
@@ -1654,6 +1697,7 @@
       var wait = waitLeft(g);
       part(g.running ? "Starts" : "Playable", wait > 0 ? escapeHtml(fmtAt(wait)) : g.running ? "Starting…" : "Now");
     }
+    parts[parts.length - 1] = parts[parts.length - 1].replace(/<\/div>$/, more + "</div>");
     return title + '<div class="summary-bar">' + parts.join("") + "</div>" +
       (g.config_changed ? '<div class="run-summary-line"><span class="warn">The achievement order changed: run it once from the terminal to confirm.</span></div>' : "");
   }
@@ -1692,17 +1736,15 @@
   }
 
   // The bar acts on the selected game: Run or Continue it, or while it's
-  // running, Stop it, with Next / All switching how much it plays.
+  // running, Stop it, with 1 session / All sessions switching how much it plays.
   function selectedGame() {
     return (runsData ? runsData.games : []).filter(function (x) { return x.name === selectedRun; })[0];
   }
 
-  // Next (session) / All (sessions), shown as pressed.
+  // 1 session / All sessions.
   function setRunMode(every, disabled) {
-    byId("run-mode").querySelectorAll("button").forEach(function (b) {
-      b.setAttribute("aria-pressed", String((b.getAttribute("data-every") === "1") === !!every));
-      b.disabled = !!disabled;
-    });
+    byId("run-mode").value = every ? "1" : "0";
+    byId("run-mode").disabled = !!disabled;
   }
 
   function renderRunBar(games) {
@@ -1782,6 +1824,7 @@
     var shown = selectedGame();
     byId("run-summary").innerHTML = runsError ? "" : summaryHtml(shown);
     byId("run-info").innerHTML = runsError ? "" : infoHtml(shown);
+    byId("run-info").hidden = !runInfoOpen || !shown;
     renderTimeline();
   }
 
@@ -1865,50 +1908,31 @@
       }).join("") + "</tbody></table></div>";
   }
 
+  // Runs' full timeline: what's unlocked dimmed, the next one marked while
+  // it plays; unlocked for editing, the delays and breaks still ahead can
+  // change (editable: the rows whose delay can).
   function timelineHtml(rows, done, running, editable) {
-    var pretty = local;  // the app: friendlier columns (see prettyTime)
-    var html = '<div class="table-wrap"><table class="csv-table' + (pretty ? " pretty" : "") + '"><thead><tr>' +
-      (pretty ? ["#", "Achievement", "Player's time", "After"] : rows[0]).map(function (h) {
-        return "<th>" + escapeHtml(h) + "</th>";
-      }).join("") + "</tr></thead><tbody>";
-    var index = -1;
-    function delayCell(r, ri) {
-      var original = runEdit ? runEdit.edited[ri] : undefined;
-      var cls = "delay-cell" + (editable && editable[ri] ? " run-editable" : "") + (original !== undefined ? " edited" : "");
-      var undo = original !== undefined ? '<button class="undo-edit" type="button" data-run-undo="' + ri +
-        '" title="Undo (was ' + (pretty ? exactDuration(original) : original + "s") + ')">↺</button>' : "";
-      var value = escapeHtml(pretty ? exactDuration(r[CSV_DELAY_COL + 1]) : r[CSV_DELAY_COL + 1]);
-      return '<td class="' + cls + '" data-row="' + ri + '">' + (pretty ? undo + value : value + undo) + "</td>";
-    }
-    rows.slice(1).forEach(function (r, i) {
-      var ri = i + 1;
-      if (pretty) {
-        if (/^Copied from:/.test(r[0])) return;
-        if (isLabelRow(r)) {
-          var kind = /^Gap/.test(r[0]) ? "gap-row" : "session-row";
-          html += '<tr class="' + kind + '"><td colspan="3">' + escapeHtml(prettyLabel(r)) + "</td>" +
-            (kind === "gap-row" ? delayCell(r, ri) : "<td></td>") + "</tr>";
-          return;
-        }
-        index++;
-        var rc = index < done ? "done-row" : index === done && running ? "next-row" : "";
-        html += "<tr" + (rc ? ' class="' + rc + '"' : "") + "><td>" + escapeHtml(r[1]) + "</td><td>" + escapeHtml(r[2]) +
-          "</td><td>" + escapeHtml(prettyTime(r[4])) + "</td>" + delayCell(r, ri) + "</tr>";
-        return;
+    return timelineTable(rows, {
+      rowClass: function (index) { return index < done ? "done-row" : index === done && running ? "next-row" : ""; },
+      edit: function (ri) {
+        if (!editable || !editable[ri]) return null;
+        return {cls: "run-editable", attr: 'data-row="' + ri + '"', undoAttr: 'data-run-undo="' + ri + '"',
+                original: runEdit.edited[ri]};
+      },
+      // + starts a new session at an achievement still ahead, − removes a
+      // break before a session still ahead.
+      gapButton: function (ri, r) {
+        if (!runEdit || !editable || (!isLabelRow(r) && String(r[1]) === "1")) return "";
+        var k = runEdit.rowAch[ri], a = runEdit.config.achievements[k];
+        if (k === undefined || !a) return "";
+        var add = !a.new_session;
+        if (add ? k < done : k <= done) return "";
+        var changed = !!a.new_session !== !!runEdit.base.achievements[k].new_session;
+        return '<button class="gap-btn' + (changed ? " edited" : "") + '" type="button" data-run-break="' + k + '" title="' +
+          (add ? "Start a new session at this achievement" : "Remove this break (merge into the previous session)") + '">' +
+          (add ? "+" : "−") + "</button>";
       }
-      if (isLabelRow(r)) {
-        var cls = /^Gap/.test(r[0]) ? "gap-row" : /^Copied from:/.test(r[0]) ? "meta-row" : "session-row";
-        html += '<tr class="' + cls + '"><td colspan="' + CSV_DELAY_COL + '">' + escapeHtml(r[0]) + "</td>" +
-          "<td>" + escapeHtml(r[CSV_DELAY_COL]) + "</td>" + delayCell(r, ri) + "</tr>";
-        return;
-      }
-      index++;
-      var rowClass = index < done ? "done-row" : index === done && running ? "next-row" : "";
-      html += "<tr" + (rowClass ? ' class="' + rowClass + '"' : "") + ">" +
-        r.slice(0, CSV_DELAY_COL + 1).map(function (c) { return "<td>" + escapeHtml(c) + "</td>"; }).join("") +
-        delayCell(r, ri) + "</tr>";
     });
-    return html + "</tbody></table></div>";
   }
 
   function renderTimeline() {
@@ -1923,25 +1947,26 @@
     timelineShown = key;
     // Every achievement (no log) for Full timeline, and while editing.
     var full = runFull || !!runEdit;
+    byId("run-full-btn").disabled = !!runEdit;  // it's needed for editing
     document.querySelector(".runs-log").classList.toggle("full", full);
     byId("run-activity").hidden = full;
 
     byId("run-full-btn").hidden = !(rows && rows.length > 1);  // nothing more to show without a timeline
     var canEdit = !!(data && data.config && rows && rows.length > 1 && game.state !== "completed");
-    byId("timeline-bar").hidden = !canEdit;
+    // The lock is in the full timeline only, where delays are changed, so
+    // it never switches the view.
+    byId("timeline-bar").hidden = !canEdit || !full;
     // The same lock as Settings: open it to change delays; closing it
     // again drops anything not saved.
     var lock = byId("timeline-lock");
     lock.setAttribute("aria-pressed", String(!!runEdit));
     lock.disabled = !!game.running && !runEdit;
     lock.title = game.running ? "Stop the game to change its timeline"
-      : runEdit ? "Lock again (unsaved changes are dropped)" : "Unlock to change the delays still ahead";
+      : runEdit ? "Lock again (unsaved changes are dropped)" : "Unlock to change the delays and breaks still ahead";
     byId("timeline-lock-label").textContent = runEdit ? "Unlocked" : "Locked";
     byId("timeline-save").hidden = !runEdit;
-    byId("timeline-save").disabled = !runEdit || !Object.keys(runEdit.edited).length;
-    byId("timeline-bar-text").textContent = runEdit
-      ? "Click a delay still ahead to change it, in seconds."
-      : game.running ? "Stop the game to change its timeline." : "";
+    byId("timeline-save").disabled = !runEdit || JSON.stringify(runEdit.config) === JSON.stringify(runEdit.base);
+    byId("timeline-bar-text").textContent = "";  // the lock's tooltip says it
 
     byId("timeline-table").innerHTML = rows && rows.length > 1
       ? (runFull || runEdit ? timelineHtml(rows, done, game.running, runEdit && editableRows(rows, done))
@@ -1949,51 +1974,36 @@
       : emptyHtml("☰", "No timeline was saved with this game.");
   }
 
-  // A session's total is the sum of its achievements' delays.
-  function updateSessionTotals(rows) {
-    var label = null;
+  // Editing works on a copy of the schedule (runEdit.config); the rows
+  // are rebuilt from it after each change, with the names and player's
+  // times from the saved timeline. rowAch: each row's achievement (a
+  // break row's is the session start after it); edited: rows whose delay
+  // differs from the saved one, with the saved value, for undo.
+  function rebuildEdit() {
+    var rows = rowsFromConfig(runEdit.config, runEdit.known);
+    if (runEdit.meta) rows.splice(1, 0, runEdit.meta);
+    var index = {}, rowAch = {}, edited = {}, pendingGap = null;
+    runEdit.config.achievements.forEach(function (a, k) { index[String(a.id)] = k; });
     rows.forEach(function (r, ri) {
-      if (ri === 0) return;
-      if (isLabelRow(r)) {
-        if (/^Session/.test(r[0])) { label = r; r[CSV_DELAY_COL + 1] = 0; }
-        else label = null;
-      } else if (label) {
-        label[CSV_DELAY_COL + 1] += Number(r[CSV_DELAY_COL + 1]) || 0;
-      }
+      if (ri === 0 || /^Copied from:/.test(r[0])) return;
+      if (isLabelRow(r)) { if (/^Gap/.test(r[0])) pendingGap = ri; return; }
+      var k = index[String(r[3])];
+      rowAch[ri] = k;
+      if (pendingGap !== null) rowAch[pendingGap] = k;
+      var delayRow = pendingGap !== null ? pendingGap : String(r[1]) !== "1" ? ri : null;
+      var before = runEdit.base.achievements[k].delay;
+      if (delayRow !== null && runEdit.config.achievements[k].delay !== before) edited[delayRow] = before;
+      pendingGap = null;
     });
-    rows.forEach(function (r) {
-      if (/^Session/.test(r[0]) && isLabelRow(r)) r[CSV_DELAY_COL] = roughDurationCsv(r[CSV_DELAY_COL + 1]);
-    });
+    runEdit.rows = rows;
+    runEdit.rowAch = rowAch;
+    runEdit.edited = edited;
   }
 
   function setRunDelay(ri, seconds) {
-    var r = runEdit.rows[ri];
-    var original = runEdit.edited[ri] !== undefined ? runEdit.edited[ri] : Number(r[CSV_DELAY_COL + 1]);
-    r[CSV_DELAY_COL + 1] = seconds;
-    r[CSV_DELAY_COL] = roughDurationCsv(seconds);
-    if (seconds === original) delete runEdit.edited[ri];
-    else runEdit.edited[ri] = original;
-    updateSessionTotals(runEdit.rows);
+    runEdit.config.achievements[runEdit.rowAch[ri]].delay = seconds;
+    rebuildEdit();
     renderTimeline();
-  }
-
-  // The config with the edited delays: an achievement's own delay, or for
-  // the first of a later session, the gap before it (as the builder does).
-  function editedConfig(config, rows) {
-    var delays = {}, gap = null;
-    rows.forEach(function (r, ri) {
-      if (ri === 0) return;
-      if (isLabelRow(r)) { if (/^Gap/.test(r[0])) gap = Number(r[CSV_DELAY_COL + 1]); return; }
-      var first = String(r[1]) === "1";
-      if (!first) delays[r[3]] = Number(r[CSV_DELAY_COL + 1]);
-      else if (gap !== null) delays[r[3]] = gap;
-      gap = null;
-    });
-    var copy = JSON.parse(JSON.stringify(config));
-    copy.achievements.forEach(function (a) {
-      if (String(a.id) in delays) a.delay = delays[String(a.id)];
-    });
-    return copy;
   }
 
   byId("timeline-lock").addEventListener("click", function () {
@@ -2001,8 +2011,16 @@
     if (runEdit) {
       runEdit = null;
     } else {
-      if (!data || !data.rows) return;
-      runEdit = {name: selectedRun, rows: JSON.parse(JSON.stringify(data.rows)), edited: {}};
+      if (!data || !data.rows || !data.config) return;
+      var known = {}, meta = null;
+      data.rows.forEach(function (r, ri) {
+        if (ri === 0) return;
+        if (/^Copied from:/.test(r[0])) meta = r.slice();
+        else if (!isLabelRow(r)) known[r[3]] = [r[2], r[4]];
+      });
+      runEdit = {name: selectedRun, base: data.config, config: JSON.parse(JSON.stringify(data.config)),
+                 known: known, meta: meta};
+      rebuildEdit();
     }
     timelineShown = "";
     renderTimeline();
@@ -2010,19 +2028,28 @@
   byId("timeline-save").addEventListener("click", function () {
     var data = timelines[selectedRun], name = selectedRun;
     if (!runEdit || !data || !data.config) return;
-    api("/api/save", {name: name, config: editedConfig(data.config, runEdit.rows),
+    api("/api/save", {name: name, config: runEdit.config,
                       csv: toCsv(runEdit.rows), overwrite: true})
       .then(function () {
         runEdit = null;
         delete timelines[name];
         timelineShown = "";
         renderTimeline();
-        showToast("Saved " + name + ". The next sessions use the new timing.");
+        showToast("Saved. The next sessions use the new timing.");
       })
       .catch(function (err) { showToast("Couldn't save: " + err.message); });
   });
 
   byId("timeline-table").addEventListener("click", function (e) {
+    var toggle = e.target.closest("[data-run-break]");
+    if (toggle && runEdit) {
+      e.stopPropagation();
+      var a = runEdit.config.achievements[Number(toggle.getAttribute("data-run-break"))];
+      a.new_session = !a.new_session;
+      rebuildEdit();
+      renderTimeline();
+      return;
+    }
     var undo = e.target.closest("[data-run-undo]");
     if (undo) {
       e.stopPropagation();  // not the builder's undo
@@ -2098,11 +2125,15 @@
     });
   }
 
-  // Info and Log: shown under the summary when asked for.
-  byId("run-info-btn").addEventListener("click", function () {
-    var open = byId("run-info").hidden;
-    byId("run-info").hidden = !open;
-    this.setAttribute("aria-expanded", String(open));
+  // The schedule's info, shown under the summary when its arrow is open.
+  var runInfoOpen = false;
+  byId("run-summary").addEventListener("click", function (e) {
+    var button = e.target.closest("[data-run-info]");
+    if (!button) return;
+    runInfoOpen = !runInfoOpen;
+    byId("run-info").hidden = !runInfoOpen;
+    button.setAttribute("aria-expanded", String(runInfoOpen));
+    button.title = (runInfoOpen ? "Hide" : "Show") + " App ID and where it came from";
   });
   // Full timeline: every session, in the space the log takes otherwise.
   var runFull = false;
@@ -2192,12 +2223,10 @@
   byId("run-delay-custom").addEventListener("input", function () {
     renderRunBar(runsData ? runsData.games : []);
   });
-  // While the selected game runs, All changes how much it plays;
+  // While the selected game runs, it changes how much that run plays;
   // otherwise it's how the next Run starts.
-  byId("run-mode").addEventListener("click", function (e) {
-    var b = e.target.closest("button[data-every]");
-    if (!b || b.disabled) return;
-    var every = b.getAttribute("data-every") === "1", g = selectedGame();
+  byId("run-mode").addEventListener("change", function () {
+    var every = this.value === "1", g = selectedGame();
     if (g && g.running) {
       if (every !== !g.stop_after) runAction(every ? "keep-going" : "stop-after", g.name);
       return;
@@ -2264,14 +2293,17 @@
     // it would cross it (its pointer stays on the button), and closes on a
     // click outside it, or Esc.
     var options = byId("bar-options");
-    options.addEventListener("toggle", function () {
+    function placeOptions() {
       var pop = options.querySelector(".bar-popover");
       pop.style.setProperty("--shift", "0px");
       if (!options.open) return;
       var r = pop.getBoundingClientRect(), edge = 12;
       var shift = Math.min(0, window.innerWidth - edge - r.right) || Math.max(0, edge - r.left);
       pop.style.setProperty("--shift", shift + "px");
-    });
+    }
+    options.addEventListener("toggle", placeOptions);
+    // Again as the window is resized with it open.
+    window.addEventListener("resize", placeOptions);
     document.addEventListener("mousedown", function (e) {
       if (options.open && !options.contains(e.target)) options.open = false;
     });
@@ -2281,8 +2313,8 @@
     // What the paste gave (achievements, sessions, lengths), in a line
     // over the result.
     byId("paste-summary").querySelector('[data-slot="stats"]').appendChild(els.statsStrip);
-    // How to edit: beside Full timeline, which it's about.
-    byId("paste-summary").insertBefore(document.querySelector(".hover-help"), byId("sched-full-btn"));
+    // No How to edit in the app: the timeline's tooltips say it.
+    document.querySelector(".hover-help").remove();
     // The how-to sits inside the empty paste box, like a placeholder; the
     // timeline takes the right side.
     var help = document.querySelector(".input-help");
@@ -2405,7 +2437,7 @@
     stop_other_asf: ["Stop other ArchiSteamFarm installs", "Steam allows one login per account. Turn it off if they use other accounts, like a card-farming install."],
     simultaneous_max_delay: ["Unlock together when within", "seconds"],
     warm_settle_delay: ["Wait before the first unlock", "seconds"],
-    reconnect_settle_delay: ["…after reconnecting to Steam", "seconds"],
+    reconnect_settle_delay: ["Wait before the first unlock, if Steam just reconnected", "seconds"],
     play_check_interval: ["Check the game is still playing every", "seconds", 1],
     bot_connect_timeout: ["Wait for Steam to connect up to", "seconds"],
     asf_shutdown_delay: ["Close an idle ArchiSteamFarm after", "seconds"]
@@ -2539,11 +2571,11 @@
     renderRuns();
   });
 
-  // Keep awake & notifications: switched on or off here (saved in
+  // Keep awake: switched on or off here (saved in
   // settings.json, used by runs started after), and what this computer
   // is missing for them. Shown once setup is done.
   var extrasTools = {};
-  var TOGGLES = {keep_awake: "keep-awake-on", notifications: "notify-on"};
+  var TOGGLES = {keep_awake: "keep-awake-on"};
   function syncToggles() {
     Object.keys(TOGGLES).forEach(function (key) {
       var box = byId(TOGGLES[key]);
@@ -2570,20 +2602,13 @@
     var x = d.extras;
     byId("step-extras").hidden = !x || !(d.asf && d.plugin);
     if (!x) return;
-    var awake = x.keep_awake, notes = x.notifications;
-    var mac = notes.tool === "osascript";
-    byId("step-extras").className = "setup-step" + (awake.tool && notes.full ? " done" : "");
-    extrasTools = {keep_awake: !!awake.tool, notifications: !!notes.tool};
+    var awake = x.keep_awake;
+    byId("step-extras").className = "setup-step" + (awake.tool ? " done" : "");
+    extrasTools = {keep_awake: !!awake.tool};
     byId("awake-text").hidden = !!awake.tool;
     byId("awake-text").textContent = "Not available here: needs systemd-inhibit.";
     byId("awake-check").hidden = !awake.tool;
-    byId("notify-text").hidden = !!notes.full;
-    byId("notify-text").textContent = "Not available here: install notify-send.";
     syncToggles();
-    var command = !notes.full && notes.install;
-    byId("notify-install").hidden = !command;
-    byId("notify-cmd").textContent = command || "";
-    byId("notify-test").hidden = !notes.tool || !!d.busy;
   }
 
   function setupPost(path, body) {
@@ -2608,26 +2633,10 @@
     api("/api/setup/test-awake", {}).then(function (d) {
       showToast(d.works ? "Keep awake works: " + d.found + "." : "Keep awake doesn't work here: " + d.found + ".");
     }).catch(function (err) { showToast(err.message); })
-      .then(function () { button.disabled = false; button.textContent = "Keep awake"; });
-  });
-  byId("notify-test").addEventListener("click", function () {
-    api("/api/setup/test-notification", {}).then(function () { showToast(/Mac/.test(navigator.platform)
-      ? "Sent. If nothing showed up, allow notifications for Script Editor in System Settings → Notifications."
-      : "Sent. If nothing showed up, check your desktop's notification settings."); })
-      .catch(function (err) { showToast(err.message); });
-  });
-  // Picking a test closes the Test menu.
-  document.querySelector(".test-menu-list").addEventListener("click", function () {
-    document.querySelector(".test-menu").open = false;
+      .then(function () { button.disabled = false; button.textContent = "Test"; });
   });
   byId("open-folder").addEventListener("click", function () {
     api("/api/open-folder", {}).catch(function (err) { showToast(err.message); });
-  });
-  byId("notify-copy").addEventListener("click", function () {
-    var text = byId("notify-cmd").textContent;
-    (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject())
-      .then(function () { showToast("Copied. Paste it into Terminal."); })
-      .catch(function () { showToast("Select the command and copy it."); });
   });
   byId("setup-close").addEventListener("click", function () {
     setupOpen = setupAutoClose = false;
