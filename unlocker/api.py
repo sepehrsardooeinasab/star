@@ -185,7 +185,7 @@ def schedule_asf_kill(delay_seconds=60):
         start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def send_command(command):
+def send_command(command, on_wait=None):
     """Returns (result, reconnected). result is the response's Result string,
     or None if ASF wasn't reachable. reconnected is True if this call had to
     sit through the retry loop below before getting a real response — i.e.
@@ -193,6 +193,10 @@ def send_command(command):
     was just started fresh or because it silently reconnected after a
     mid-session network blip (including one triggered by the retried command
     itself — see the "exception" handling below).
+
+    on_wait (optional) is called with what it's waiting on, each time that
+    changes: "unreachable" (ArchiSteamFarm starting up), "not_connected"
+    (the bot signing in to Steam) or "error" (a plugin error, retried).
 
     Retries for a while if: the IPC server itself isn't up yet (e.g. right
     after ASF was just started — it can take longer than any fixed guess to
@@ -208,6 +212,7 @@ def send_command(command):
     deadline = time.monotonic() + BOT_CONNECT_TIMEOUT
     printed_waiting = False
     reconnected = False
+    waiting_on = None
 
     while True:
         try:
@@ -225,6 +230,11 @@ def send_command(command):
 
         if not_connected and time.monotonic() < deadline:
             reconnected = True
+            state = ("unreachable" if response is None else "error" if "exception" in result.lower()
+                     else "not_connected")
+            if on_wait and state != waiting_on:
+                on_wait(state)
+            waiting_on = state
             if not printed_waiting:
                 if response is None:
                     print("ArchiSteamFarm isn't reachable yet, waiting...")

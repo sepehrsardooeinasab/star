@@ -216,7 +216,17 @@
       numbersWanted = appid;
       clearTimeout(numbersTimer);
       numbersTimer = setTimeout(function () {
-        numberings[appid] = {status: "loading"};
+        var loading = numberings[appid] = {status: "loading", steps: []};
+        // What the check is doing (starting ArchiSteamFarm, signing in…),
+        // shown as it goes.
+        var poll = setInterval(function () {
+          if (numberings[appid] !== loading) { clearInterval(poll); return; }
+          api("/api/achievements/progress?appid=" + appid).then(function (d) {
+            if (numberings[appid] !== loading || JSON.stringify(d.steps) === JSON.stringify(loading.steps)) return;
+            loading.steps = d.steps;
+            scheduleRecompute();
+          }).catch(function () {});
+        }, 700);
         api("/api/achievements/numbers", {appid: appid}).then(function (d) {
           numberings[appid] = {status: "ok", data: d};
         }).catch(function (err) {
@@ -740,6 +750,16 @@
     navButtons[key].addEventListener("click", function () { setView(key); });
   });
 
+  // A wait in progress: what it's for, then each step so far, done ones
+  // ticked and the current one spinning.
+  function stepsHtml(title, steps) {
+    if (!steps || !steps.length) return noticeHtml("info", title);
+    return '<div class="notice info steps"><div><div class="notice-title">' + escapeHtml(title) + '</div><ul class="step-list">' +
+      steps.map(function (s) {
+        return '<li class="' + (s.done ? "done" : "now") + '">' + escapeHtml(s.text) + (s.done ? "" : "\u2026") + "</li>";
+      }).join("") + "</ul></div></div>";
+  }
+
   function noticeHtml(kind, text) {
     return '<div class="notice ' + kind + '">' + escapeHtml(text) + "</div>";
   }
@@ -853,7 +873,8 @@
     if (local) {
       var numbering = loadNumbers(appidVal);
       if (numbering.status === "loading") {
-        latest = {errors: ["Checking the achievement numbers with ArchiSteamFarm\u2026"], pending: true};
+        latest = {errors: ["Checking the achievement numbers with ArchiSteamFarm\u2026"], pending: true,
+                  steps: numbering.steps};
         return;
       }
       if (numbering.status === "ok") {
@@ -1087,7 +1108,7 @@
         // What's still missing (like the App ID) says so here; problems
         // with the paste itself already show under it.
         var missing = latest && !latest.inputNotice && els.exportText.value.trim() ? latest.errors : [];
-        slot.innerHTML = latest && latest.pending ? noticeHtml("info", latest.errors[0])
+        slot.innerHTML = latest && latest.pending ? stepsHtml(latest.errors[0], latest.steps)
           : missing.map(function (m) { return noticeHtml("info", m); }).join("") +
             emptyHtml("☰", "The timeline shows up here once the paste reads cleanly.");
         return;

@@ -466,6 +466,16 @@ def achievement_numbers(appid):
         raise AppError(str(e), 409, title=e.title)
 
 
+def numbers_progress(appid):
+    """The steps of an achievement-numbers check still going, for the
+    builder to show while it waits."""
+    try:
+        steps = achievements.PROGRESS.get(int(appid), [])
+    except (TypeError, ValueError):
+        steps = []
+    return {"steps": [{"text": text, "done": state == "done"} for text, state in steps]}
+
+
 def achievements_from_link(url):
     """A player's unlocked achievements, from a SteamHunters or Steam link."""
     try:
@@ -614,6 +624,7 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/update": lambda: updates.update_state(force=query.get("force") == "1"),
             "/api/log": lambda: read_log(query.get("name")),
             "/api/timeline": lambda: read_timeline(query.get("name")),
+            "/api/achievements/progress": lambda: numbers_progress(query.get("appid")),
             "/api/settings": run_settings,
         }
         self._route(routes.get(url.path))
