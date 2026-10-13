@@ -2778,6 +2778,19 @@
         if (unlocksData) renderUnlocks();
       }
     }
+    if (lib.achievement_sort && lib.achievement_order && lib.achievement_group) {
+      byId("default-ach-sort").value = lib.achievement_sort;
+      syncOrderOptions(byId("default-ach-order"), lib.achievement_sort, lib.achievement_order);
+      byId("default-ach-group").value = lib.achievement_group;
+      var achKey = [lib.achievement_sort, lib.achievement_order, lib.achievement_group].join(" ");
+      if (achKey !== appliedLib.ach) {
+        appliedLib.ach = achKey;
+        achSort = lib.achievement_sort;
+        achOrder = lib.achievement_order;
+        achGroup = lib.achievement_group;
+        if (gamePage) renderGamePage();
+      }
+    }
     if (lib.library_check) byId("library-check").value = lib.library_check;
     if (lib.hidden_descriptions) {
       byId("hidden-descriptions").value = lib.hidden_descriptions;
@@ -3029,7 +3042,8 @@
   // How Games are sorted (defaults: library_sort, library_order).
   var gamesSort = "played", gamesOrder = "desc", appliedLib = {};
   var ORDER_NAMES = {played: ["Newest first", "Oldest first"], achievement: ["Newest first", "Oldest first"],
-    name: ["Z \u2192 A", "A \u2192 Z"], progress: ["Most first", "Least first"], playtime: ["Most first", "Least first"]};
+    name: ["Z \u2192 A", "A \u2192 Z"], progress: ["Most first", "Least first"], playtime: ["Most first", "Least first"],
+    date: ["Newest first", "Oldest first"]};
   function orderName(sort, order) { return ORDER_NAMES[sort][order === "desc" ? 0 : 1]; }
   function syncOrderOptions(select, sort, order) {
     select.innerHTML = ["desc", "asc"].map(function (o) {
@@ -3202,7 +3216,8 @@
   }
   // A game's achievements, unlocked and locked kept apart or all in one
   // list, by date unlocked (those without a time, and locked ones, after,
-  // in Steam's order) or by name; picked here, kept until the app closes.
+  // in Steam's order) or by name; picked here, kept until the app closes
+  // (the defaults are in Settings → Library).
   var achSort = "date", achOrder = "desc", achGroup = "status";
   function sortAch(list, timed) {
     var out = list.slice();
@@ -3245,7 +3260,7 @@
       if (!p.full) html += noticeHtml("info", "Its locked achievements show after its next read from Steam.");
       html += '<div class="unlocks-bar ach-sort games-sort"><select id="ach-sort" aria-label="Sort achievements by">' +
         '<option value="date">Date unlocked</option><option value="name">Name</option></select>' +
-        '<button class="btn-ghost" id="ach-order" type="button">' + orderName(achSort === "name" ? "name" : "achievement", achOrder) + "</button>" +
+        '<button class="btn-ghost" id="ach-order" type="button">' + orderName(achSort, achOrder) + "</button>" +
         '<select id="ach-group" aria-label="Group achievements by"><option value="status">Group: Unlocked / Locked</option>' +
         '<option value="none">Group: None</option></select></div>';
       var tag = function (list, kind) { return list.map(function (a) { return Object.assign({kind: kind}, a); }); };
@@ -3425,6 +3440,13 @@
     saveSetting({library_sort: this.value, library_order: order});
   });
   byId("default-order").addEventListener("change", function () { saveSetting({library_order: this.value}); });
+  byId("default-ach-sort").addEventListener("change", function () {
+    var order = this.value === "name" ? "asc" : "desc";
+    syncOrderOptions(byId("default-ach-order"), this.value, order);
+    saveSetting({achievement_sort: this.value, achievement_order: order});
+  });
+  byId("default-ach-order").addEventListener("change", function () { saveSetting({achievement_order: this.value}); });
+  byId("default-ach-group").addEventListener("change", function () { saveSetting({achievement_group: this.value}); });
   // Settings → Library: the Steam Web API key, so the Library covers the
   // whole library.
   function renderUnlocksKey() {

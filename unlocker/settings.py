@@ -65,6 +65,12 @@ DEFAULTS = {
     # achievement, name or progress; descending (newest, Z–A, most) or not.
     "library_sort": "played",
     "library_order": "desc",
+    # How a game's achievements are listed on its page: by date unlocked
+    # or name, descending (newest, Z–A) or not; grouped into unlocked and
+    # locked ("status") or all in one list ("none").
+    "achievement_sort": "date",
+    "achievement_order": "desc",
+    "achievement_group": "status",
     # Which section the app's Library opens on: achievements or games.
     "library_tab": "achievements",
     # Hidden achievements' descriptions in the Library: shown once
@@ -100,6 +106,9 @@ _TYPES = {
     "unlocks_range": (str,),
     "library_sort": (str,),
     "library_order": (str,),
+    "achievement_sort": (str,),
+    "achievement_order": (str,),
+    "achievement_group": (str,),
     "library_tab": (str,),
     "hidden_descriptions": (str,),
     "library_check": (str,),
@@ -123,6 +132,9 @@ APP_CHOICES = {"clock": ["system", "12h", "24h"], "theme": ["dark", "light"],
                "unlocks_range": ["day", "week", "month", "year", "all"],
                "library_sort": ["played", "achievement", "name", "progress", "playtime"],
                "library_order": ["desc", "asc"],
+               "achievement_sort": ["date", "name"],
+               "achievement_order": ["desc", "asc"],
+               "achievement_group": ["status", "none"],
                "library_tab": ["achievements", "games"],
                "hidden_descriptions": ["unlocked", "all", "none"],
                "library_check": ["1h", "3h", "6h", "12h", "24h", "manual"]}

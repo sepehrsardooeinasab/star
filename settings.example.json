@@ -23,6 +23,9 @@
   "library_tab": "achievements",
   "library_sort": "played",
   "library_order": "desc",
+  "achievement_sort": "date",
+  "achievement_order": "desc",
+  "achievement_group": "status",
   "hidden_descriptions": "unlocked",
   "library_check": "6h"
 }
