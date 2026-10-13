@@ -6,8 +6,8 @@ so the account's game details need to be public. Which games to read:
 
 - the games in STAR, and finished ones in completed/;
 - with a Steam Web API key (steam_api_key in settings.json), also every
-  game in the library played in the last RECENT_DAYS days, from Steam's
-  GetOwnedGames. Without one, Steam won't list a library.
+  game in the library that has achievements and has been played, from
+  Steam's GetOwnedGames. Without one, Steam won't list a library.
 
 The account is the one ArchiSteamFarm signs in to: its Steam ID is saved
 the first time it's seen (STEAMID_PATH), so this works with ASF closed.
@@ -16,8 +16,10 @@ Like SteamHunters and co., what's read is kept (STORE_PATH: each game's
 name, when it was last played and its unlocks), and a check reads again
 only what changed: library games played since they were last read (one
 GetOwnedGames call says which), games played in the last day, and STAR's
-games once the saved copy is CACHE_FOR old. Without internet, what's
-saved is shown.
+games once the saved copy is CACHE_FOR old. The first check reads every
+game, which can be hundreds of pages, so checks run in the background
+(SYNC says how far along) and the saved unlocks show meanwhile. Without
+internet, what's saved is shown.
 """
 import json
 import re
@@ -35,14 +37,16 @@ from unlocker.state import COMPLETED_DIR, JSONS_DIR, list_profiles
 
 STEAMID_PATH = JSONS_DIR / ".steamid"
 STORE_PATH = JSONS_DIR / ".unlocks.json"
-RECENT_DAYS = 30   # library games first read when played this recently
-MAX_GAMES = 40     # at most this many library games read in one check
-SHOWN = 2000       # unlocks returned (all saved, in practice)
+SHOWN = 50000      # unlocks returned (all saved, in practice)
 CACHE_FOR = 300    # seconds between checks with Steam, unless refreshed
 LIVE_FOR = 86400   # a game played this recently may still be unlocking
 KEY_RE = re.compile(r"[0-9A-Fa-f]{32}")
 
 _lock = threading.Lock()
+# The check in the background: running, games read so far of how many,
+# and what to say when it couldn't be done (notice) or nothing's saved
+# to show instead (error: title, message).
+SYNC = {"running": False, "done": 0, "total": 0, "notice": None, "error": None}
 
 
 class Problem(Exception):
@@ -90,8 +94,8 @@ def _key():
 
 
 def _owned_games(key, sid):
-    """Library games with achievements that have been played, most
-    recent first: [(appid, when last played)]."""
+    """Every game in the library: [{"appid", "played": when it was last
+    played (0: never), "stats": whether it has achievements}]."""
     url = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?" + urllib.parse.urlencode({
         "key": key, "steamid": sid, "include_appinfo": 1, "include_played_free_games": 1})
     try:
@@ -107,9 +111,8 @@ def _owned_games(key, sid):
     if games is None:
         raise Problem("Steam didn't list your games",
                       "Your Steam profile's game details need to be public (Steam: Edit Profile → Privacy Settings).")
-    played = [g for g in games if g.get("has_community_visible_stats") and g.get("rtime_last_played")]
-    played.sort(key=lambda g: g["rtime_last_played"], reverse=True)
-    return [(g["appid"], g["rtime_last_played"]) for g in played]
+    return [{"appid": g["appid"], "played": g.get("rtime_last_played") or 0,
+             "stats": bool(g.get("has_community_visible_stats"))} for g in games if isinstance(g.get("appid"), int)]
 
 
 def _star_appids():
@@ -171,44 +174,49 @@ def _save_store(store):
 
 
 def _to_read(store, star, owned, refresh):
-    """The appids worth reading again, most recently played first."""
+    """The appids worth reading (again), STAR's first, then the most
+    recently played: library games not read yet or played since, games
+    played in the last day, and STAR's when the saved copy is old."""
     now = time.time()
     games = store["games"]
     want = {}
-    for appid, played in owned or []:
-        saved = games.get(str(appid))
-        if saved is None:
-            if played >= now - RECENT_DAYS * 86400:
-                want[appid] = played
-        elif played != saved.get("played") or (played >= now - LIVE_FOR and (refresh or now - saved["read"] >= CACHE_FOR)):
-            want[appid] = played
+    for g in owned or []:
+        if not g["stats"] or not g["played"]:
+            continue  # no achievements, or never played: nothing unlocked
+        saved = games.get(str(g["appid"]))
+        if (saved is None or g["played"] != saved.get("played")
+                or (g["played"] >= now - LIVE_FOR and (refresh or now - saved["read"] >= CACHE_FOR))):
+            want[g["appid"]] = g["played"]
     for appid in star:
         saved = games.get(str(appid))
         if appid not in want and (saved is None or refresh or now - saved["read"] >= CACHE_FOR):
             want[appid] = saved.get("played") if saved else None
     order = sorted(want, key=lambda appid: want[appid] or 0, reverse=True)
-    star_first = [a for a in order if a in star] + [a for a in order if a not in star]
-    return star_first[:MAX_GAMES + len(star)], want
+    return [a for a in order if a in star] + [a for a in order if a not in star], want
 
 
-def _result(store, offline):
+def _result(store):
     games = store["games"]
     unlocks = [{**u, "appid": int(appid), "game": g.get("game") or ""}
                for appid, g in games.items() for u in g.get("unlocks") or []]
     unlocks.sort(key=lambda u: u["time"], reverse=True)
-    return {"unlocks": unlocks[:SHOWN], "library": bool(_key()), "has_key": bool(_key()),
+    key = bool(_key())
+    return {"unlocks": unlocks[:SHOWN], "has_key": key, "library": store.get("library") if key else None,
             "games": len(games), "unreadable": sum(1 for g in games.values() if g.get("unreadable")),
             "unreadable_games": sorted(g.get("game") or achievements.app_title(int(appid)) or f"App {appid}"
                                        for appid, g in games.items() if g.get("unreadable")),
-            "fetched_at": int(store["checked"]), "offline": offline}
+            "fetched_at": int(store["checked"]),
+            "offline": SYNC["notice"] or (f"{SYNC['error'][0]}: showing what was saved." if SYNC["error"] else None),
+            "syncing": {"done": SYNC["done"], "total": SYNC["total"]} if SYNC["running"] else None}
 
 
 def recent(refresh=False):
-    """The saved unlocks, after reading again what changed: {"unlocks":
-    [...] newest first, "library": whether the library is checked too,
-    "has_key", "games": how many are saved, "unreadable": how many Steam
-    didn't show, "fetched_at": when Steam was last asked, "offline":
-    a message when it couldn't be (what's saved is shown)}."""
+    """The saved unlocks, starting a check with Steam in the background
+    when one is due (or on refresh): {"unlocks": [...] newest first,
+    "has_key", "library": counts of the library's games (with a key),
+    "games": how many are saved, "unreadable": how many Steam doesn't
+    show, "fetched_at": when Steam was last asked, "offline": a message
+    when it couldn't be, "syncing": how far a running check is}."""
     sid = steamid()
     if not sid:
         raise Problem("STAR doesn't know your Steam account yet",
@@ -216,35 +224,59 @@ def recent(refresh=False):
                       "achievement numbers in Schedule, then try again.")
     with _lock:
         store = _load_store(sid)
-        if not refresh and time.time() - store["checked"] < CACHE_FOR:
-            return _result(store, None)
+        if SYNC["error"] and not SYNC["running"] and not store["games"]:
+            title, message = SYNC["error"]
+            SYNC["error"] = None  # asked again on the next look
+            raise Problem(title, message)
+        if not SYNC["running"] and (refresh or time.time() - store["checked"] >= CACHE_FOR):
+            SYNC.update(running=True, done=0, total=0, notice=None, error=None)
+            threading.Thread(target=_sync, args=(sid, refresh), daemon=True).start()
+        return _result(store)
+
+
+def _sync(sid, refresh):
+    """Reads from Steam what changed (see the top), saving as it goes so
+    the app shows the unlocks while the rest is read."""
+    try:
+        store = _load_store(sid)
         key = _key()
         owned = None
         if key:
             try:
                 owned = _owned_games(key, sid)
             except Problem as e:
-                if not store["games"] or e.title != "Couldn't reach Steam":
-                    raise
-                return _result(store, "Couldn't reach Steam: showing what was saved.")
-        star = _star_appids()
-        appids, played = _to_read(store, star, owned, refresh)
+                if e.title == "Couldn't reach Steam" and store["games"]:
+                    SYNC["notice"] = "Couldn't reach Steam: showing what was saved."
+                else:
+                    SYNC["error"] = (e.title, str(e))
+                return
+            with_stats = sum(1 for g in owned if g["stats"])
+            store["library"] = {"games": len(owned), "with_achievements": with_stats,
+                                "without_achievements": len(owned) - with_stats}
+        appids, played = _to_read(store, _star_appids(), owned, refresh)
+        SYNC["total"] = len(appids)
+        failed = 0
         # A few at a time: Steam turns away many requests at once.
         with ThreadPoolExecutor(max_workers=3) as pool:
-            found = list(pool.map(lambda appid: _game_unlocks(sid, appid), appids))
-        if appids and all(f == FAILED for f in found) and store["games"] and not _steam_reachable():
-            return _result(store, "Couldn't reach Steam: showing what was saved.")
-        now = time.time()
-        for appid, got in zip(appids, found):
-            if got == FAILED:
-                continue  # keeps what was saved; read again next check
-            saved = store["games"].setdefault(str(appid), {"game": "", "unlocks": []})
-            saved.update(read=now, played=played[appid], unreadable=got is None)
-            if got:
-                saved["game"], saved["unlocks"] = got
-        store["checked"] = now
+            for done, (appid, got) in enumerate(zip(appids, pool.map(lambda a: _game_unlocks(sid, a), appids)), 1):
+                SYNC["done"] = done
+                if got == FAILED:
+                    failed += 1
+                    continue  # keeps what was saved; read again next check
+                saved = store["games"].setdefault(str(appid), {"game": "", "unlocks": []})
+                saved.update(read=time.time(), played=played[appid], unreadable=got is None)
+                if got:
+                    saved["game"], saved["unlocks"] = got
+                if done % 10 == 0:
+                    _save_store(store)
+        if appids and failed == len(appids) and store["games"] and not _steam_reachable():
+            SYNC["notice"] = "Couldn't reach Steam: showing what was saved."
+        store["checked"] = time.time()
         _save_store(store)
-        return _result(store, None)
+    except Exception as e:  # never leave the check marked running
+        SYNC["error"] = ("Couldn't read your unlocks", str(e))
+    finally:
+        SYNC["running"] = False
 
 
 def _steam_reachable():

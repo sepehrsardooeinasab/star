@@ -431,7 +431,17 @@
 <!-- Unlocks (app only): the account's latest achievements, from Steam. -->
 <section class="unlocks" id="unlocks-screen" aria-label="Recent unlocks">
   <p class="unlocks-note" id="unlocks-note"></p>
-  <div class="unlocks-status"><span id="unlocks-status"></span><span id="unlocks-updated"></span></div>
+  <div class="unlocks-bar">
+    <div class="segmented" id="unlocks-range" role="group" aria-label="How far back">
+      <button type="button" data-range="day">Day</button>
+      <button type="button" data-range="week">Week</button>
+      <button type="button" data-range="month">Month</button>
+      <button type="button" data-range="year">Year</button>
+      <button type="button" data-range="all">All</button>
+    </div>
+    <span class="unlocks-updated" id="unlocks-updated"></span>
+  </div>
+  <div class="unlocks-status" id="unlocks-status"></div>
   <p class="unlocks-hidden" id="unlocks-hidden" hidden></p>
   <div class="unlocks-list" id="unlocks-list"></div>
 </section>

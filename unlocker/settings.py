@@ -59,6 +59,8 @@ DEFAULTS = {
     # The app's look (its Appearance menu).
     "theme": "dark",
     "accent": "violet",
+    # How far back the app's Unlocks lists: day, week, month, year or all.
+    "unlocks_range": "month",
 }
 
 # Accepted types per setting; None means null is allowed.
@@ -83,6 +85,7 @@ _TYPES = {
     "clock": (str,),
     "theme": (str,),
     "accent": (str,),
+    "unlocks_range": (str,),
 }
 
 
@@ -99,7 +102,8 @@ APP_EDITABLE = [
 APP_TOGGLES = ["keep_awake", "auto_update", "show_finished"]
 # Choices the app shows on their own, with what each can be.
 APP_CHOICES = {"clock": ["system", "12h", "24h"], "theme": ["dark", "light"],
-               "accent": ["violet", "wine", "blue", "teal", "amber"]}
+               "accent": ["violet", "wine", "blue", "teal", "amber"],
+               "unlocks_range": ["day", "week", "month", "year", "all"]}
 
 # Settings older versions had, ignored (and dropped on the next save from
 # the app) rather than refused as unknown.

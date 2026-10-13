@@ -1960,7 +1960,12 @@
   /* Unlocks (app only): the account's latest achievements, by day. */
   .unlocks { display: none; width: 100%; max-width: 46rem; margin: 0 auto; padding: 0 1rem 2rem; }
   body[data-screen="unlocks"] .unlocks { display: block; }
-  .unlocks-status { display: flex; justify-content: space-between; gap: 1rem; min-height: 1.2rem; margin-bottom: 0.4rem; font-size: 0.78rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .unlocks-bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.7rem; }
+  .unlocks-bar .segmented button { padding: 0.3rem 0.75rem; font-size: 0.78rem; }
+  .unlocks-updated { font-size: 0.78rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .unlocks-status { min-height: 1.2rem; margin-bottom: 0.4rem; font-size: 0.78rem; line-height: 1.6; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .unlocks-status b { color: var(--text); font-weight: 600; }
+  .unlocks-sync { color: var(--accent); }
   .unlocks-hidden { margin: 0.2rem 0 0.6rem; padding: 0.6rem 0.8rem; font-size: 0.78rem; color: var(--text-dim); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
   /* Like the Runs options' dropdowns. */
   #step-clock select {

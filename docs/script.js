@@ -2676,6 +2676,11 @@
       var s = (runSettings || []).filter(function (x) { return x.key === key; })[0];
       if (s && document.documentElement.getAttribute("data-" + key) !== s.value) applyAppearance(key, s.value, false);
     });
+    var range = (runSettings || []).filter(function (x) { return x.key === "unlocks_range"; })[0];
+    if (range && range.value !== unlocksRange) {
+      unlocksRange = range.value;
+      if (unlocksData) renderUnlocks();
+    }
     var clock = (runSettings || []).filter(function (x) { return x.key === "clock"; })[0];
     if (clock && clock.value !== clockPref) {
       clockPref = clock.value;
@@ -2905,25 +2910,51 @@
     return date.toLocaleDateString([], {weekday: "long", month: "long", day: "numeric",
       year: date.getFullYear() === new Date().getFullYear() ? undefined : "numeric"});
   }
+  // How far back the list goes (Day … All, unlocks_range in settings.json).
+  var unlocksRange = "month";
+  var RANGES = {day: [86400, "in the last day"], week: [7 * 86400, "in the last week"],
+    month: [30 * 86400, "in the last month"], year: [365 * 86400, "in the last year"], all: [Infinity, "in total"]};
+  var unlocksPoll = null;
   function renderUnlocks() {
     var d = unlocksData, list = byId("unlocks-list");
-    byId("unlocks-refresh").disabled = unlocksBusy;
-    // How many games, and those Steam won't show the achievements of (a
-    // click lists them); when Steam was last asked, on the right.
-    var status = "", updated = "";
-    if (unlocksBusy) status = escapeHtml("Asking Steam\u2026");
+    var syncing = d && d.syncing;
+    byId("unlocks-refresh").disabled = unlocksBusy || !!syncing;
+    byId("unlocks-range").querySelectorAll("[data-range]").forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.getAttribute("data-range") === unlocksRange));
+    });
+    // The unlocks in the chosen range, and in how many games.
+    var range = RANGES[unlocksRange] || RANGES.all, since = Date.now() / 1000 - range[0];
+    var shown = d && !unlocksError ? d.unlocks.filter(function (u) { return u.time >= since; }) : [];
+    var gameCount = {};
+    shown.forEach(function (u) { gameCount[u.appid] = 1; });
+    gameCount = Object.keys(gameCount).length;
+    // What's counted, then (with a key) the library; while Steam is
+    // read, how far along; when it was last read, on the right.
+    var lines = [];
+    if (unlocksBusy && !d) lines.push(escapeHtml("Asking Steam\u2026"));
     else if (d && !unlocksError) {
-      status = escapeHtml(d.games + " game" + (d.games === 1 ? "" : "s"));
+      var line = "<b>" + shown.length.toLocaleString() + "</b> achievement" + (shown.length === 1 ? "" : "s") + " in <b>" +
+        gameCount + "</b> game" + (gameCount === 1 ? "" : "s") + " " + range[1];
       if (d.unreadable) {
-        status += ' \u00b7 <button class="link-btn" type="button" id="unlocks-hidden-btn" aria-expanded="' + unlocksHiddenOpen + '">' +
+        line += ' \u00b7 <button class="link-btn" type="button" id="unlocks-hidden-btn" aria-expanded="' + unlocksHiddenOpen + '">' +
           escapeHtml(d.unreadable + " not shown by Steam") + "</button>";
       }
-      if (d.offline) status = '<span class="warn">' + escapeHtml(d.offline) + "</span> " + status;
-      if (d.fetched_at) updated = "Updated " + fmtClock(new Date(d.fetched_at * 1000));
+      if (d.offline) line = '<span class="warn">' + escapeHtml(d.offline) + "</span> " + line;
+      lines.push(line);
+      if (d.library) {
+        lines.push(escapeHtml("Your library: " + d.library.games.toLocaleString() + " games, " +
+          d.library.with_achievements.toLocaleString() + " with achievements, " +
+          d.library.without_achievements.toLocaleString() + " without"));
+      }
+      if (syncing) {
+        lines.push('<span class="unlocks-sync">' + escapeHtml(syncing.total
+          ? "Reading your games from Steam: " + syncing.done + " of " + syncing.total + "\u2026"
+          : "Asking Steam what changed\u2026") + "</span>");
+      }
     }
-    byId("unlocks-status").innerHTML = status;
-    byId("unlocks-updated").textContent = updated;
-    var hidden = d && !unlocksError && !unlocksBusy && d.unreadable;
+    byId("unlocks-status").innerHTML = lines.map(function (l) { return "<div>" + l + "</div>"; }).join("");
+    byId("unlocks-updated").textContent = d && !unlocksError && d.fetched_at ? "Updated " + fmtClock(new Date(d.fetched_at * 1000)) : "";
+    var hidden = d && !unlocksError && d.unreadable;
     byId("unlocks-hidden").hidden = !(hidden && unlocksHiddenOpen);
     if (hidden) {
       byId("unlocks-hidden").textContent = "Steam doesn't show the achievements of " + (d.unreadable_games || []).join(", ") +
@@ -2935,11 +2966,11 @@
     }
     if (unlocksError) {
       list.innerHTML = problemHtml("warn", (unlocksError.data || {}).title, unlocksError.message);
-    } else if (d && !d.unlocks.length) {
-      list.innerHTML = emptyHtml("\u2606", "No unlocks yet in these games.");
+    } else if (d && !shown.length) {
+      list.innerHTML = syncing && !d.unlocks.length ? "" : emptyHtml("\u2606", "No unlocks " + range[1] + ".");
     } else if (d) {
       var html = "", lastDay = null;
-      d.unlocks.forEach(function (u) {
+      shown.forEach(function (u) {
         var at = new Date(u.time * 1000), day = unlockDay(at);
         if (day !== lastDay) {
           html += (lastDay ? "</div>" : "") + '<div class="unlocks-day">' + escapeHtml(day) + '</div><div class="unlocks-group">';
@@ -2954,6 +2985,11 @@
       });
       list.innerHTML = html + (lastDay ? "</div>" : "");
     } else if (!unlocksBusy) list.innerHTML = "";
+    // While Steam is read in the background, look again in a moment.
+    clearTimeout(unlocksPoll);
+    if (syncing && document.body.getAttribute("data-screen") === "unlocks") {
+      unlocksPoll = setTimeout(function () { loadUnlocks(false); }, 2000);
+    }
     // Which games, in a line; the key itself is in Settings.
     byId("unlocks-note").hidden = unlocksHasKey !== false;
     byId("unlocks-note").innerHTML = unlocksHasKey !== false ? ""
@@ -2962,6 +2998,14 @@
     if (go) go.addEventListener("click", showGuide);
     renderUnlocksKey();
   }
+  byId("unlocks-range").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-range]");
+    if (!b || b.getAttribute("data-range") === unlocksRange) return;
+    unlocksRange = b.getAttribute("data-range");
+    renderUnlocks();
+    api("/api/settings", {settings: {unlocks_range: unlocksRange}}).then(function (d) { runSettings = d.settings; })
+      .catch(function (err) { showToast("Couldn't save: " + err.message); });
+  });
   // Settings → Unlocks: the Steam Web API key, so Unlocks covers the
   // whole library.
   function renderUnlocksKey() {

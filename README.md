@@ -157,6 +157,7 @@ In the app, **Settings** has the keep-awake and update switches and **Advanced r
 | `steam_api_key` | `null` | A [Steam Web API key](https://steamcommunity.com/dev/apikey), so the app's **Unlocks** covers every game you play, not just the games in STAR. Set it in Settings → Unlocks. |
 | `clock` | `"system"` | How the app writes times: `"system"` (the computer's way), `"12h"` (2:30 PM) or `"24h"` (14:30). Set it in Settings → Clock. |
 | `theme`, `accent` | `"dark"`, `"violet"` | The app's look, from its Appearance menu: `"dark"` or `"light"`; `"violet"`, `"wine"`, `"blue"`, `"teal"` or `"amber"`. |
+| `unlocks_range` | `"month"` | How far back the app's **Unlocks** lists: `"day"`, `"week"`, `"month"`, `"year"` or `"all"`. Set it on Unlocks. |
 
 With randomness on, it applies to the delays between achievements and to the gaps between sessions. The random value is picked when that delay is scheduled and saved with your progress, so stopping and resuming doesn't pick a new one. Unlocks that happened together in the source data (see `simultaneous_max_delay`) are still sent together. Estimates such as `-t`, `-ls` and the session length shown before you confirm still use the config's exact values.
 
