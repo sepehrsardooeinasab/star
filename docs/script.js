@@ -2685,9 +2685,9 @@
     // range or sort picked in Library lasts until then.
     var lib = {};
     (runSettings || []).forEach(function (x) { lib[x.key] = x.value; });
-    if (lib.unlocks_range && lib.unlocks_range !== unlocksRange) {
-      unlocksRange = lib.unlocks_range;
-      if (unlocksData) renderUnlocks();
+    if (lib.unlocks_range) {
+      byId("default-range").value = lib.unlocks_range;
+      if (lib.unlocks_range !== appliedLib.range) { appliedLib.range = unlocksRange = lib.unlocks_range; if (unlocksData) renderUnlocks(); }
     }
     if (lib.library_sort && lib.library_order) {
       byId("default-sort").value = lib.library_sort;
@@ -3116,16 +3116,14 @@
     if (go) go.addEventListener("click", showGuide);
     renderUnlocksKey();
   }
+  // The range and sorting picked here last until the app closes; their
+  // defaults are in Settings → Library.
   byId("unlocks-range").addEventListener("click", function (e) {
     var b = e.target.closest("[data-range]");
     if (!b || b.getAttribute("data-range") === unlocksRange) return;
     unlocksRange = b.getAttribute("data-range");
     renderUnlocks();
-    api("/api/settings", {settings: {unlocks_range: unlocksRange}}).then(function (d) { runSettings = d.settings; })
-      .catch(function (err) { showToast("Couldn't save: " + err.message); });
   });
-  // The sorting picked here lasts until the app closes; its default is
-  // in Settings → Library.
   byId("games-sort").addEventListener("change", function () {
     gamesSort = this.value;
     gamesOrder = gamesSort === "name" ? "asc" : "desc";  // A–Z, or newest / most first
@@ -3140,6 +3138,7 @@
     api("/api/settings", {settings: values}).then(function (d) { runSettings = d.settings; syncToggles(); })
       .catch(function (err) { showToast("Couldn't save: " + err.message); });
   }
+  byId("default-range").addEventListener("change", function () { saveSetting({unlocks_range: this.value}); });
   byId("default-sort").addEventListener("change", function () {
     var order = this.value === "name" ? "asc" : "desc";
     syncOrderOptions(byId("default-order"), this.value, order);
