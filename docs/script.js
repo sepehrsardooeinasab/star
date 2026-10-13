@@ -3111,9 +3111,9 @@
     gamePageFor = gamePage = null;
     renderGamePage();
   }
-  function achRowsHtml(list, kind) {
+  function achRowsHtml(list, groupKind) {
     return list.map(function (a) {
-      var when = "";
+      var when = "", kind = groupKind || a.kind;
       if (kind === "unlocked") {
         var at = new Date(a.time * 1000);
         when = '<div class="unlock-meta"><div>' + escapeHtml(fmtDay(a.time)) + "</div><div>" + escapeHtml(fmtClock(at)) + "</div></div>";
@@ -3123,10 +3123,10 @@
         (a.description ? '<div class="unlock-desc">' + escapeHtml(a.description) + "</div>" : "") + "</div>" + when + "</div>";
     }).join("");
   }
-  // A game's achievements, unlocked and locked kept apart, by date
-  // unlocked (those without a time, and locked ones, in Steam's order) or
-  // by name; picked here, kept until the app closes.
-  var achSort = "date", achOrder = "desc";
+  // A game's achievements, unlocked and locked kept apart or all in one
+  // list, by date unlocked (those without a time, and locked ones, after,
+  // in Steam's order) or by name; picked here, kept until the app closes.
+  var achSort = "date", achOrder = "desc", achGroup = "status";
   function sortAch(list, timed) {
     var out = list.slice();
     if (achSort === "name") out.sort(function (a, b) { return a.name.localeCompare(b.name); });
@@ -3163,16 +3163,24 @@
       if (!p.full) html += noticeHtml("info", "Its locked achievements show after its next read from Steam.");
       html += '<div class="unlocks-bar ach-sort games-sort"><select id="ach-sort" aria-label="Sort achievements by">' +
         '<option value="date">Date unlocked</option><option value="name">Name</option></select>' +
-        '<button class="btn-ghost" id="ach-order" type="button">' + orderName(achSort === "name" ? "name" : "achievement", achOrder) + "</button></div>";
-      var groups = [["Unlocked", sortAch(p.unlocks, true), "unlocked"], ["Unlocked, no time kept by Steam", sortAch(p.untimed), "untimed"], ["Locked", sortAch(p.locked), "locked"]];
-      groups.forEach(function (g) {
-        if (!g[1].length) return;
-        html += '<div class="unlocks-day">' + g[0] + " \u00b7 " + g[1].length + '</div><div class="unlocks-group">' + achRowsHtml(g[1], g[2]) + "</div>";
-      });
+        '<button class="btn-ghost" id="ach-order" type="button">' + orderName(achSort === "name" ? "name" : "achievement", achOrder) + "</button>" +
+        '<select id="ach-group" aria-label="Group achievements by"><option value="status">Group: Unlocked / Locked</option>' +
+        '<option value="none">Group: None</option></select></div>';
+      var tag = function (list, kind) { return list.map(function (a) { return Object.assign({kind: kind}, a); }); };
+      if (achGroup === "none") {
+        var all = sortAch(tag(p.unlocks, "unlocked"), true).concat(tag(p.untimed, "untimed"), tag(p.locked, "locked"));
+        if (achSort === "name") all = sortAch(all);
+        html += '<div class="unlocks-day">All \u00b7 ' + all.length + '</div><div class="unlocks-group">' + achRowsHtml(all) + "</div>";
+      } else {
+        var groups = [["Unlocked", sortAch(p.unlocks, true), "unlocked"], ["Unlocked, no time kept by Steam", sortAch(p.untimed), "untimed"], ["Locked", sortAch(p.locked), "locked"]];
+        groups.forEach(function (g) {
+          if (!g[1].length) return;
+          html += '<div class="unlocks-day">' + g[0] + " \u00b7 " + g[1].length + '</div><div class="unlocks-group">' + achRowsHtml(g[1], g[2]) + "</div>";
+        });
+      }
     }
     page.innerHTML = html;
-    var sel = byId("ach-sort");
-    if (sel) sel.value = achSort;
+    if (byId("ach-sort")) { byId("ach-sort").value = achSort; byId("ach-group").value = achGroup; }
   }
   byId("games-list").addEventListener("click", function (e) {
     var row = e.target.closest("[data-appid]");
@@ -3189,6 +3197,7 @@
     if (e.target.closest("#ach-order")) { achOrder = achOrder === "desc" ? "asc" : "desc"; renderGamePage(); }
   });
   byId("game-page").addEventListener("change", function (e) {
+    if (e.target.id === "ach-group") { achGroup = e.target.value; renderGamePage(); return; }
     if (e.target.id !== "ach-sort") return;
     achSort = e.target.value;
     achOrder = achSort === "name" ? "asc" : "desc";  // A–Z, or newest first
