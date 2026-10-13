@@ -1646,6 +1646,11 @@
   }
 
   function gameTitle(g) { return g.title || g.name; }
+  // The game's small icon from Steam, or an empty square of its size
+  // until it's known, so names line up.
+  function gameIconHtml(g) {
+    return g.icon ? '<img class="game-icon" src="' + escapeHtml(g.icon) + '" alt="" loading="lazy">' : '<span class="game-icon"></span>';
+  }
 
   // When the game's next session can start: its break, and for a run
   // started with Start in, that delay too.
@@ -1682,7 +1687,7 @@
     var over = g.finished || g.state === "completed";
     return '<div class="run-card' + (g.name === selectedRun ? " selected" : "") + (resting ? " resting" : "") + (over ? " over" : "") + (cut ? " cut" : "") +
       '" data-name="' + escapeHtml(g.name) + '"' + (resting ? ' title="Playable ' + escapeHtml(fmtAt(wait)) + '"' : "") + ">" +
-      '<div class="run-head"><span class="run-name">' + escapeHtml(gameTitle(g)) + "</span>" + clock +
+      '<div class="run-head">' + gameIconHtml(g) + '<span class="run-name">' + escapeHtml(gameTitle(g)) + "</span>" + clock +
       (badge ? '<span class="run-badge ' + badge[0] + '">' + badge[1] + "</span>" : "") + "</div>" +
       (meta ? '<div class="run-meta">' + meta + "</div>" : "") +
       (cut ? '<div class="run-progress"><span style="width:' + Math.round(100 * cut.played / cut.of) + '%"></span></div>' : "") +
@@ -1693,7 +1698,7 @@
   // parts: session, this session's size, progress, and when it plays.
   function summaryHtml(g) {
     if (!g) return "";
-    var title = '<div class="run-summary-title">' + escapeHtml(gameTitle(g)) + "</div>";
+    var title = '<div class="run-summary-title">' + gameIconHtml(g) + "<span>" + escapeHtml(gameTitle(g)) + "</span></div>";
     // A small arrow opens the schedule's info (App ID, where it came from)
     // under the summary.
     var more = '<button class="summary-more" type="button" data-run-info aria-expanded="' + !!runInfoOpen + '" title="' +

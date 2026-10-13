@@ -148,6 +148,7 @@ def _game_state(name, session_label):
         appid=config["appid"],
         copied_from=config.get("copied_from"),
         title=_title(config),
+        icon=achievements.app_icon(config["appid"]),
         total=total,
         done=min(progress["last_completed"] + 1, total),
         config_changed=config_changed(config, progress))
@@ -195,7 +196,8 @@ def game_states():
             config = _finished_config(name)
             if config:
                 game.update(appid=config["appid"], copied_from=config.get("copied_from"),
-                            title=_title(config), total=len(config["achievements"]),
+                            title=_title(config), icon=achievements.app_icon(config["appid"]),
+                            total=len(config["achievements"]),
                             done=len(config["achievements"]))
             games.append(game)
     games.sort(key=lambda g: g["name"])

@@ -879,7 +879,14 @@
   .run-card:hover { border-color: var(--border-strong); }
   .run-card.selected { border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
   .run-head { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
-  .run-name { font-weight: 600; font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .run-name { flex: 1; min-width: 0; font-weight: 600; font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* The game's icon from Steam, before its name. */
+  .game-icon { flex: none; width: 22px; height: 22px; border-radius: 5px; background: var(--surface-3); }
+  .run-head .game-icon { margin-right: -0.15rem; }
+  .run-card:is(.resting, .over) .game-icon { opacity: 0.5; }
+  .run-summary-title { display: flex; align-items: center; gap: 0.6rem; }
+  .run-summary-title .game-icon { width: 28px; height: 28px; border-radius: 6px; }
+  .run-summary-title > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .run-badge {
     flex: none;
     display: inline-flex;

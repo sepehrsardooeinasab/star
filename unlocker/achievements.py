@@ -296,3 +296,70 @@ def app_title(appid):
             _titles_pending.add(appid)
             threading.Thread(target=_fetch_title, args=(appid,), daemon=True).start()
     return None
+
+
+ICONS_PATH = JSONS_DIR / ".icons.json"
+ICON_URL = "https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/apps/{appid}/{icon}.jpg"
+_icons_lock = threading.Lock()
+_icons_pending = set()
+_icons_failed = {}  # appid -> when a lookup last failed
+
+
+def _fetch_icons():
+    """Looks up the pending games' icons, until none are left."""
+    while True:
+        time.sleep(0.2)  # let one poll's games gather into one request
+        with _icons_lock:
+            appids = sorted(_icons_pending)
+            if not appids:
+                return
+        _fetch_icon_batch(appids)
+
+
+def _fetch_icon_batch(appids):
+    """Looks up these games' icons in one request to Steam (no key
+    needed), and saves them to jsons/.icons.json."""
+    query = urllib.parse.urlencode({f"appids[{i}]": appid for i, appid in enumerate(appids)})
+    try:
+        req = urllib.request.Request("https://api.steampowered.com/ICommunityService/GetApps/v1/?" + query,
+                                     headers={"User-Agent": "Mozilla/5.0 (STAR)"})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            apps = (json.loads(r.read()).get("response") or {}).get("apps") or []
+    except (urllib.error.URLError, OSError, ValueError):
+        apps = []
+    found = {app["appid"]: app["icon"] for app in apps
+             if isinstance(app.get("appid"), int) and re.fullmatch(r"[0-9a-f]{40}", str(app.get("icon") or ""))}
+    with _icons_lock:
+        _icons_pending.difference_update(appids)
+        for appid in appids:
+            if appid not in found:
+                _icons_failed[appid] = time.monotonic()
+        if found:
+            try:
+                icons = json.loads(ICONS_PATH.read_text())
+            except (OSError, ValueError):
+                icons = {}
+            icons.update({str(appid): icon for appid, icon in found.items()})
+            ICONS_PATH.write_text(json.dumps(icons, indent=1) + "\n")
+
+
+def app_icon(appid):
+    """The game's small square icon on Steam, as a URL. Cached in
+    jsons/.icons.json; looked up in the background, so None until it's
+    known (or if Steam has none)."""
+    if not isinstance(appid, int) or appid <= 0:
+        return None
+    try:
+        icon = json.loads(ICONS_PATH.read_text()).get(str(appid))
+    except (OSError, ValueError):
+        icon = None
+    if icon:
+        return ICON_URL.format(appid=appid, icon=icon)
+    with _icons_lock:
+        failed = _icons_failed.get(appid)
+        if appid not in _icons_pending and (failed is None or time.monotonic() - failed > TITLE_RETRY):
+            start = not _icons_pending
+            _icons_pending.add(appid)
+            if start:
+                threading.Thread(target=_fetch_icons, daemon=True).start()
+    return None
