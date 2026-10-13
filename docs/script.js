@@ -3286,14 +3286,24 @@
     renderGamePage();
   });
 
-  byId("library-tabs").addEventListener("click", function (e) {
-    var b = e.target.closest("[data-tab]");
-    if (!b || b.getAttribute("data-tab") === libraryTab) return;
-    libraryTab = b.getAttribute("data-tab");
+  function showLibraryTab(tab) {
+    if (tab === libraryTab) return;
+    libraryTab = tab;
     renderUnlocks();
     scrollLibraryTop();
     api("/api/settings", {settings: {library_tab: libraryTab}}).then(function (d) { runSettings = d.settings; })
       .catch(function (err) { showToast("Couldn't save: " + err.message); });
+  }
+  byId("library-tabs").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-tab]");
+    if (b) showLibraryTab(b.getAttribute("data-tab"));
+  });
+  // An unlock's game name opens that game's page, in Games.
+  byId("unlocks-list").addEventListener("click", function (e) {
+    var g = e.target.closest("[data-open-game]");
+    if (!g) return;
+    showLibraryTab("games");
+    openGamePage(Number(g.getAttribute("data-open-game")));
   });
   // Back to top, once the list has been scrolled a long way. In the app
   // the Library scrolls on its own; on a page, the window does.
@@ -3362,7 +3372,7 @@
           iconHtml("unlock-icon", u.icon, "ach") +
           '<div class="unlock-text"><div class="unlock-name">' + escapeHtml(u.name) + "</div>" +
           achDescHtml(u, false) + "</div>" +
-          '<div class="unlock-meta"><div class="unlock-game">' + markHtml(u) + escapeHtml(u.game) + "</div>" +
+          '<div class="unlock-meta"><div class="unlock-game" data-open-game="' + u.appid + '" role="button" tabindex="0">' + markHtml(u) + escapeHtml(u.game) + "</div>" +
           '<div class="unlock-time">' + escapeHtml(fmtClock(at)) + "</div></div></div>";
       });
       list.innerHTML = html + (lastDay ? "</div>" : "");
