@@ -515,6 +515,13 @@ def recent_unlocks(refresh):
         raise AppError(str(e), 409, title=e.title, has_key=bool(unlocks._key()))
 
 
+def unlocks_game(appid):
+    try:
+        return unlocks.game_page(appid)
+    except unlocks.Problem as e:
+        raise AppError(str(e), 404, title=e.title)
+
+
 def save_unlocks_key(key):
     try:
         return unlocks.save_key(str(key or ""))
@@ -698,6 +705,7 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/settings": run_settings,
             "/api/unlocks": lambda: recent_unlocks(query.get("refresh") == "1"),
             "/api/unlocks/key": lambda: {"has_key": bool(unlocks._key())},
+            "/api/unlocks/game": lambda: unlocks_game(query.get("appid")),
         }
         self._route(routes.get(url.path))
 

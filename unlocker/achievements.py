@@ -94,6 +94,7 @@ def _steam_stats(kind, who, app):
             "unlocked": a.get("closed") == "1",
             "unlock_time": int(stamp) if stamp and stamp.isdigit() else None,
             "icon": _clean(a.findtext("iconClosed")),
+            "icon_locked": _clean(a.findtext("iconOpen")),
         })
     if not achievements:
         raise Problem("Steam shows no achievements for this player and game",

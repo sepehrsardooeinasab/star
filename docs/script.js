@@ -2931,7 +2931,10 @@
     unlocksBusy = true;
     renderUnlocks();
     api("/api/unlocks" + (refresh ? "?refresh=1" : ""))
-      .then(function (d) { unlocksData = d; unlocksError = null; unlocksHasKey = d.has_key; })
+      .then(function (d) {
+        unlocksData = d; unlocksError = null; unlocksHasKey = d.has_key;
+        if (gamePage && !gamePage.error && !d.syncing) openGamePageQuiet(gamePageFor);
+      })
       .catch(function (e) {
         unlocksError = e;
         if (e.data && "has_key" in e.data) unlocksHasKey = e.data.has_key;
@@ -3028,7 +3031,8 @@
           '<span class="lib-count">' + g.unlocked + " / " + g.total + (g.total && g.unlocked >= g.total ? " \u00b7 Complete" : " \u00b7 " + pct + "%") + "</span>";
       }
       var done = g.total && g.unlocked >= g.total;
-      return '<div class="lib-game' + (g.hidden || g.private ? " hidden-game" : "") + (done ? " complete" : "") + '">' +
+      return '<div class="lib-game' + (g.hidden || g.private ? " hidden-game" : "") + (done ? " complete" : "") +
+        '" data-appid="' + g.appid + '" role="button" tabindex="0">' +
         iconHtml("lib-icon", g.icon, g.name) +
         '<div class="lib-text"><div class="lib-name">' + escapeHtml(g.name) + markHtml(g) + "</div>" +
         '<div class="lib-progress">' + progress + "</div></div>" +
@@ -3036,6 +3040,89 @@
         "<div>" + escapeHtml(fmtPlaytime(g.playtime)) + "</div></div></div>";
     }).join("");
   }
+  // A game's own page: its achievements, unlocked (newest first) and
+  // locked, from what's saved; links to Steam and SteamHunters, and to its
+  // run when STAR has a schedule for it.
+  var gamePage = null, gamePageFor = null;
+  function openGamePage(appid) {
+    gamePageFor = appid;
+    gamePage = null;
+    renderGamePage();
+    scrollLibraryTop();
+    api("/api/unlocks/game?appid=" + encodeURIComponent(appid)).then(function (p) {
+      if (gamePageFor === appid) { gamePage = p; renderGamePage(); }
+    }).catch(function (e) {
+      if (gamePageFor === appid) { gamePage = {error: e}; renderGamePage(); }
+    });
+  }
+  // Reloaded quietly (no "Loading", same scroll) when a check finishes.
+  function openGamePageQuiet(appid) {
+    api("/api/unlocks/game?appid=" + encodeURIComponent(appid)).then(function (p) {
+      if (gamePageFor === appid) { gamePage = p; renderGamePage(); }
+    }).catch(function () {});
+  }
+  function closeGamePage() {
+    gamePageFor = gamePage = null;
+    renderGamePage();
+  }
+  function achRowsHtml(list, kind) {
+    return list.map(function (a) {
+      var when = "";
+      if (kind === "unlocked") {
+        var at = new Date(a.time * 1000);
+        when = '<div class="unlock-meta"><div>' + escapeHtml(fmtDay(a.time)) + "</div><div>" + escapeHtml(fmtClock(at)) + "</div></div>";
+      }
+      return '<div class="unlock' + (kind === "locked" ? " locked" : "") + '">' + iconHtml("unlock-icon", a.icon, "ach") +
+        '<div class="unlock-text"><div class="unlock-name">' + escapeHtml(a.name) + "</div>" +
+        (a.description ? '<div class="unlock-desc">' + escapeHtml(a.description) + "</div>" : "") + "</div>" + when + "</div>";
+    }).join("");
+  }
+  function renderGamePage() {
+    var page = byId("game-page"), open = gamePageFor !== null;
+    page.hidden = !open;
+    byId("games-index").hidden = open;
+    if (!open) { page.innerHTML = ""; return; }
+    var p = gamePage, html = '<button class="btn-ghost game-back" type="button" data-game-back>\u2190 Games</button>';
+    if (!p) { page.innerHTML = html + '<div class="unlocks-status">' + escapeHtml("Loading\u2026") + "</div>"; return; }
+    if (p.error) { page.innerHTML = html + problemHtml("warn", (p.error.data || {}).title, p.error.message); return; }
+    var pct = p.total ? Math.round(100 * p.unlocked / p.total) : 0, done = p.total && p.unlocked >= p.total;
+    var links = '<a class="btn-ghost" target="_blank" rel="noopener" href="https://steamcommunity.com/profiles/' + encodeURIComponent(p.steamid || "") +
+      "/stats/" + p.appid + '/achievements/">Steam</a>' +
+      '<a class="btn-ghost" target="_blank" rel="noopener" href="https://steamhunters.com/apps/' + p.appid + '/achievements">SteamHunters</a>' +
+      (p.star ? '<button class="btn-ghost primary-ghost" type="button" data-game-run="' + escapeHtml(p.star) + '">Open in Runs</button>' : "");
+    html += '<div class="game-head' + (p.hidden || p.private ? " hidden-game" : "") + (done ? " complete" : "") + '">' +
+      iconHtml("lib-icon", p.icon, p.name) +
+      '<div class="lib-text"><div class="game-title">' + escapeHtml(p.name) + markHtml(p) + "</div>" +
+      (p.read ? '<div class="lib-progress"><span class="lib-bar"><span style="width:' + pct + '%"></span></span><span class="lib-count">' +
+        p.unlocked + " / " + p.total + (done ? " \u00b7 Complete" : " \u00b7 " + pct + "%") + "</span></div>" : "") +
+      '<div class="game-meta">' + escapeHtml([p.played ? "Played " + fmtDay(p.played) : "Never played", fmtPlaytime(p.playtime)].filter(Boolean).join(" \u00b7 ")) + "</div>" +
+      "</div></div>" + '<div class="game-links">' + links + "</div>";
+    if (p.unreadable) html += noticeHtml("warn", "Steam doesn't show this game's achievements: its game details may be private, or it has none.");
+    else if (!p.read) html += noticeHtml("info", "Not read from Steam yet. It's read on a coming check.");
+    else {
+      if (!p.full) html += noticeHtml("info", "Its locked achievements show after its next read from Steam.");
+      var groups = [["Unlocked", p.unlocks, "unlocked"], ["Unlocked, no time kept by Steam", p.untimed, "untimed"], ["Locked", p.locked, "locked"]];
+      groups.forEach(function (g) {
+        if (!g[1].length) return;
+        html += '<div class="unlocks-day">' + g[0] + " \u00b7 " + g[1].length + '</div><div class="unlocks-group">' + achRowsHtml(g[1], g[2]) + "</div>";
+      });
+    }
+    page.innerHTML = html;
+  }
+  byId("games-list").addEventListener("click", function (e) {
+    var row = e.target.closest("[data-appid]");
+    if (row) openGamePage(Number(row.getAttribute("data-appid")));
+  });
+  byId("games-list").addEventListener("keydown", function (e) {
+    var row = e.target.closest("[data-appid]");
+    if (row && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openGamePage(Number(row.getAttribute("data-appid"))); }
+  });
+  byId("game-page").addEventListener("click", function (e) {
+    if (e.target.closest("[data-game-back]")) { closeGamePage(); return; }
+    var run = e.target.closest("[data-game-run]");
+    if (run) { selectedRun = run.getAttribute("data-game-run"); showScreen("work"); setView("runs"); }
+  });
+
   byId("library-tabs").addEventListener("click", function (e) {
     var b = e.target.closest("[data-tab]");
     if (!b || b.getAttribute("data-tab") === libraryTab) return;

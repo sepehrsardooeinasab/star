@@ -51,8 +51,9 @@ LIVE_FOR = 86400   # a game played this recently may still be unlocking…
 LIVE_EVERY = 1800  # …so it's read again this often (or on refresh)
 KEY_RE = re.compile(r"[0-9A-Fa-f]{32}")
 # What a saved game was read with; one read with less (older STAR) is
-# read again once. 2: counts unlocks Steam keeps no time for.
-READ_VERSION = 2
+# read again once. 2: counts unlocks Steam keeps no time for; 3: keeps
+# every achievement (locked ones too), for a game's own page.
+READ_VERSION = 3
 
 _lock = threading.Lock()
 # The check in the background: running, games read so far of how many,
@@ -193,11 +194,11 @@ FAILED = "failed"
 
 
 def _game_unlocks(sid, appid, key=None):
-    """(game name, how many achievements, how many unlocked, the unlocked
-    ones that have a time); None when Steam won't show them (private, no
-    achievements); FAILED when the read failed (Steam busy or
-    unreachable), to try again next check. Unlocks Steam keeps no time
-    for still count, but aren't listed. With a key, a game whose stats
+    """The game as Steam shows it: {"game", "total", "unlocked" (how many),
+    "unlocks" (unlocked, with their times), "untimed" (unlocked, but Steam
+    keeps no time for them), "locked"}; None when Steam won't show it
+    (private, no achievements); FAILED when the read failed (Steam busy or
+    unreachable), to try again next check. With a key, a game whose stats
     page fails (some do, and Valve's own games have no readable page) is
     read through the Web API instead."""
     for attempt in range(2):
@@ -211,9 +212,19 @@ def _game_unlocks(sid, appid, key=None):
                 time.sleep(3)
     else:
         return _api_unlocks(key, sid, appid) if key else FAILED
-    return stats["game"], len(stats["achievements"]), sum(1 for a in stats["achievements"] if a["unlocked"]), [
-        {"name": a["name"], "description": a["description"], "icon": a["icon"], "time": a["unlock_time"]}
-        for a in stats["achievements"] if a["unlocked"] and a["unlock_time"]]
+    return _game(stats["game"], [
+        (a["name"], a["description"], a["icon"] if a["unlocked"] else a.get("icon_locked") or a["icon"],
+         a["unlocked"], a["unlock_time"]) for a in stats["achievements"]])
+
+
+def _game(name, rows):
+    """_game_unlocks' shape, from (name, description, icon, unlocked, time)
+    rows."""
+    item = lambda r: {"name": r[0], "description": r[1], "icon": r[2]}
+    return {"game": name, "total": len(rows), "unlocked": sum(1 for r in rows if r[3]),
+            "unlocks": [{**item(r), "time": r[4]} for r in rows if r[3] and r[4]],
+            "untimed": [item(r) for r in rows if r[3] and not r[4]],
+            "locked": [item(r) for r in rows if not r[3]]}
 
 
 def _api(key, path, **query):
@@ -241,11 +252,11 @@ def _api_unlocks(key, sid, appid):
         return None if player.get("error") else FAILED
     got = player.get("achievements") or []
     schema = (_api(key, "ISteamUserStats/GetSchemaForGame/v2/", appid=appid, l="english") or {}).get("game") or {}
-    icons = {a.get("name"): a.get("icon") for a in (schema.get("availableGameStats") or {}).get("achievements") or []}
-    return player.get("gameName") or schema.get("gameName") or "", len(got), sum(1 for a in got if a.get("achieved")), [
-        {"name": a.get("name") or a.get("apiname") or "", "description": a.get("description") or "",
-         "icon": icons.get(a.get("apiname")) or "", "time": a["unlocktime"]}
-        for a in got if a.get("achieved") and a.get("unlocktime")]
+    icons = {a.get("name"): (a.get("icon"), a.get("icongray")) for a in (schema.get("availableGameStats") or {}).get("achievements") or []}
+    return _game(player.get("gameName") or schema.get("gameName") or "", [
+        (a.get("name") or a.get("apiname") or "", a.get("description") or "",
+         (icons.get(a.get("apiname")) or ("", ""))[0 if a.get("achieved") else 1] or "",
+         bool(a.get("achieved")), a.get("unlocktime") or None) for a in got])
 
 
 def _load_store(sid):
@@ -339,6 +350,35 @@ def _result(store):
             "syncing": {"done": SYNC["done"], "total": SYNC["total"]} if SYNC["running"] else None}
 
 
+def game_page(appid):
+    """One game's own page, from what's saved: its achievements (unlocked
+    newest first, then those without a time, then locked), its progress,
+    and the STAR schedule for it if there is one."""
+    sid = steamid()
+    try:
+        appid = int(appid)
+    except (TypeError, ValueError):
+        raise Problem("No such game", "Pick a game from the list.")
+    store = _load_store(sid) if sid else {"games": {}, "steamid": sid}
+    saved = store["games"].get(str(appid), {})
+    owned = next((g for g in store.get("owned") or [] if g["appid"] == appid), {})
+    hidden, private = steam_marks(sid) if sid else (set(), set())
+    star = next((name for name, a in list_profiles() if a == appid), None)
+    icon = lambda u: achievements.current_host(u.get("icon"))
+    return {
+        "appid": appid, "steamid": sid,
+        "name": saved.get("game") or owned.get("name") or achievements.app_title(appid) or f"App {appid}",
+        "icon": achievements.current_host(owned.get("icon")) or achievements.app_icon(appid),
+        "played": owned.get("played") or saved.get("played") or 0, "playtime": owned.get("playtime"),
+        "total": saved.get("total"), "unlocked": saved.get("unlocked", len(saved.get("unlocks") or [])),
+        "read": "total" in saved, "full": saved.get("v") == READ_VERSION, "unreadable": bool(saved.get("unreadable")),
+        "hidden": appid in hidden, "private": appid in private, "star": star,
+        "unlocks": sorted(({**u, "icon": icon(u)} for u in saved.get("unlocks") or []), key=lambda u: u["time"], reverse=True),
+        "untimed": [{**u, "icon": icon(u)} for u in saved.get("untimed") or []],
+        "locked": [{**u, "icon": icon(u)} for u in saved.get("locked") or []],
+    }
+
+
 def recent(refresh=False):
     """The saved unlocks, starting a check with Steam in the background
     when one is due (or on refresh): {"unlocks": [...] newest first,
@@ -396,7 +436,7 @@ def _sync(sid, refresh):
                 saved = store["games"].setdefault(str(appid), {"game": "", "unlocks": []})
                 saved.update(read=time.time(), played=played[appid], unreadable=got is None, v=READ_VERSION)
                 if got:
-                    saved["game"], saved["total"], saved["unlocked"], saved["unlocks"] = got
+                    saved.update(got)
                 if done % 10 == 0:
                     _save_store(store)
         if appids and failed == len(appids) and store["games"] and not _steam_reachable():
