@@ -3123,6 +3123,17 @@
         (a.description ? '<div class="unlock-desc">' + escapeHtml(a.description) + "</div>" : "") + "</div>" + when + "</div>";
     }).join("");
   }
+  // A game's achievements, unlocked and locked kept apart, by date
+  // unlocked (those without a time, and locked ones, in Steam's order) or
+  // by name; picked here, kept until the app closes.
+  var achSort = "date", achOrder = "desc";
+  function sortAch(list, timed) {
+    var out = list.slice();
+    if (achSort === "name") out.sort(function (a, b) { return a.name.localeCompare(b.name); });
+    else if (timed) out.sort(function (a, b) { return a.time - b.time; });
+    else return out;
+    return achOrder === "desc" ? out.reverse() : out;
+  }
   function renderGamePage() {
     var page = byId("game-page"), open = gamePageFor !== null;
     page.hidden = !open;
@@ -3148,13 +3159,18 @@
     else if (!p.read) html += noticeHtml("info", "Not read from Steam yet. It's read on a coming check.");
     else {
       if (!p.full) html += noticeHtml("info", "Its locked achievements show after its next read from Steam.");
-      var groups = [["Unlocked", p.unlocks, "unlocked"], ["Unlocked, no time kept by Steam", p.untimed, "untimed"], ["Locked", p.locked, "locked"]];
+      html += '<div class="unlocks-bar ach-sort games-sort"><select id="ach-sort" aria-label="Sort achievements by">' +
+        '<option value="date">Date unlocked</option><option value="name">Name</option></select>' +
+        '<button class="btn-ghost" id="ach-order" type="button">' + orderName(achSort === "name" ? "name" : "achievement", achOrder) + "</button></div>";
+      var groups = [["Unlocked", sortAch(p.unlocks, true), "unlocked"], ["Unlocked, no time kept by Steam", sortAch(p.untimed), "untimed"], ["Locked", sortAch(p.locked), "locked"]];
       groups.forEach(function (g) {
         if (!g[1].length) return;
         html += '<div class="unlocks-day">' + g[0] + " \u00b7 " + g[1].length + '</div><div class="unlocks-group">' + achRowsHtml(g[1], g[2]) + "</div>";
       });
     }
     page.innerHTML = html;
+    var sel = byId("ach-sort");
+    if (sel) sel.value = achSort;
   }
   byId("games-list").addEventListener("click", function (e) {
     var row = e.target.closest("[data-appid]");
@@ -3168,6 +3184,13 @@
     if (e.target.closest("[data-game-back]")) { closeGamePage(); return; }
     var run = e.target.closest("[data-game-run]");
     if (run) { selectedRun = run.getAttribute("data-game-run"); showScreen("work"); setView("runs"); }
+    if (e.target.closest("#ach-order")) { achOrder = achOrder === "desc" ? "asc" : "desc"; renderGamePage(); }
+  });
+  byId("game-page").addEventListener("change", function (e) {
+    if (e.target.id !== "ach-sort") return;
+    achSort = e.target.value;
+    achOrder = achSort === "name" ? "asc" : "desc";  // A–Z, or newest first
+    renderGamePage();
   });
 
   byId("library-tabs").addEventListener("click", function (e) {

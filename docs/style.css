@@ -1987,6 +1987,7 @@
   .game-links .btn-ghost { padding: 0.35rem 0.8rem; font-size: 0.78rem; font-weight: 500; text-decoration: none; border: 1px solid var(--border-strong); border-radius: 8px; }
   .game-page .notice { margin-top: 0.8rem; }
   .game-links .primary-ghost { border-color: var(--accent); color: var(--accent); }
+  .ach-sort { justify-content: flex-start; margin: 1rem 0 0; }
   .unlock.locked .unlock-icon { opacity: 0.55; }
   .unlock.locked :is(.unlock-name, .unlock-desc) { color: var(--placeholder); }
   .games-search {
