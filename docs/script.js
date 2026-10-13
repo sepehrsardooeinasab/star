@@ -3064,12 +3064,12 @@
       return words.every(function (w) { return name.indexOf(w) !== -1; });
     });
   }
-  // A game's progress: its bar, then "unlocked / total" with the slash in
-  // the same place on every row, then Complete or the percentage.
-  function progressHtml(unlocked, total) {
+  // A game's progress: its bar, then (on its own page) "unlocked / total"
+  // with the slash in the same place, then Complete or the percentage.
+  function progressHtml(unlocked, total, short) {
     var pct = total ? Math.round(100 * unlocked / total) : 0;
-    return '<span class="lib-bar"><span style="width:' + pct + '%"></span></span>' +
-      '<span class="lib-count"><span class="lib-got">' + unlocked + '</span><span class="lib-of">/</span><span class="lib-all">' + total + "</span></span>" +
+    return '<span class="lib-bar"><span style="width:' + pct + '%"></span></span>' + (short ? "" :
+      '<span class="lib-count"><span class="lib-got">' + unlocked + '</span><span class="lib-of">/</span><span class="lib-all">' + total + "</span></span>") +
       '<span class="lib-state">' + (total && unlocked >= total ? "Complete" : pct + "%") + "</span>";
   }
   function renderGames(d) {
@@ -3116,7 +3116,7 @@
       if (!g.stats) progress = '<span class="lib-dim">No achievements</span>';
       else if (g.unreadable) progress = '<span class="lib-dim">' + (g.private ? "Not shown while Private" : "Not shown by Steam") + "</span>";
       else if (!g.read) progress = '<span class="lib-dim">' + (g.played ? "Not read yet" : "Never played") + "</span>";
-      else progress = progressHtml(g.unlocked, g.total);
+      else progress = progressHtml(g.unlocked, g.total, true);
       var done = g.total && g.unlocked >= g.total;
       return '<div class="lib-game' + (g.hidden || g.private ? " hidden-game" : "") + (done ? " complete" : "") +
         '" data-appid="' + g.appid + '" role="button" tabindex="0">' +

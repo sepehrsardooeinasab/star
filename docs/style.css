@@ -2043,6 +2043,7 @@
   .lib-of { padding: 0 0.35em; color: var(--placeholder); }
   .lib-all { min-width: 3ch; }
   .lib-state { margin-left: 0.8rem; }
+  .lib-game .lib-state { margin-left: 0.2rem; }
   :is(.lib-game, .game-head).complete .lib-bar span { background: var(--warn); }
   :is(.lib-game, .game-head).complete :is(.lib-count, .lib-of, .lib-state) { color: var(--warn); }
   .lib-dim { color: var(--placeholder); }
