@@ -53,6 +53,9 @@ DEFAULTS = {
     # How the app writes clock times: "system" (the computer's way),
     # "12h" (2:30 PM) or "24h" (14:30).
     "clock": "system",
+    # The app's look (its Appearance menu).
+    "theme": "dark",
+    "accent": "violet",
 }
 
 # Accepted types per setting; None means null is allowed.
@@ -74,6 +77,8 @@ _TYPES = {
     "auto_update": (bool,),
     "show_finished": (bool,),
     "clock": (str,),
+    "theme": (str,),
+    "accent": (str,),
 }
 
 
@@ -89,7 +94,8 @@ APP_EDITABLE = [
 # On/off switches the app shows on their own, outside the run settings.
 APP_TOGGLES = ["keep_awake", "auto_update", "show_finished"]
 # Choices the app shows on their own, with what each can be.
-APP_CHOICES = {"clock": ["system", "12h", "24h"]}
+APP_CHOICES = {"clock": ["system", "12h", "24h"], "theme": ["dark", "light"],
+               "accent": ["violet", "wine", "blue", "teal", "amber"]}
 
 # Settings older versions had, ignored (and dropped on the next save from
 # the app) rather than refused as unknown.

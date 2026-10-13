@@ -15,5 +15,7 @@
   "keep_awake": true,
   "auto_update": true,
   "show_finished": false,
-  "clock": "system"
+  "clock": "system",
+  "theme": "dark",
+  "accent": "violet"
 }

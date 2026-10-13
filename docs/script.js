@@ -1360,16 +1360,23 @@
     var b = e.target.closest("button");
     if (!b) return;
     var theme = b.getAttribute("data-theme-choice"), accent = b.getAttribute("data-accent-choice");
-    if (theme) {
-      document.documentElement.setAttribute("data-theme", theme);
-      try { localStorage.setItem("unlock-scheduler-theme", theme); } catch (err) {}
-    }
-    if (accent) {
-      document.documentElement.setAttribute("data-accent", accent);
-      try { localStorage.setItem("unlock-scheduler-accent", accent); } catch (err) {}
-    }
-    syncThemeControls();
+    if (theme) applyAppearance("theme", theme, true);
+    if (accent) applyAppearance("accent", accent, true);
   });
+  // The look is kept in settings.json in the app (so an update doesn't
+  // reset it), and in this window's storage too, so the page paints in it
+  // before the server answers.
+  function applyAppearance(key, value, save) {
+    document.documentElement.setAttribute("data-" + key, value);
+    try { localStorage.setItem("unlock-scheduler-" + key, value); } catch (err) {}
+    syncThemeControls();
+    if (save && local) {
+      var values = {};
+      values[key] = value;
+      api("/api/settings", {settings: values}).then(function (d) { runSettings = d.settings; })
+        .catch(function (err) { showToast("Couldn't save: " + err.message); });
+    }
+  }
   // Closes on a click elsewhere or Escape.
   document.addEventListener("click", function (e) {
     if (!appearanceMenu.hidden && !e.target.closest(".appearance")) setAppearanceOpen(false);
@@ -2600,6 +2607,10 @@
       var s = (runSettings || []).filter(function (x) { return x.key === key; })[0];
       box.disabled = !s || !extrasTools[key];
       box.checked = !!(s && s.value && extrasTools[key]);
+    });
+    ["theme", "accent"].forEach(function (key) {
+      var s = (runSettings || []).filter(function (x) { return x.key === key; })[0];
+      if (s && document.documentElement.getAttribute("data-" + key) !== s.value) applyAppearance(key, s.value, false);
     });
     var clock = (runSettings || []).filter(function (x) { return x.key === "clock"; })[0];
     if (clock && clock.value !== clockPref) {
