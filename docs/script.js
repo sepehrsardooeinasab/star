@@ -515,78 +515,95 @@
     return row[3] === "";
   }
 
-  // ui (optional) = {targets, gapActions, edits, originals, breaks,
-  // autoBreaks} makes delay_s cells clickable to edit (edited ones are
-  // highlighted with an undo button) and adds small add/remove-gap
-  // buttons after the session number / gap label. achievementClass
-  // (optional) gives each achievement row a class, by its index.
-  function rowsToTable(rows, ui, achievementClass) {
-    var achievement = -1;
-    var head = rows[0];
-    var body = rows.slice(1);
+  // The full timeline, for Schedule and Runs alike: one row per
+  // achievement under its session's heading, and a row for each break.
+  // Where the rows come from, what can be edited and which + / − apply is
+  // up to the caller, through hooks:
+  //   rowClass(index)  a class for the index-th achievement row, or ""
+  //   edit(ri)         null, or {cls, attr, undoAttr, original, title} for
+  //                    a delay that can be changed (original: the value
+  //                    before an edit, when it was edited)
+  //   gapButton(ri, r) the + / − after a row's number or break label
+  function timelineTable(rows, hooks) {
     var pretty = combined;  // the app: friendlier columns (see prettyTime)
-    var html = '<div class="table-wrap"><table class="csv-table' + (pretty ? " pretty" : "") + '"><thead><tr>';
-    (pretty ? ["#", "Achievement", "Player's time", "After"] : head).forEach(function (h) { html += "<th>" + escapeHtml(h) + "</th>"; });
-    html += "</tr></thead><tbody>";
-    var shown = function (r) { return pretty ? exactDuration(r[CSV_DELAY_COL + 1]) : r[CSV_DELAY_COL + 1]; };
-
+    var achievement = -1;
+    var html = '<div class="table-wrap"><table class="csv-table' + (pretty ? " pretty" : "") + '"><thead><tr>' +
+      (pretty ? ["#", "Achievement", "Player's time", "After"] : rows[0]).map(function (h) {
+        return "<th>" + escapeHtml(h) + "</th>";
+      }).join("") + "</tr></thead><tbody>";
+    var shown = function (seconds) { return pretty ? exactDuration(seconds) : String(seconds); };
+    function gap(ri, r) { return hooks.gapButton ? hooks.gapButton(ri, r) : ""; }
     function delayCell(r, ri) {
-      var id = ui && ui.targets[ri + 1];
-      if (!id) return "<td>" + escapeHtml(shown(r)) + "</td>";
-      var edited = id in ui.edits;
+      var value = escapeHtml(shown(r[CSV_DELAY_COL + 1]));
+      var e = hooks.edit && hooks.edit(ri);
+      if (!e) return '<td class="delay-cell">' + value + "</td>";
+      var edited = e.original !== undefined;
       // In the app the undo goes before the time, so the times line up.
-      var undo = edited ? '<button class="undo-edit" type="button" data-undo="' + escapeHtml(id) + '" title="Undo this edit">↺</button>' : "";
-      var title = edited
-        ? "Edited (was " + ui.originals[id] + "s) — click to change"
-        : "Click to edit this delay";
-      return '<td class="delay-cell editable' + (edited ? " edited" : "") + '" data-id="' + escapeHtml(id) +
-        '" title="' + escapeHtml(title) + '">' + (pretty ? undo + escapeHtml(shown(r)) : escapeHtml(shown(r)) + undo) +
-        "</td>";
+      var undo = edited ? '<button class="undo-edit" type="button" ' + e.undoAttr + ' title="Undo (was ' +
+        escapeHtml(shown(e.original)) + ')">↺</button>' : "";
+      return '<td class="delay-cell ' + e.cls + (edited ? " edited" : "") + '" ' + e.attr +
+        (e.title ? ' title="' + escapeHtml(e.title) + '"' : "") + ">" + (pretty ? undo + value : value + undo) + "</td>";
     }
-
-    // A gap is manual when it differs from what the limits would decide:
-    // an added gap shows a highlighted −, a removed one a highlighted +.
-    function gapButton(ri) {
-      var act = ui && ui.gapActions[ri + 1];
-      if (!act) return "";
-      var manual = act.id in ui.breaks && ui.breaks[act.id] !== ui.autoBreaks[act.id];
-      var add = act.kind === "add";
-      var title = add
-        ? (manual ? "A gap was removed here — click to put it back" : "Start a new session at this achievement")
-        : (manual ? "You added this gap — click to remove it" : "Remove this gap (merge into the previous session)");
-      return '<button class="gap-btn' + (manual ? " edited" : "") + '" type="button" data-gap="' +
-        escapeHtml(act.id) + '" data-kind="' + act.kind + '" title="' + escapeHtml(title) + '">' +
-        (add ? "+" : "−") + "</button>";
-    }
-
-    body.forEach(function (r, ri) {
+    rows.slice(1).forEach(function (r, i) {
+      var ri = i + 1;
       if (pretty) {
         if (/^Copied from:/.test(r[0])) return;
         if (isLabelRow(r)) {
           var kind = /^Gap/.test(r[0]) ? "gap-row" : "session-row";
-          html += '<tr class="' + kind + '"><td colspan="3">' + escapeHtml(prettyLabel(r)) + gapButton(ri) + "</td>" +
+          html += '<tr class="' + kind + '"><td colspan="3"><span class="cell-line">' + escapeHtml(prettyLabel(r)) + gap(ri, r) + "</span></td>" +
             (kind === "gap-row" ? delayCell(r, ri) : "<td></td>") + "</tr>";
-        } else {
-          var cls2 = achievementClass ? achievementClass(++achievement) : "";
-          html += "<tr" + (cls2 ? ' class="' + cls2 + '"' : "") + '><td><span class="row-num">' + escapeHtml(r[1]) + "</span>" +
-            gapButton(ri) + "</td><td>" +
-            escapeHtml(r[2]) + "</td><td>" + escapeHtml(prettyTime(r[4])) + "</td>" + delayCell(r, ri) + "</tr>";
+          return;
         }
+        var rc = hooks.rowClass ? hooks.rowClass(++achievement) : "";
+        html += "<tr" + (rc ? ' class="' + rc + '"' : "") + '><td><span class="cell-line"><span class="row-num">' + escapeHtml(r[1]) + "</span>" +
+          gap(ri, r) + "</span></td><td>" + escapeHtml(r[2]) + "</td><td>" + escapeHtml(prettyTime(r[4])) + "</td>" +
+          delayCell(r, ri) + "</tr>";
         return;
       }
       if (isLabelRow(r)) {
         var cls = /^Gap/.test(r[0]) ? "gap-row" : /^Copied from:/.test(r[0]) ? "meta-row" : "session-row";
-        html += '<tr class="' + cls + '"><td colspan="' + CSV_DELAY_COL + '">' + escapeHtml(r[0]) + gapButton(ri) + "</td>" +
+        html += '<tr class="' + cls + '"><td colspan="' + CSV_DELAY_COL + '">' + escapeHtml(r[0]) + gap(ri, r) + "</td>" +
           "<td>" + escapeHtml(r[CSV_DELAY_COL]) + "</td>" + delayCell(r, ri) + "</tr>";
-      } else {
-        var rowClass = achievementClass ? achievementClass(++achievement) : "";
-        html += "<tr" + (rowClass ? ' class="' + rowClass + '"' : "") + "><td>" + escapeHtml(r[0]) + gapButton(ri) + "</td>" +
-          r.slice(1, CSV_DELAY_COL).map(function (c) { return "<td>" + escapeHtml(c) + "</td>"; }).join("") +
-          "<td>" + escapeHtml(r[CSV_DELAY_COL]) + "</td>" + delayCell(r, ri) + "</tr>";
+        return;
+      }
+      var rowClass = hooks.rowClass ? hooks.rowClass(++achievement) : "";
+      html += "<tr" + (rowClass ? ' class="' + rowClass + '"' : "") + "><td>" + escapeHtml(r[0]) + gap(ri, r) + "</td>" +
+        r.slice(1, CSV_DELAY_COL).map(function (c) { return "<td>" + escapeHtml(c) + "</td>"; }).join("") +
+        "<td>" + escapeHtml(r[CSV_DELAY_COL]) + "</td>" + delayCell(r, ri) + "</tr>";
+    });
+    return html + "</tbody></table></div>";
+  }
+
+  // Schedule's full timeline. ui (optional) = {targets, gapActions, edits,
+  // originals, breaks, autoBreaks} makes delays clickable to edit (edited
+  // ones highlighted, with an undo) and adds the + / − for breaks.
+  // achievementClass (optional) gives each achievement row a class.
+  function rowsToTable(rows, ui, achievementClass) {
+    return timelineTable(rows, {
+      rowClass: achievementClass,
+      edit: function (ri) {
+        var id = ui && ui.targets[ri];
+        if (!id) return null;
+        var edited = id in ui.edits;
+        return {cls: "editable", attr: 'data-id="' + escapeHtml(id) + '"', undoAttr: 'data-undo="' + escapeHtml(id) + '"',
+                original: edited ? ui.originals[id] : undefined,
+                title: edited ? "Edited — click to change" : "Click to edit this delay"};
+      },
+      // A gap is manual when it differs from what the limits would decide:
+      // an added gap shows a highlighted −, a removed one a highlighted +.
+      gapButton: function (ri) {
+        var act = ui && ui.gapActions[ri];
+        if (!act) return "";
+        var manual = act.id in ui.breaks && ui.breaks[act.id] !== ui.autoBreaks[act.id];
+        var add = act.kind === "add";
+        var title = add
+          ? (manual ? "A gap was removed here — click to put it back" : "Start a new session at this achievement")
+          : (manual ? "You added this gap — click to remove it" : "Remove this gap (merge into the previous session)");
+        return '<button class="gap-btn' + (manual ? " edited" : "") + '" type="button" data-gap="' +
+          escapeHtml(act.id) + '" data-kind="' + act.kind + '" title="' + escapeHtml(title) + '">' +
+          (add ? "+" : "−") + "</button>";
       }
     });
-    html += "</tbody></table></div>";
-    return html;
   }
 
   function highlightJson(json) {
@@ -1874,50 +1891,31 @@
       }).join("") + "</tbody></table></div>";
   }
 
+  // Runs' full timeline: what's unlocked dimmed, the next one marked while
+  // it plays; unlocked for editing, the delays and breaks still ahead can
+  // change (editable: the rows whose delay can).
   function timelineHtml(rows, done, running, editable) {
-    var pretty = local;  // the app: friendlier columns (see prettyTime)
-    var html = '<div class="table-wrap"><table class="csv-table' + (pretty ? " pretty" : "") + '"><thead><tr>' +
-      (pretty ? ["#", "Achievement", "Player's time", "After"] : rows[0]).map(function (h) {
-        return "<th>" + escapeHtml(h) + "</th>";
-      }).join("") + "</tr></thead><tbody>";
-    var index = -1;
-    function delayCell(r, ri) {
-      var original = runEdit ? runEdit.edited[ri] : undefined;
-      var cls = "delay-cell" + (editable && editable[ri] ? " run-editable" : "") + (original !== undefined ? " edited" : "");
-      var undo = original !== undefined ? '<button class="undo-edit" type="button" data-run-undo="' + ri +
-        '" title="Undo (was ' + (pretty ? exactDuration(original) : original + "s") + ')">↺</button>' : "";
-      var value = escapeHtml(pretty ? exactDuration(r[CSV_DELAY_COL + 1]) : r[CSV_DELAY_COL + 1]);
-      return '<td class="' + cls + '" data-row="' + ri + '">' + (pretty ? undo + value : value + undo) + "</td>";
-    }
-    rows.slice(1).forEach(function (r, i) {
-      var ri = i + 1;
-      if (pretty) {
-        if (/^Copied from:/.test(r[0])) return;
-        if (isLabelRow(r)) {
-          var kind = /^Gap/.test(r[0]) ? "gap-row" : "session-row";
-          html += '<tr class="' + kind + '"><td colspan="3">' + escapeHtml(prettyLabel(r)) + "</td>" +
-            (kind === "gap-row" ? delayCell(r, ri) : "<td></td>") + "</tr>";
-          return;
-        }
-        index++;
-        var rc = index < done ? "done-row" : index === done && running ? "next-row" : "";
-        html += "<tr" + (rc ? ' class="' + rc + '"' : "") + "><td>" + escapeHtml(r[1]) + "</td><td>" + escapeHtml(r[2]) +
-          "</td><td>" + escapeHtml(prettyTime(r[4])) + "</td>" + delayCell(r, ri) + "</tr>";
-        return;
+    return timelineTable(rows, {
+      rowClass: function (index) { return index < done ? "done-row" : index === done && running ? "next-row" : ""; },
+      edit: function (ri) {
+        if (!editable || !editable[ri]) return null;
+        return {cls: "run-editable", attr: 'data-row="' + ri + '"', undoAttr: 'data-run-undo="' + ri + '"',
+                original: runEdit.edited[ri]};
+      },
+      // + starts a new session at an achievement still ahead, − removes a
+      // break before a session still ahead.
+      gapButton: function (ri, r) {
+        if (!runEdit || !editable || (!isLabelRow(r) && String(r[1]) === "1")) return "";
+        var k = runEdit.rowAch[ri], a = runEdit.config.achievements[k];
+        if (k === undefined || !a) return "";
+        var add = !a.new_session;
+        if (add ? k < done : k <= done) return "";
+        var changed = !!a.new_session !== !!runEdit.base.achievements[k].new_session;
+        return '<button class="gap-btn' + (changed ? " edited" : "") + '" type="button" data-run-break="' + k + '" title="' +
+          (add ? "Start a new session at this achievement" : "Remove this break (merge into the previous session)") + '">' +
+          (add ? "+" : "−") + "</button>";
       }
-      if (isLabelRow(r)) {
-        var cls = /^Gap/.test(r[0]) ? "gap-row" : /^Copied from:/.test(r[0]) ? "meta-row" : "session-row";
-        html += '<tr class="' + cls + '"><td colspan="' + CSV_DELAY_COL + '">' + escapeHtml(r[0]) + "</td>" +
-          "<td>" + escapeHtml(r[CSV_DELAY_COL]) + "</td>" + delayCell(r, ri) + "</tr>";
-        return;
-      }
-      index++;
-      var rowClass = index < done ? "done-row" : index === done && running ? "next-row" : "";
-      html += "<tr" + (rowClass ? ' class="' + rowClass + '"' : "") + ">" +
-        r.slice(0, CSV_DELAY_COL + 1).map(function (c) { return "<td>" + escapeHtml(c) + "</td>"; }).join("") +
-        delayCell(r, ri) + "</tr>";
     });
-    return html + "</tbody></table></div>";
   }
 
   function renderTimeline() {
@@ -1947,10 +1945,10 @@
     lock.setAttribute("aria-pressed", String(!!runEdit));
     lock.disabled = !!game.running && !runEdit;
     lock.title = game.running ? "Stop the game to change its timeline"
-      : runEdit ? "Lock again (unsaved changes are dropped)" : "Unlock to change the delays still ahead";
+      : runEdit ? "Lock again (unsaved changes are dropped)" : "Unlock to change the delays and breaks still ahead";
     byId("timeline-lock-label").textContent = runEdit ? "Unlocked" : "Locked";
     byId("timeline-save").hidden = !runEdit;
-    byId("timeline-save").disabled = !runEdit || !Object.keys(runEdit.edited).length;
+    byId("timeline-save").disabled = !runEdit || JSON.stringify(runEdit.config) === JSON.stringify(runEdit.base);
     byId("timeline-bar-text").textContent = "";  // the lock's tooltip says it
 
     byId("timeline-table").innerHTML = rows && rows.length > 1
@@ -1959,51 +1957,36 @@
       : emptyHtml("☰", "No timeline was saved with this game.");
   }
 
-  // A session's total is the sum of its achievements' delays.
-  function updateSessionTotals(rows) {
-    var label = null;
+  // Editing works on a copy of the schedule (runEdit.config); the rows
+  // are rebuilt from it after each change, with the names and player's
+  // times from the saved timeline. rowAch: each row's achievement (a
+  // break row's is the session start after it); edited: rows whose delay
+  // differs from the saved one, with the saved value, for undo.
+  function rebuildEdit() {
+    var rows = rowsFromConfig(runEdit.config, runEdit.known);
+    if (runEdit.meta) rows.splice(1, 0, runEdit.meta);
+    var index = {}, rowAch = {}, edited = {}, pendingGap = null;
+    runEdit.config.achievements.forEach(function (a, k) { index[String(a.id)] = k; });
     rows.forEach(function (r, ri) {
-      if (ri === 0) return;
-      if (isLabelRow(r)) {
-        if (/^Session/.test(r[0])) { label = r; r[CSV_DELAY_COL + 1] = 0; }
-        else label = null;
-      } else if (label) {
-        label[CSV_DELAY_COL + 1] += Number(r[CSV_DELAY_COL + 1]) || 0;
-      }
+      if (ri === 0 || /^Copied from:/.test(r[0])) return;
+      if (isLabelRow(r)) { if (/^Gap/.test(r[0])) pendingGap = ri; return; }
+      var k = index[String(r[3])];
+      rowAch[ri] = k;
+      if (pendingGap !== null) rowAch[pendingGap] = k;
+      var delayRow = pendingGap !== null ? pendingGap : String(r[1]) !== "1" ? ri : null;
+      var before = runEdit.base.achievements[k].delay;
+      if (delayRow !== null && runEdit.config.achievements[k].delay !== before) edited[delayRow] = before;
+      pendingGap = null;
     });
-    rows.forEach(function (r) {
-      if (/^Session/.test(r[0]) && isLabelRow(r)) r[CSV_DELAY_COL] = roughDurationCsv(r[CSV_DELAY_COL + 1]);
-    });
+    runEdit.rows = rows;
+    runEdit.rowAch = rowAch;
+    runEdit.edited = edited;
   }
 
   function setRunDelay(ri, seconds) {
-    var r = runEdit.rows[ri];
-    var original = runEdit.edited[ri] !== undefined ? runEdit.edited[ri] : Number(r[CSV_DELAY_COL + 1]);
-    r[CSV_DELAY_COL + 1] = seconds;
-    r[CSV_DELAY_COL] = roughDurationCsv(seconds);
-    if (seconds === original) delete runEdit.edited[ri];
-    else runEdit.edited[ri] = original;
-    updateSessionTotals(runEdit.rows);
+    runEdit.config.achievements[runEdit.rowAch[ri]].delay = seconds;
+    rebuildEdit();
     renderTimeline();
-  }
-
-  // The config with the edited delays: an achievement's own delay, or for
-  // the first of a later session, the gap before it (as the builder does).
-  function editedConfig(config, rows) {
-    var delays = {}, gap = null;
-    rows.forEach(function (r, ri) {
-      if (ri === 0) return;
-      if (isLabelRow(r)) { if (/^Gap/.test(r[0])) gap = Number(r[CSV_DELAY_COL + 1]); return; }
-      var first = String(r[1]) === "1";
-      if (!first) delays[r[3]] = Number(r[CSV_DELAY_COL + 1]);
-      else if (gap !== null) delays[r[3]] = gap;
-      gap = null;
-    });
-    var copy = JSON.parse(JSON.stringify(config));
-    copy.achievements.forEach(function (a) {
-      if (String(a.id) in delays) a.delay = delays[String(a.id)];
-    });
-    return copy;
   }
 
   byId("timeline-lock").addEventListener("click", function () {
@@ -2011,8 +1994,16 @@
     if (runEdit) {
       runEdit = null;
     } else {
-      if (!data || !data.rows) return;
-      runEdit = {name: selectedRun, rows: JSON.parse(JSON.stringify(data.rows)), edited: {}};
+      if (!data || !data.rows || !data.config) return;
+      var known = {}, meta = null;
+      data.rows.forEach(function (r, ri) {
+        if (ri === 0) return;
+        if (/^Copied from:/.test(r[0])) meta = r.slice();
+        else if (!isLabelRow(r)) known[r[3]] = [r[2], r[4]];
+      });
+      runEdit = {name: selectedRun, base: data.config, config: JSON.parse(JSON.stringify(data.config)),
+                 known: known, meta: meta};
+      rebuildEdit();
     }
     timelineShown = "";
     renderTimeline();
@@ -2020,19 +2011,28 @@
   byId("timeline-save").addEventListener("click", function () {
     var data = timelines[selectedRun], name = selectedRun;
     if (!runEdit || !data || !data.config) return;
-    api("/api/save", {name: name, config: editedConfig(data.config, runEdit.rows),
+    api("/api/save", {name: name, config: runEdit.config,
                       csv: toCsv(runEdit.rows), overwrite: true})
       .then(function () {
         runEdit = null;
         delete timelines[name];
         timelineShown = "";
         renderTimeline();
-        showToast("Saved " + name + ". The next sessions use the new timing.");
+        showToast("Saved. The next sessions use the new timing.");
       })
       .catch(function (err) { showToast("Couldn't save: " + err.message); });
   });
 
   byId("timeline-table").addEventListener("click", function (e) {
+    var toggle = e.target.closest("[data-run-break]");
+    if (toggle && runEdit) {
+      e.stopPropagation();
+      var a = runEdit.config.achievements[Number(toggle.getAttribute("data-run-break"))];
+      a.new_session = !a.new_session;
+      rebuildEdit();
+      renderTimeline();
+      return;
+    }
     var undo = e.target.closest("[data-run-undo]");
     if (undo) {
       e.stopPropagation();  // not the builder's undo

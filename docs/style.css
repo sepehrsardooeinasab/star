@@ -1694,14 +1694,21 @@
      timeline gives the whole space to every session. */
   .runs-log:not(.full) .runs-timeline { flex: none; max-height: 45%; }
   /* The sessions overview: the session it's on stands out. */
-  table.sessions-summary td, table.sessions-summary th { font-family: var(--font); }
+  /* The same type as the full timeline's, so both tables match. */
+  table.sessions-summary td, table.sessions-summary th { font-family: var(--font); font-size: 0.82rem; }
   /* Same columns for every game: set widths, not sized to the numbers,
      and no scrollbar strip (it still scrolls) to narrow a long one. */
   table.sessions-summary { table-layout: fixed; }
-  table.sessions-summary th:nth-child(1) { width: 18%; }
-  table.sessions-summary th:nth-child(2) { width: 26%; }
-  table.sessions-summary th:nth-child(3) { width: 30%; }
-  :root[data-desktop] .table-wrap:has(> table.sessions-summary)::-webkit-scrollbar { display: none; }
+  /* The sessions table and the full timeline share their columns, so they
+     line up when switching between them. */
+  :is(table.sessions-summary, table.csv-table.pretty) { table-layout: fixed; }
+  :is(table.sessions-summary, table.csv-table.pretty) th:nth-child(1) { width: 12%; }
+  :is(table.sessions-summary, table.csv-table.pretty) th:nth-child(2) { width: 44%; }
+  :is(table.sessions-summary, table.csv-table.pretty) th:nth-child(3) { width: 24%; }
+  :is(table.sessions-summary, table.csv-table.pretty) th:nth-child(4) { width: 20%; }
+  /* The app's tables scroll without a scrollbar strip, so rows always
+     reach the right edge (trackpad and wheel still scroll them). */
+  :root[data-desktop] .table-wrap::-webkit-scrollbar { display: none; }
   table.sessions-summary tr.next-row td { color: var(--accent); font-weight: 600; }
   .run-activity { flex: 1; min-height: 6rem; display: flex; margin-top: 0.7rem; }
   .run-activity #runs-log { flex: 1; margin: 0; }
@@ -1772,7 +1779,8 @@
   table.csv-table.pretty td:first-child { color: var(--text-dim); width: 3rem; }
   table.csv-table.pretty tr.session-row td { font-weight: 600; }
   table.csv-table.pretty tr.gap-row td { font-style: normal; }
-  table.csv-table.pretty td:last-child, table.csv-table.pretty th:last-child { text-align: right; width: 8rem; }
+  /* Durations on the left, like the sessions table's. */
+
   table.csv-table.pretty .undo-edit { margin: 0 0.45rem 0 0; }
   /* Numbers take a fixed width, so the + buttons after them line up. */
   table.csv-table.pretty .row-num { display: inline-block; min-width: 1.6em; }
@@ -1868,3 +1876,31 @@
     background: linear-gradient(var(--surface-3) 0 calc(var(--th-h) - 1px), var(--border-strong) 0 var(--th-h), transparent 0);
   }
   :root[data-desktop] .table-wrap::-webkit-scrollbar-track { margin-top: var(--th-h); }
+
+  /* Locked or unlocked, the full timeline's rows keep their height: the
+     + / − buttons sit inside the line instead of growing it. */
+  /* A number or label and its + / − in one line, centred on the row. */
+  .cell-line { display: flex; align-items: center; gap: 0.4rem; }
+  table.csv-table.pretty .gap-btn { display: grid; place-items: center; box-sizing: border-box; line-height: 1; height: 1rem; min-width: 1.05rem; padding: 0 0.25rem; margin: 0; }
+  /* A long achievement name ends in … rather than widening its column. */
+  table.csv-table.pretty td:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Editing a time: the box takes the value's own line, so the row keeps
+     its height and the column its width. */
+  table.csv-table td.delay-cell .delay-input {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 7.5rem;
+    height: 1rem;
+    /* Pulled left by its padding, so the time doesn't move. */
+    margin: 0 0 0 calc(-0.3rem - 1px);
+    padding: 0 0.3rem;
+    font: inherit;
+    line-height: 1;
+    vertical-align: top;
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+  }
