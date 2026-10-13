@@ -2009,6 +2009,8 @@
   .games-sort { display: flex; align-items: center; gap: 0.5rem; }
   .games-sort select { margin-top: 0 !important; display: inline-block !important; }
   .games-sort .btn-ghost { height: 2.2rem; padding: 0 0.8rem; font-size: 0.8rem; }
+  /* One width for every order's name, so changing the sort moves nothing. */
+  .games-sort .btn-ghost { box-sizing: border-box; width: 7.2rem; text-align: center; }
   .lib-defaults { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.9rem; padding-top: 0.8rem; border-top: 1px solid var(--border); }
   .lib-default { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; font-size: 0.8rem; color: var(--text-dim); }
   .lib-default > span { min-width: 9.5rem; }
