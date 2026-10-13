@@ -1994,14 +1994,47 @@
   :is(.lib-game, .unlocks-group .unlock):hover { background: color-mix(in srgb, var(--accent-tint) 60%, var(--surface-2)); }
   .lib-game:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
   /* A game's own page. */
-  .game-back { padding: 0.35rem 0.8rem; font-size: 0.78rem; margin-bottom: 0.9rem; }
+  .game-back { height: 2.2rem; padding: 0 0.9rem; font-size: 0.8rem; }
+  .library-tabs[hidden], .game-back[hidden] { display: none; }
   .game-head { display: flex; align-items: center; gap: 0.9rem; }
   .game-head .lib-icon { width: 56px; height: 56px; border-radius: 9px; font-size: 1.3rem; }
   .game-title { font-size: 1.15rem; font-weight: 600; color: var(--text); }
   .game-head .lib-progress { margin-top: 0.35rem; }
   .game-head .lib-bar { flex-basis: 16rem; }
+  /* One game: the count and percentage together, after the bar, clear
+     over the banner's art. */
+  .game-head .lib-progress { gap: 0.5rem; }
+  .game-head :is(.lib-got, .lib-all) { min-width: 0; }
+  .game-head .lib-state { margin-left: -0.1rem; }
+  .game-head .lib-state::before { content: "\00b7"; margin-right: 0.4rem; color: var(--text-dim); }
+  .game-head :is(.lib-count, .lib-state) { font-size: 0.8rem; font-weight: 600; color: var(--text); }
+  .game-head :is(.lib-progress, .game-meta, .game-title) { text-shadow: 0 0 6px var(--surface), 0 0 2px var(--surface); }
   .game-meta { margin-top: 0.25rem; font-size: 0.76rem; color: var(--text-dim); }
-  .game-links { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.9rem 0 0.4rem; }
+  .game-links { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.9rem 0 0; }
+  .game-banner {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    padding: 1rem 1.1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .game-banner::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image: var(--card-hero, none);
+    background-position: center 30%;
+    background-size: cover;
+    background-repeat: no-repeat;
+    opacity: 0.5;
+    -webkit-mask-image: linear-gradient(to left, #000 15%, transparent 75%);
+    mask-image: linear-gradient(to left, #000 15%, transparent 75%);
+  }
+  :root[data-theme="light"] .game-banner::before { opacity: 0.6; }
   .game-links .btn-ghost { padding: 0.35rem 0.8rem; font-size: 0.78rem; font-weight: 500; text-decoration: none; border: 1px solid var(--border-strong); border-radius: 8px; }
   .game-page .notice { margin-top: 0.8rem; }
   .game-links .primary-ghost { border-color: var(--accent); color: var(--accent); }

@@ -3214,8 +3214,10 @@
     var page = byId("game-page"), open = gamePageFor !== null;
     page.hidden = !open;
     byId("games-index").hidden = open;
+    byId("library-tabs").hidden = open;
+    byId("game-back").hidden = !open;
     if (!open) { page.innerHTML = ""; return; }
-    var p = gamePage, html = '<button class="btn-ghost game-back" type="button" data-game-back>\u2190 Games</button>';
+    var p = gamePage, html = "";
     if (!p) { page.innerHTML = html + '<div class="unlocks-status">' + escapeHtml("Loading\u2026") + "</div>"; return; }
     if (p.error) { page.innerHTML = html + problemHtml("warn", (p.error.data || {}).title, p.error.message); return; }
     var done = p.total && p.unlocked >= p.total;
@@ -3224,12 +3226,15 @@
       '<a class="btn-ghost" target="_blank" rel="noopener" href="https://steamhunters.com/' +
         (p.steamid ? "profiles/" + encodeURIComponent(p.steamid) + "/" : "") + "apps/" + p.appid + '/achievements">SteamHunters</a>' +
       (p.star ? '<button class="btn-ghost primary-ghost" type="button" data-game-run="' + escapeHtml(p.star) + '">Open in Runs</button>' : "");
-    html += '<div class="game-head' + (p.hidden || p.private ? " hidden-game" : "") + (done ? " complete" : "") + '">' +
+    // A banner: the game's art faded in from the right, under its name,
+    // progress and links.
+    html += '<div class="game-banner"' + (p.appid > 0 ? ' style="--card-hero: ' + escapeHtml(heroUrl(p)) + '"' : "") + ">" +
+      '<div class="game-head' + (p.hidden || p.private ? " hidden-game" : "") + (done ? " complete" : "") + '">' +
       iconHtml("lib-icon", p.icon, p.name) +
-      '<div class="lib-text"><div class="game-title">' + escapeHtml(p.name) + markHtml(p) + counterMark(p) + "</div>" +
+      '<div class="lib-text"><div class="game-title"><span class="name-text">' + escapeHtml(p.name) + "</span>" + markHtml(p) + counterMark(p) + "</div>" +
       (p.read ? '<div class="lib-progress">' + progressHtml(p.unlocked, p.total) + "</div>" : "") +
       '<div class="game-meta">' + escapeHtml([p.played ? "Played " + fmtDay(p.played) : "Never played", fmtPlaytime(p.playtime)].filter(Boolean).join(" \u00b7 ")) + "</div>" +
-      "</div></div>" + '<div class="game-links">' + links + "</div>";
+      "</div></div>" + '<div class="game-links">' + links + "</div></div>";
     if (p.unreadable && p.private) html += noticeHtml("info", "Steam doesn't show the achievements of a game marked Private. To show them, right-click it in Steam \u2192 Manage \u2192 Unmark as Private.");
     else if (p.unreadable) html += noticeHtml("warn", "Steam doesn't show this game's achievements, though it isn't marked Private.");
     else if (!p.read && !p.stats) html += noticeHtml("info", "This game has no achievements.");
@@ -3267,11 +3272,11 @@
     if (row && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openGamePage(Number(row.getAttribute("data-appid"))); }
   });
   byId("game-page").addEventListener("click", function (e) {
-    if (e.target.closest("[data-game-back]")) { closeGamePage(); return; }
     var run = e.target.closest("[data-game-run]");
     if (run) { selectedRun = run.getAttribute("data-game-run"); showScreen("work"); setView("runs"); }
     if (e.target.closest("#ach-order")) { achOrder = achOrder === "desc" ? "asc" : "desc"; renderGamePage(); }
   });
+  byId("game-back").addEventListener("click", closeGamePage);
   byId("game-page").addEventListener("change", function (e) {
     if (e.target.id === "ach-group") { achGroup = e.target.value; renderGamePage(); return; }
     if (e.target.id !== "ach-sort") return;
