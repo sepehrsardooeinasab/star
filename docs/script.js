@@ -732,11 +732,12 @@
   var PAGE_HEADS = {
     schedule: ["Schedule", "Make a schedule", " from a real player"],
     runs: ["Runs", "Run a game", " at the player's pace"],
+    unlocks: ["Unlocks", "Your latest achievements", " from Steam"],
     guide: ["Settings", "Settings", " for this computer"]
   };
   function renderPageHead() {
     var screen = document.body.getAttribute("data-screen");
-    var head = PAGE_HEADS[screen === "guide" ? "guide" : currentView === "runs" ? "runs" : "schedule"];
+    var head = PAGE_HEADS[screen === "guide" || screen === "unlocks" ? screen : currentView === "runs" ? "runs" : "schedule"];
     byId("page-eyebrow").textContent = "STAR · " + head[0];
     byId("page-title").innerHTML = '<span class="hero-bright">' + head[1] + "</span>" + head[2];
   }
@@ -2508,7 +2509,12 @@
     renderExtras(d);
     byId("step-runs").hidden = !(d.asf && d.plugin);
     if (!runSettings) loadRunSettings();
+    byId("step-unlocks").hidden = !d.data_dir;
     byId("step-clock").hidden = !d.data_dir;
+    if (!unlocksKeyLoaded) {
+      unlocksKeyLoaded = true;
+      api("/api/unlocks/key").then(function (r) { unlocksHasKey = r.has_key; renderUnlocksKey(); }).catch(function () {});
+    }
     byId("step-data").hidden = !d.data_dir;
     byId("data-path").textContent = d.data_dir || "";
     byId("open-folder").textContent = document.documentElement.getAttribute("data-desktop") === "linux"
@@ -2675,6 +2681,7 @@
       clockPref = clock.value;
       byId("clock-format").value = clockPref;
       renderRuns();
+      if (unlocksData) renderUnlocks();
     }
     var show = (runSettings || []).filter(function (x) { return x.key === "show_finished"; })[0];
     if (show && !!show.value !== showDone) {
@@ -2871,16 +2878,143 @@
     sizeBoxes();
   }
 
+  // Unlocks: the account's latest achievements across its games, newest
+  // first, read from Steam (see unlocks.py). Read when the screen opens;
+  // the server asks Steam again at most every few minutes, or on Refresh.
+  var unlocksData = null, unlocksError = null, unlocksBusy = false, unlocksHiddenOpen = false;
+  var unlocksHasKey = false, unlocksKeyOpen = false, unlocksKeyError = null, unlocksKeyLoaded = false;
+  function loadUnlocks(refresh) {
+    if (unlocksBusy) return;
+    unlocksBusy = true;
+    renderUnlocks();
+    api("/api/unlocks" + (refresh ? "?refresh=1" : ""))
+      .then(function (d) { unlocksData = d; unlocksError = null; unlocksHasKey = d.has_key; })
+      .catch(function (e) {
+        unlocksError = e;
+        if (e.data && "has_key" in e.data) unlocksHasKey = e.data.has_key;
+      })
+      .then(function () { unlocksBusy = false; renderUnlocks(); });
+  }
+  function unlockDay(date) {
+    var day = function (d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); };
+    var diff = Math.round((day(new Date()) - day(date)) / 86400000);
+    if (diff === 0) return "Today";
+    if (diff === 1) return "Yesterday";
+    return date.toLocaleDateString([], {weekday: "long", month: "long", day: "numeric",
+      year: date.getFullYear() === new Date().getFullYear() ? undefined : "numeric"});
+  }
+  function renderUnlocks() {
+    var d = unlocksData, list = byId("unlocks-list");
+    byId("unlocks-refresh").disabled = unlocksBusy;
+    // How many games, and those Steam won't show the achievements of (a
+    // click lists them); when Steam was last asked, on the right.
+    var status = "", updated = "";
+    if (unlocksBusy) status = escapeHtml("Asking Steam\u2026");
+    else if (d && !unlocksError) {
+      status = escapeHtml(d.games + " game" + (d.games === 1 ? "" : "s"));
+      if (d.unreadable) {
+        status += ' \u00b7 <button class="link-btn" type="button" id="unlocks-hidden-btn" aria-expanded="' + unlocksHiddenOpen + '">' +
+          escapeHtml(d.unreadable + " not shown by Steam") + "</button>";
+      }
+      if (d.offline) status = '<span class="warn">' + escapeHtml(d.offline) + "</span> " + status;
+      if (d.fetched_at) updated = "Updated " + fmtClock(new Date(d.fetched_at * 1000));
+    }
+    byId("unlocks-status").innerHTML = status;
+    byId("unlocks-updated").textContent = updated;
+    var hidden = d && !unlocksError && !unlocksBusy && d.unreadable;
+    byId("unlocks-hidden").hidden = !(hidden && unlocksHiddenOpen);
+    if (hidden) {
+      byId("unlocks-hidden").textContent = "Steam doesn't show the achievements of " + (d.unreadable_games || []).join(", ") +
+        ". Their game details may be private (Steam: Edit Profile \u2192 Privacy Settings), or the game has no achievements.";
+      byId("unlocks-hidden-btn").addEventListener("click", function () {
+        unlocksHiddenOpen = !unlocksHiddenOpen;
+        renderUnlocks();
+      });
+    }
+    if (unlocksError) {
+      list.innerHTML = problemHtml("warn", (unlocksError.data || {}).title, unlocksError.message);
+    } else if (d && !d.unlocks.length) {
+      list.innerHTML = emptyHtml("\u2606", "No unlocks yet in these games.");
+    } else if (d) {
+      var html = "", lastDay = null;
+      d.unlocks.forEach(function (u) {
+        var at = new Date(u.time * 1000), day = unlockDay(at);
+        if (day !== lastDay) {
+          html += (lastDay ? "</div>" : "") + '<div class="unlocks-day">' + escapeHtml(day) + '</div><div class="unlocks-group">';
+          lastDay = day;
+        }
+        html += '<div class="unlock">' +
+          (u.icon ? '<img class="unlock-icon" src="' + escapeHtml(u.icon) + '" alt="" loading="lazy">' : '<span class="unlock-icon"></span>') +
+          '<div class="unlock-text"><div class="unlock-name">' + escapeHtml(u.name) + "</div>" +
+          (u.description ? '<div class="unlock-desc">' + escapeHtml(u.description) + "</div>" : "") + "</div>" +
+          '<div class="unlock-meta"><div class="unlock-game">' + escapeHtml(u.game) + "</div>" +
+          '<div class="unlock-time">' + escapeHtml(fmtClock(at)) + "</div></div></div>";
+      });
+      list.innerHTML = html + (lastDay ? "</div>" : "");
+    } else if (!unlocksBusy) list.innerHTML = "";
+    // Which games, in a line; the key itself is in Settings.
+    byId("unlocks-note").hidden = unlocksHasKey;
+    byId("unlocks-note").innerHTML = unlocksHasKey ? ""
+      : 'The games in STAR. To include every game you play, add a Steam Web API key in <button class="link-btn" type="button" data-go-settings>Settings</button>.';
+    var go = byId("unlocks-note").querySelector("[data-go-settings]");
+    if (go) go.addEventListener("click", showGuide);
+    renderUnlocksKey();
+  }
+  // Settings → Unlocks: the Steam Web API key, so Unlocks covers the
+  // whole library.
+  function renderUnlocksKey() {
+    var link = '<a href="https://steamcommunity.com/dev/apikey" target="_blank" rel="noopener">steamcommunity.com/dev/apikey</a>';
+    byId("unlocks-key-text").innerHTML = unlocksHasKey
+      ? "Uses your Steam Web API key to cover every game you play and display its unlocked achievements."
+      : "Unlocks covers the games in STAR. To include every game you play, add a Steam Web API key: get one free at " +
+        link + " (any domain name works).";
+    byId("unlocks-key-actions").hidden = !unlocksHasKey || unlocksKeyOpen;
+    byId("unlocks-key-form").hidden = unlocksHasKey && !unlocksKeyOpen;
+    byId("unlocks-key-error").hidden = !unlocksKeyError;
+    byId("unlocks-key-error").textContent = unlocksKeyError || "";
+  }
+  byId("unlocks-key-change").addEventListener("click", function () {
+    unlocksKeyOpen = true;
+    renderUnlocksKey();
+    byId("unlocks-key-input").focus();
+  });
+  byId("unlocks-key-remove").addEventListener("click", function () { saveUnlocksKey(""); });
+  function saveUnlocksKey(key) {
+    api("/api/unlocks/key", {key: key}).then(function (r) {
+      unlocksHasKey = r.has_key;
+      unlocksKeyOpen = false;
+      unlocksKeyError = null;
+      byId("unlocks-key-input").value = "";
+      unlocksData = null;  // read again with the library in or out
+      renderUnlocks();
+    }).catch(function (e) {
+      unlocksKeyError = ((e.data || {}).title ? e.data.title + ". " : "") + e.message;
+      renderUnlocksKey();
+    });
+  }
+  byId("unlocks-key-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var key = byId("unlocks-key-input").value.trim();
+    if (key) saveUnlocksKey(key);
+  });
+  byId("unlocks-refresh").addEventListener("click", function () { loadUnlocks(true); });
+  function showUnlocks() {
+    showScreen("unlocks");
+    loadUnlocks(false);
+  }
+
   // Schedule / Runs in the top bar (app only).
   function syncScreenSwitch() {
     var work = document.body.getAttribute("data-screen") === "work";
     byId("switch-schedule").classList.toggle("active", work && currentView !== "runs");
     byId("switch-runs").classList.toggle("active", work && currentView === "runs");
+    byId("switch-unlocks").classList.toggle("active", document.body.getAttribute("data-screen") === "unlocks");
     byId("switch-guide").classList.toggle("active", document.body.getAttribute("data-screen") === "guide");
     byId("switch-home").classList.toggle("active", document.body.getAttribute("data-screen") === "home");
   }
   byId("switch-schedule").addEventListener("click", function () { showScreen("work"); setView(scheduleView); });
   byId("switch-runs").addEventListener("click", function () { showScreen("work"); setView("runs"); });
+  byId("switch-unlocks").addEventListener("click", showUnlocks);
   byId("switch-guide").addEventListener("click", showGuide);
   byId("switch-home").addEventListener("click", function () { showScreen("home"); });
 

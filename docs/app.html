@@ -39,6 +39,7 @@
     <button type="button" id="switch-home" class="switch-home" title="Home" aria-label="Home"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 9.2 10 3.8l6.5 5.4"/><path d="M5.2 8v7.7h3.4v-4.3h2.8v4.3h3.4V8"/></svg></button>
     <button type="button" id="switch-schedule" title="Make a schedule">Schedule</button>
     <button type="button" id="switch-runs" title="Run, stop and follow your games">Runs</button>
+    <button type="button" id="switch-unlocks" title="Your latest achievements, from Steam">Unlocks</button>
     <button type="button" id="switch-guide" title="Setup, updates and how it works">Settings</button>
   </div>
   <div class="topbar-right">
@@ -99,6 +100,9 @@
         </select>
         <button class="btn-primary run-start" id="run-start" type="button" disabled>Run</button>
       </div>
+    </div>
+    <div class="pa pa-unlocks">
+      <button class="btn-ghost page-action" id="unlocks-refresh" type="button" title="Ask Steam again">Refresh</button>
     </div>
   </div>
 </div>
@@ -187,6 +191,19 @@
             <button class="btn-ghost" id="run-settings-reset" type="button">Set all to defaults</button>
           </div>
         </details>
+      </li>
+      <li class="setup-step done" id="step-unlocks" hidden>
+        <div class="step-head"><span class="step-mark"></span><b>Unlocks</b></div>
+        <p class="step-text" id="unlocks-key-text"></p>
+        <div class="step-actions" id="unlocks-key-actions" hidden>
+          <button class="btn-ghost" id="unlocks-key-change" type="button">Change key</button>
+          <button class="btn-ghost" id="unlocks-key-remove" type="button">Remove key</button>
+        </div>
+        <form class="setup-form" id="unlocks-key-form" autocomplete="off" hidden>
+          <input type="password" id="unlocks-key-input" placeholder="Steam Web API key" spellcheck="false">
+          <button class="btn-ghost" type="submit">Save</button>
+        </form>
+        <p class="step-text unlocks-key-error" id="unlocks-key-error" hidden></p>
       </li>
       <li class="setup-step done" id="step-clock" hidden>
         <div class="step-head"><span class="step-mark"></span><b>Clock</b></div>
@@ -410,6 +427,14 @@
     </div>
   </main>
 </div>
+
+<!-- Unlocks (app only): the account's latest achievements, from Steam. -->
+<section class="unlocks" id="unlocks-screen" aria-label="Recent unlocks">
+  <p class="unlocks-note" id="unlocks-note"></p>
+  <div class="unlocks-status"><span id="unlocks-status"></span><span id="unlocks-updated"></span></div>
+  <p class="unlocks-hidden" id="unlocks-hidden" hidden></p>
+  <div class="unlocks-list" id="unlocks-list"></div>
+</section>
 </div>
 
 <div class="toast" id="toast"></div>

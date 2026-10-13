@@ -225,6 +225,7 @@ fn menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     menu.append(&Submenu::with_items(app, "Go", true, &[
         &item("go-schedule", "Schedule", Some("CmdOrCtrl+1"))?,
         &item("go-runs", "Runs", Some("CmdOrCtrl+2"))?,
+        &item("go-unlocks", "Unlocks", Some("CmdOrCtrl+3"))?,
     ])?)?;
     menu.append(&Submenu::with_items(app, "Window", true, &[
         &PredefinedMenuItem::minimize(app, None)?,
@@ -258,6 +259,7 @@ fn on_menu(app: &AppHandle, event: MenuEvent) {
         "check-updates" => "window.unlockerCheckUpdates && unlockerCheckUpdates()".to_string(),
         "go-schedule" => click("switch-schedule"),
         "go-runs" => click("switch-runs"),
+        "go-unlocks" => click("switch-unlocks"),
         "help-guide" => return open_url("https://sepehrsardooeinasab.github.io/star/"),
         "help-github" => return open_url(REPO),
         "help-issue" => return open_url(&format!("{REPO}/issues/new")),

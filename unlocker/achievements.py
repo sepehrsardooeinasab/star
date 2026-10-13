@@ -93,6 +93,7 @@ def _steam_stats(kind, who, app):
             "apiname": _clean(a.findtext("apiname")),
             "unlocked": a.get("closed") == "1",
             "unlock_time": int(stamp) if stamp and stamp.isdigit() else None,
+            "icon": _clean(a.findtext("iconClosed")),
         })
     if not achievements:
         raise Problem("Steam shows no achievements for this player and game",
@@ -183,6 +184,9 @@ def _bot_steamid():
     steamid = bot.get("SteamID")
     if not steamid:
         raise Problem("Couldn't check the achievement numbers", "ArchiSteamFarm isn't signed in to Steam yet. Check Settings, then try again.")
+    # Recent unlocks reads this account's games, with ArchiSteamFarm closed too.
+    from unlocker.unlocks import remember_steamid
+    remember_steamid(str(steamid))
     return str(steamid)
 
 

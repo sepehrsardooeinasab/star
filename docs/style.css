@@ -368,6 +368,7 @@
 
   /* Two screens: the start screen (hero) and the work area (the box). */
   body[data-screen="home"] .shell { display: none; }
+  body[data-screen="unlocks"] :is(.shell, .hero) { display: none !important; }
   body[data-screen="work"] .hero { display: none; }
   body[data-screen="work"] .shell { padding-top: 0; }
 
@@ -389,7 +390,7 @@
   }
   /* Runs' counts are in the eyebrow, so its box has no stats row. */
   .box[data-view="runs"] .stats-row { display: none; }
-  body[data-screen="work"] .page-head, body[data-screen="guide"] .page-head { display: flex; }
+  body:is([data-screen="work"], [data-screen="guide"], [data-screen="unlocks"]) .page-head { display: flex; }
   .page-eyebrow {
     display: flex;
     align-items: center;
@@ -415,7 +416,8 @@
   .page-actions { display: flex; align-items: center; min-height: 2.5rem; }
   .page-actions .pa { display: none; align-items: center; gap: 0.75rem; flex-wrap: wrap; justify-content: flex-end; }
   body[data-screen="work"]:not([data-view="runs"]) .pa-schedule,
-  body[data-screen="work"][data-view="runs"] .pa-runs { display: flex; }
+  body[data-screen="work"][data-view="runs"] .pa-runs,
+  body[data-screen="unlocks"] .pa-unlocks { display: flex; }
   /* The start screen's buttons, a size smaller. */
   .page-actions .btn-hero { padding: 0 1.2rem; height: 2.5rem; font-size: 0.78rem; justify-content: center; }
   .page-actions .btn-hero:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -1955,6 +1957,11 @@
     outline: none;
   }
 
+  /* Unlocks (app only): the account's latest achievements, by day. */
+  .unlocks { display: none; width: 100%; max-width: 46rem; margin: 0 auto; padding: 0 1rem 2rem; }
+  body[data-screen="unlocks"] .unlocks { display: block; }
+  .unlocks-status { display: flex; justify-content: space-between; gap: 1rem; min-height: 1.2rem; margin-bottom: 0.4rem; font-size: 0.78rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .unlocks-hidden { margin: 0.2rem 0 0.6rem; padding: 0.6rem 0.8rem; font-size: 0.78rem; color: var(--text-dim); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
   /* Like the Runs options' dropdowns. */
   #step-clock select {
     display: block;
@@ -1969,3 +1976,31 @@
     border-radius: 8px;
   }
   #step-clock select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .unlocks-day { margin: 1.1rem 0 0.45rem; font-size: 0.75rem; font-weight: 600; color: var(--text-dim); }
+  .unlocks-group { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .unlock { display: flex; align-items: center; gap: 0.8rem; padding: 0.6rem 0.8rem; }
+  .unlock + .unlock { border-top: 1px solid var(--border); }
+  .unlock-icon { flex: none; width: 40px; height: 40px; border-radius: 6px; background: var(--surface-3); }
+  .unlock-text { flex: 1; min-width: 0; }
+  .unlock-name { font-size: 0.88rem; font-weight: 600; color: var(--text); }
+  .unlock-desc { font-size: 0.78rem; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .unlock-meta { flex: none; max-width: 40%; text-align: right; font-size: 0.78rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .unlock-game { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+  .unlocks-note { margin: 0 0 0.8rem; font-size: 0.8rem; color: var(--text-dim); }
+  #step-unlocks .setup-form[hidden], #step-unlocks .step-actions[hidden] { display: none; }
+  /* Refresh, the size of the other screens' actions. */
+  .pa-unlocks .page-action { height: 2.5rem; padding: 0 1.2rem; font-size: 0.78rem; }
+  .unlocks-key-error { margin-top: 0.4rem; color: var(--warn); }
+  .unlocks-status .warn { color: var(--warn); }
+  .link-btn { padding: 0; background: none; border: 0; font: inherit; color: var(--accent); cursor: pointer; }
+  .link-btn:hover { text-decoration: underline; }
+  /* In the app: the window's height, scrolling inside, in a centered
+     column like Settings. */
+  :root[data-desktop] body[data-screen="unlocks"] .page { overflow: hidden; }
+  :root[data-desktop] body[data-screen="unlocks"] .unlocks {
+    flex: 1;
+    min-height: 0;
+    max-width: none;
+    overflow-y: auto;
+    padding: 1.2rem max(1.2rem, calc((100% - 46rem) / 2)) 2rem;
+  }

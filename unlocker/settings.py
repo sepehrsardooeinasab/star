@@ -50,6 +50,9 @@ DEFAULTS = {
     "auto_update": True,
     # The app's Runs list: show finished games too (at the bottom).
     "show_finished": False,
+    # A Steam Web API key (steamcommunity.com/dev/apikey), so the app's
+    # Unlocks covers every game played, not just the games in STAR.
+    "steam_api_key": None,
     # How the app writes clock times: "system" (the computer's way),
     # "12h" (2:30 PM) or "24h" (14:30).
     "clock": "system",
@@ -76,6 +79,7 @@ _TYPES = {
     "keep_awake": (bool,),
     "auto_update": (bool,),
     "show_finished": (bool,),
+    "steam_api_key": (str, type(None)),
     "clock": (str,),
     "theme": (str,),
     "accent": (str,),

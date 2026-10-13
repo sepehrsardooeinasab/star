@@ -21,7 +21,7 @@ It installs the **STAR** app and ArchiSteamFarm with its achievement plugin (fro
 
 ## Using the app
 
-Open STAR and sign in to Steam. The title bar switches between **Schedule**, **Runs** and **Settings** (or the **Go** menu, ⌘1 and ⌘2; Settings is ⌘,).
+Open STAR and sign in to Steam. The title bar switches between **Schedule**, **Runs**, **Unlocks** and **Settings** (or the **Go** menu, ⌘1 to ⌘3; Settings is ⌘,). **Unlocks** lists your latest achievements from Steam, newest first.
 
 ### 1. Make a schedule
 
@@ -154,6 +154,7 @@ In the app, **Settings** has the keep-awake and update switches and **Advanced r
 | `keep_awake` | `true` | Keeps the computer from sleeping while a run waits or plays. |
 | `auto_update` | `true` | Installs a new STAR release by itself, once no game is in a session. |
 | `show_finished` | `false` | Lists finished games in the app's Runs (at the bottom). |
+| `steam_api_key` | `null` | A [Steam Web API key](https://steamcommunity.com/dev/apikey), so the app's **Unlocks** covers every game you play, not just the games in STAR. Set it in Settings → Unlocks. |
 | `clock` | `"system"` | How the app writes times: `"system"` (the computer's way), `"12h"` (2:30 PM) or `"24h"` (14:30). Set it in Settings → Clock. |
 | `theme`, `accent` | `"dark"`, `"violet"` | The app's look, from its Appearance menu: `"dark"` or `"light"`; `"violet"`, `"wine"`, `"blue"`, `"teal"` or `"amber"`. |
 

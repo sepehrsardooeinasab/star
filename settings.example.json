@@ -15,6 +15,7 @@
   "keep_awake": true,
   "auto_update": true,
   "show_finished": false,
+  "steam_api_key": null,
   "clock": "system",
   "theme": "dark",
   "accent": "violet"

@@ -25,7 +25,7 @@ from urllib.parse import parse_qs, urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from unlocker import achievements, asf_setup, extras, updates
+from unlocker import achievements, asf_setup, extras, unlocks, updates
 from unlocker import settings as settings_module
 from unlocker.paths import CODE_DIR, DATA_DIR
 from unlocker.runner import _session_bounds, _session_status, config_changed
@@ -507,6 +507,23 @@ def achievements_from_link(url):
         raise AppError(str(e), 409, title=e.title)
 
 
+def recent_unlocks(refresh):
+    """This account's latest unlocks, read from Steam (see unlocks)."""
+    try:
+        return unlocks.recent(refresh)
+    except unlocks.Problem as e:
+        raise AppError(str(e), 409, title=e.title, has_key=bool(unlocks._key()))
+
+
+def save_unlocks_key(key):
+    try:
+        return unlocks.save_key(str(key or ""))
+    except unlocks.Problem as e:
+        raise AppError(str(e), 409, title=e.title)
+    except ValueError as e:
+        raise AppError(f"settings.json is {e}. Fix it or delete it.")
+
+
 def test_keep_awake():
     works, found = extras.test_keep_awake()
     return {"works": works, "found": found}
@@ -570,6 +587,14 @@ def _auto_update():
             tried.add(state["latest"])
             updates.start_update()
         time.sleep(600)
+
+
+def _learn_steamid():
+    """Saves the account's Steam ID the first time ArchiSteamFarm runs
+    signed in (a session, a check), so Unlocks works with it closed."""
+    while not unlocks.STEAMID_PATH.exists():
+        unlocks.steamid()  # asks ASF only when it's running
+        time.sleep(120)
 
 
 def _finish_login(result):
@@ -671,6 +696,8 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/timeline": lambda: read_timeline(query.get("name")),
             "/api/achievements/progress": lambda: numbers_progress(query.get("appid")),
             "/api/settings": run_settings,
+            "/api/unlocks": lambda: recent_unlocks(query.get("refresh") == "1"),
+            "/api/unlocks/key": lambda: {"has_key": bool(unlocks._key())},
         }
         self._route(routes.get(url.path))
 
@@ -709,6 +736,7 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/achievements/appid": lambda: {"appid": achievements.find_appid(str(body.get("name") or "")[:200])},
             "/api/setup/login": lambda: setup_login(body.get("username"), body.get("password")),
             "/api/setup/code": lambda: setup_code(body.get("code")),
+            "/api/unlocks/key": lambda: save_unlocks_key(body.get("key")),
             "/api/update": app_update,
             "/api/quit": quit_server,
         }
@@ -761,6 +789,7 @@ def serve():
     print(f"Serving {URL} (started {datetime.now():%a %H:%M}).")
     threading.Thread(target=_keep_asf_current, daemon=True).start()
     threading.Thread(target=_auto_update, daemon=True).start()
+    threading.Thread(target=_learn_steamid, daemon=True).start()
     _server = server
     server.serve_forever()
 
