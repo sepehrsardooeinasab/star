@@ -2972,9 +2972,22 @@
     if (!b || b.getAttribute("data-tab") === libraryTab) return;
     libraryTab = b.getAttribute("data-tab");
     renderUnlocks();
+    scrollLibraryTop();
     api("/api/settings", {settings: {library_tab: libraryTab}}).then(function (d) { runSettings = d.settings; })
       .catch(function (err) { showToast("Couldn't save: " + err.message); });
   });
+  // Back to top, once the list has been scrolled a long way. In the app
+  // the Library scrolls on its own; on a page, the window does.
+  function libraryScroller() {
+    return document.documentElement.hasAttribute("data-desktop") ? byId("unlocks-screen") : document.scrollingElement;
+  }
+  function scrollLibraryTop() { libraryScroller().scrollTo({top: 0, behavior: "smooth"}); }
+  function syncToTop() {
+    byId("to-top").hidden = document.body.getAttribute("data-screen") !== "unlocks" || libraryScroller().scrollTop < 900;
+  }
+  byId("unlocks-screen").addEventListener("scroll", syncToTop);
+  window.addEventListener("scroll", syncToTop);
+  byId("to-top").addEventListener("click", scrollLibraryTop);
 
   function renderUnlocks() {
     var d = unlocksData, list = byId("unlocks-list");
@@ -2985,6 +2998,7 @@
     byId("pane-achievements").hidden = libraryTab !== "achievements";
     byId("pane-games").hidden = libraryTab !== "games";
     renderGames(d);
+    syncToTop();
     byId("unlocks-refresh").disabled = unlocksBusy || !!syncing;
     byId("unlocks-range").querySelectorAll("[data-range]").forEach(function (b) {
       b.setAttribute("aria-pressed", String(b.getAttribute("data-range") === unlocksRange));
