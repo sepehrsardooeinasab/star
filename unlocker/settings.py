@@ -48,6 +48,8 @@ DEFAULTS = {
     "keep_awake": True,
     # Install a new STAR release by itself, when no game is in a session.
     "auto_update": True,
+    # The app's Runs list: show finished games too (at the bottom).
+    "show_finished": False,
 }
 
 # Accepted types per setting; None means null is allowed.
@@ -67,6 +69,7 @@ _TYPES = {
     "jitter_percent": (int, float),
     "keep_awake": (bool,),
     "auto_update": (bool,),
+    "show_finished": (bool,),
 }
 
 
@@ -80,7 +83,7 @@ APP_EDITABLE = [
     "bot_connect_timeout", "asf_shutdown_delay",
 ]
 # On/off switches the app shows on their own, outside the run settings.
-APP_TOGGLES = ["keep_awake", "auto_update"]
+APP_TOGGLES = ["keep_awake", "auto_update", "show_finished"]
 
 # Settings older versions had, ignored (and dropped on the next save from
 # the app) rather than refused as unknown.

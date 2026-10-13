@@ -13,5 +13,6 @@
   "jitter_min_delay": 60,
   "jitter_percent": 10,
   "keep_awake": true,
-  "auto_update": true
+  "auto_update": true,
+  "show_finished": false
 }

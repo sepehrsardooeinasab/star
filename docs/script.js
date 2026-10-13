@@ -1551,8 +1551,9 @@
   // before the first session) and every (all sessions back to back
   // instead of just the next one).
   var runOpts = {every: false};
-  var showDone = true;  // finished games in the list (Settings → Runs)
-  try { showDone = localStorage.getItem("runs-show-done") !== "0"; } catch (e) {}
+  // Finished games in the list (Settings → Runs; show_finished in
+  // settings.json, so it survives updates). Off until the settings say.
+  var showDone = false;
   try { runOpts.every = localStorage.getItem("run-every") === "1"; } catch (e) {}
   var runsTimer = null;
 
@@ -2261,6 +2262,8 @@
   document.addEventListener("visibilitychange", function () { if (!document.hidden) refreshRuns(); });
 
   function enableLocal() {
+    // The settings, for show_finished in the Runs list.
+    if (!runSettings) loadRunSettings();
     local = true;
     byId("screen-switch").hidden = false;
     syncScreenSwitch();
@@ -2565,18 +2568,12 @@
     syncRunSettings();
   });
 
-  byId("show-done").checked = showDone;
-  byId("show-done").addEventListener("change", function () {
-    showDone = this.checked;
-    try { localStorage.setItem("runs-show-done", showDone ? "1" : "0"); } catch (e) {}
-    renderRuns();
-  });
 
   // Keep awake: switched on or off here (saved in
   // settings.json, used by runs started after), and what this computer
   // is missing for them. Shown once setup is done.
-  var extrasTools = {};
-  var TOGGLES = {keep_awake: "keep-awake-on", auto_update: "auto-update-on"};
+  var extrasTools = {show_finished: true};
+  var TOGGLES = {keep_awake: "keep-awake-on", auto_update: "auto-update-on", show_finished: "show-done"};
   function syncToggles() {
     Object.keys(TOGGLES).forEach(function (key) {
       var box = byId(TOGGLES[key]);
@@ -2584,6 +2581,11 @@
       box.disabled = !s || !extrasTools[key];
       box.checked = !!(s && s.value && extrasTools[key]);
     });
+    var show = (runSettings || []).filter(function (x) { return x.key === "show_finished"; })[0];
+    if (show && !!show.value !== showDone) {
+      showDone = !!show.value;
+      renderRuns();
+    }
   }
   Object.keys(TOGGLES).forEach(function (key) {
     byId(TOGGLES[key]).addEventListener("change", function () {
