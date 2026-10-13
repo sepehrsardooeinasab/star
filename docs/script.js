@@ -3091,12 +3091,12 @@
     });
   }
   // A game's progress: its bar, then (on its own page) "unlocked / total"
-  // with the slash in the same place, then Complete or the percentage.
+  // with the slash in the same place, then the percentage (gold at 100%).
   function progressHtml(unlocked, total, short) {
     var pct = total ? Math.round(100 * unlocked / total) : 0;
     return '<span class="lib-bar"><span style="width:' + pct + '%"></span></span>' + (short ? "" :
       '<span class="lib-count"><span class="lib-got">' + unlocked + '</span><span class="lib-of">/</span><span class="lib-all">' + total + "</span></span>") +
-      '<span class="lib-state">' + (total && unlocked >= total ? "Complete" : pct + "%") + "</span>";
+      '<span class="lib-state">' + Math.min(pct, 100) + "%</span>";
   }
   function renderGames(d) {
     var games = sortGames(d && !unlocksError ? d.games_list || [] : []);
