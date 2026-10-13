@@ -46,7 +46,8 @@ STEAMID_PATH = JSONS_DIR / ".steamid"
 STORE_PATH = JSONS_DIR / ".unlocks.json"
 SHOWN = 50000      # unlocks returned (all saved, in practice)
 CACHE_FOR = 300    # seconds between checks with Steam, unless refreshed
-LIVE_FOR = 86400   # a game played this recently may still be unlocking
+LIVE_FOR = 86400   # a game played this recently may still be unlocking…
+LIVE_EVERY = 1800  # …so it's read again this often (or on refresh)
 KEY_RE = re.compile(r"[0-9A-Fa-f]{32}")
 
 _lock = threading.Lock()
@@ -153,15 +154,22 @@ def hidden_games(sid):
 
 
 def _star_appids():
-    """The appids of the games in STAR, finished ones too."""
-    appids = {appid for _, appid in list_profiles() if isinstance(appid, int)}
-    for path in COMPLETED_DIR.glob("*/config_*.json"):
+    """The games in STAR, finished ones too: {appid: when its progress last
+    changed}, so a game is read again only after it played."""
+    appids = {}
+    paths = [(JSONS_DIR / f"config_{name}.json", JSONS_DIR / f"progress_{name}.json") for name, _ in list_profiles()]
+    paths += [(c, c.with_name(c.name.replace("config_", "progress_", 1))) for c in COMPLETED_DIR.glob("*/config_*.json")]
+    for config, progress in paths:
         try:
-            appid = json.loads(path.read_text()).get("appid")
+            appid = json.loads(config.read_text()).get("appid")
         except (OSError, ValueError):
             continue
         if isinstance(appid, int):
-            appids.add(appid)
+            try:
+                changed = progress.stat().st_mtime
+            except OSError:
+                changed = 0
+            appids[appid] = max(appids.get(appid, 0), changed)
     return appids
 
 
@@ -213,21 +221,30 @@ def _save_store(store):
 
 def _to_read(store, star, owned, refresh):
     """The appids worth reading (again), STAR's first, then the most
-    recently played: library games not read yet or played since, games
-    played in the last day, and STAR's when the saved copy is old."""
+    recently played. What's saved is kept and compared, not downloaded
+    again: a game is read when it isn't saved yet, when Steam says it was
+    played since (with a key), when STAR played it since (its progress
+    changed), or, played in the last day and so maybe still unlocking,
+    every LIVE_EVERY or on refresh."""
     now = time.time()
     games = store["games"]
     want = {}
+
+    def live(played, saved):
+        return played >= now - LIVE_FOR and (refresh or now - saved["read"] >= LIVE_EVERY)
+
     for g in owned or []:
         if not g["stats"] or not g["played"]:
             continue  # no achievements, or never played: nothing unlocked
         saved = games.get(str(g["appid"]))
-        if (saved is None or g["played"] != saved.get("played") or "total" not in saved
-                or (g["played"] >= now - LIVE_FOR and (refresh or now - saved["read"] >= CACHE_FOR))):
+        if saved is None or g["played"] != saved.get("played") or "total" not in saved or live(g["played"], saved):
             want[g["appid"]] = g["played"]
-    for appid in star:
+    owned_ids = {g["appid"] for g in owned or []}
+    for appid, changed in star.items():
         saved = games.get(str(appid))
-        if appid not in want and (saved is None or refresh or "total" not in saved or now - saved["read"] >= CACHE_FOR):
+        if appid in want or (appid in owned_ids and saved is not None and "total" in saved):
+            continue  # Steam's own last-played time decides, above
+        if saved is None or "total" not in saved or changed > saved["read"] or live(changed, saved):
             want[appid] = saved.get("played") if saved else None
     order = sorted(want, key=lambda appid: want[appid] or 0, reverse=True)
     return [a for a in order if a in star] + [a for a in order if a not in star], want
