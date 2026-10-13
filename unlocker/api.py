@@ -120,13 +120,18 @@ def ensure_asf_running():
             start_new_session=True)
 
 
-def start_keep_awake(force=False):
+def start_keep_awake(force=False, game=None):
     """Keeps the system (and display) from sleeping or locking for the
     duration of a run: `caffeinate` on macOS, `systemd-inhibit` on Linux.
     Returns the process to hand to stop_keep_awake(), or None if neither
     tool is available or the inhibitor couldn't be taken — callers should
     skip printing anything about it then. Also None when the keep_awake
     setting is off, unless force (the app's test).
+
+    On Linux it also holds off shutdown, reboot and logout for as long, and
+    the desktop's power-off dialog names the game ("STAR: Playing …"), so
+    the computer isn't turned off mid-session by mistake (the dialog still
+    lets it).
 
     Either way the process watches this one and exits on its own once it's
     gone, so a run that's force-killed (kill -9, Force Quit) — which never
@@ -140,8 +145,9 @@ def start_keep_awake(force=False):
     elif shutil.which("systemd-inhibit"):
         # Holds the sleep/idle inhibitor for as long as the wrapped command
         # runs; the command polls this process and ends once it's gone.
-        cmd = ["systemd-inhibit", "--what=sleep:idle", "--mode=block",
-               "--who=STAR", "--why=Unlocking achievements",
+        why = f"Playing {game}: shutting down stops it" if game else "Unlocking achievements"
+        cmd = ["systemd-inhibit", "--what=sleep:idle:shutdown", "--mode=block",
+               "--who=STAR", f"--why={why}",
                "sh", "-c", 'while kill -0 "$0" 2>/dev/null; do sleep 5; done', pid]
     else:
         return None

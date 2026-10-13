@@ -478,7 +478,8 @@ def _run(game_name, force=False, time_only=False, delay=None, wait_ready=False):
     # Nothing to wait out (e.g. a single-achievement session that fires right
     # away) means nothing to stay awake for — the run is over in seconds.
     awake_for = (max(start_at, ready_at) - now).total_seconds() + est_duration
-    keep_awake_proc = start_keep_awake() if awake_for > 0 else None
+    title = config.get("game") if isinstance(config.get("game"), str) and config.get("game") else game_label
+    keep_awake_proc = start_keep_awake(game=title) if awake_for > 0 else None
     if keep_awake_proc is not None:
         print(f"Keeping the system awake for {_format_duration(awake_for)}.")
 
