@@ -2932,17 +2932,19 @@
     return at.toLocaleDateString([], opts);
   }
   // Games: each game's achievement progress, play time and when it was
-  // last played.
+  // last played; games hidden in Steam dimmed and tagged.
   function renderGames(d) {
     var games = d && !unlocksError ? d.games_list || [] : [];
     var withAch = games.filter(function (g) { return g.stats; });
     var complete = games.filter(function (g) { return g.total && g.unlocked >= g.total; }).length;
+    var hiddenCount = games.filter(function (g) { return g.hidden; }).length;
     var parts = [];
     if (d && !unlocksError) {
       parts.push("<b>" + games.length.toLocaleString() + "</b> game" + (games.length === 1 ? "" : "s"));
       parts.push(withAch.length.toLocaleString() + " with achievements");
       if (games.length > withAch.length) parts.push((games.length - withAch.length).toLocaleString() + " without");
       if (complete) parts.push(complete + " complete");
+      if (hiddenCount) parts.push(hiddenCount + " hidden in Steam");
     }
     byId("games-status").innerHTML = parts.length ? "<div>" + parts.join(" \u00b7 ") + "</div>" : "";
     byId("games-list").hidden = !games.length;
@@ -2957,9 +2959,9 @@
           '<span class="lib-count">' + g.unlocked + " / " + g.total + (g.total && g.unlocked >= g.total ? " \u00b7 Complete" : " \u00b7 " + pct + "%") + "</span>";
       }
       var done = g.total && g.unlocked >= g.total;
-      return '<div class="lib-game' + (done ? " complete" : "") + '">' +
+      return '<div class="lib-game' + (g.hidden ? " hidden-game" : "") + (done ? " complete" : "") + '">' +
         (g.icon ? '<img class="lib-icon" src="' + escapeHtml(g.icon) + '" alt="" loading="lazy">' : '<span class="lib-icon"></span>') +
-        '<div class="lib-text"><div class="lib-name">' + escapeHtml(g.name) + "</div>" +
+        '<div class="lib-text"><div class="lib-name">' + escapeHtml(g.name) + (g.hidden ? ' <span class="tag">Hidden</span>' : "") + "</div>" +
         '<div class="lib-progress">' + progress + "</div></div>" +
         '<div class="unlock-meta"><div>' + (g.played ? "Played " + escapeHtml(fmtDay(g.played)) : "Never played") + "</div>" +
         "<div>" + escapeHtml(fmtPlaytime(g.playtime)) + "</div></div></div>";
@@ -3037,11 +3039,11 @@
           html += (lastDay ? "</div>" : "") + '<div class="unlocks-day">' + escapeHtml(day) + '</div><div class="unlocks-group">';
           lastDay = day;
         }
-        html += '<div class="unlock">' +
+        html += '<div class="unlock' + (u.hidden ? " hidden-game" : "") + '">' +
           (u.icon ? '<img class="unlock-icon" src="' + escapeHtml(u.icon) + '" alt="" loading="lazy">' : '<span class="unlock-icon"></span>') +
           '<div class="unlock-text"><div class="unlock-name">' + escapeHtml(u.name) + "</div>" +
           (u.description ? '<div class="unlock-desc">' + escapeHtml(u.description) + "</div>" : "") + "</div>" +
-          '<div class="unlock-meta"><div class="unlock-game">' + escapeHtml(u.game) + "</div>" +
+          '<div class="unlock-meta"><div class="unlock-game">' + (u.hidden ? '<span class="tag">Hidden</span> ' : "") + escapeHtml(u.game) + "</div>" +
           '<div class="unlock-time">' + escapeHtml(fmtClock(at)) + "</div></div></div>";
       });
       list.innerHTML = html + (lastDay ? "</div>" : "");

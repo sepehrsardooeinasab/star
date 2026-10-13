@@ -1982,6 +1982,10 @@
   .lib-game.complete .lib-bar span { background: var(--warn); }
   .lib-game.complete .lib-count { color: var(--warn); }
   .lib-dim { color: var(--placeholder); }
+  /* Hidden in Steam: dimmed, and tagged. */
+  .hidden-game :is(.lib-icon, .unlock-icon) { opacity: 0.45; }
+  .hidden-game :is(.lib-name, .unlock-name, .lib-progress, .unlock-desc) { opacity: 0.6; }
+  .tag { display: inline-block; padding: 0 0.4rem; font-size: 0.66rem; font-weight: 600; line-height: 1.5; letter-spacing: 0.02em; color: var(--text-dim); border: 1px solid var(--border-strong); border-radius: 4px; vertical-align: 1px; }
   .unlocks-day { margin: 1.1rem 0 0.45rem; font-size: 0.75rem; font-weight: 600; color: var(--text-dim); }
   .unlocks-group { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
   .unlock { display: flex; align-items: center; gap: 0.8rem; padding: 0.6rem 0.8rem; }

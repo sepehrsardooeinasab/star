@@ -21,6 +21,10 @@ games once the saved copy is CACHE_FOR old. The first check reads every
 game, which can be hundreds of pages, so checks run in the background
 (SYNC says how far along) and the saved unlocks show meanwhile. Without
 internet, what's saved is shown.
+
+Games hidden in the Steam client (its "hidden" collection) are marked:
+Steam keeps that list on the computer, not online, so it's read from the
+Steam client's own files when Steam is installed here.
 """
 import json
 import re
@@ -34,6 +38,8 @@ from concurrent.futures import ThreadPoolExecutor
 from unlocker import achievements, asf_setup
 from unlocker import settings as settings_module
 from unlocker.api import asf_running
+from pathlib import Path
+
 from unlocker.state import COMPLETED_DIR, JSONS_DIR, list_profiles
 
 STEAMID_PATH = JSONS_DIR / ".steamid"
@@ -120,6 +126,32 @@ def _owned_games(key, sid):
              "stats": bool(g.get("has_community_visible_stats"))} for g in games if isinstance(g.get("appid"), int)]
 
 
+STEAM_DIRS = [Path.home() / "Library/Application Support/Steam", Path.home() / ".steam/steam",
+              Path.home() / ".local/share/Steam", Path.home() / ".var/app/com.valvesoftware.Steam/.local/share/Steam"]
+
+
+def hidden_games(sid):
+    """The appids hidden in this account's Steam client (its "hidden"
+    collection), from the client's files on this computer; empty when
+    Steam isn't installed here."""
+    account = str(int(sid) - 76561197960265728)
+    for base in STEAM_DIRS:
+        path = base / "userdata" / account / "config" / "cloudstorage" / "cloud-storage-namespace-1.json"
+        try:
+            entries = json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+        for entry in entries if isinstance(entries, list) else []:
+            if isinstance(entry, list) and len(entry) == 2 and entry[0] == "user-collections.hidden":
+                try:
+                    value = json.loads(entry[1].get("value") or "{}")
+                except (ValueError, AttributeError):
+                    return set()
+                return {a for a in value.get("added") or [] if isinstance(a, int)}
+        return set()
+    return set()
+
+
 def _star_appids():
     """The appids of the games in STAR, finished ones too."""
     appids = {appid for _, appid in list_profiles() if isinstance(appid, int)}
@@ -201,7 +233,7 @@ def _to_read(store, star, owned, refresh):
     return [a for a in order if a in star] + [a for a in order if a not in star], want
 
 
-def _games_list(store, key):
+def _games_list(store, key, hidden):
     """Every game, for the Library's Games: the library's (with a key) and
     those read, each with its achievement progress, most recently played
     first."""
@@ -218,18 +250,19 @@ def _games_list(store, key):
             "stats": o.get("stats", True), "read": bool(saved) and "total" in saved,
             "unlocked": len(unlocks), "total": saved.get("total"),
             "last_unlock": max((u["time"] for u in unlocks), default=None),
-            "unreadable": bool(saved.get("unreadable"))})
+            "unreadable": bool(saved.get("unreadable")), "hidden": appid in hidden})
     out.sort(key=lambda g: (g["played"] or 0, g["last_unlock"] or 0), reverse=True)
     return out
 
 
 def _result(store):
     games = store["games"]
-    unlocks = [{**u, "appid": int(appid), "game": g.get("game") or ""}
+    hidden = hidden_games(store["steamid"])
+    unlocks = [{**u, "appid": int(appid), "game": g.get("game") or "", "hidden": int(appid) in hidden}
                for appid, g in games.items() for u in g.get("unlocks") or []]
     unlocks.sort(key=lambda u: u["time"], reverse=True)
     key = bool(_key())
-    return {"unlocks": unlocks[:SHOWN], "games_list": _games_list(store, key),
+    return {"unlocks": unlocks[:SHOWN], "games_list": _games_list(store, key, hidden),
             "has_key": key, "library": store.get("library") if key else None,
             "games": len(games), "unreadable": sum(1 for g in games.values() if g.get("unreadable")),
             "unreadable_games": sorted(g.get("game") or achievements.app_title(int(appid)) or f"App {appid}"
