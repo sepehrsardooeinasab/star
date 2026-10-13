@@ -1010,7 +1010,12 @@
     transition: opacity 0.3s ease;
   }
   .runs-log[style*="--run-tint"]::before { opacity: 1; }
-  :root[data-theme="light"] .runs-log[style*="--run-tint"]::before { opacity: 0.7; }
+  :root[data-theme="light"] .runs-log[style*="--run-tint"]::before { opacity: 0.45; }
+  /* The table sits on the glow on its own background, like the bar over
+     it; in light, both nearly white, so they stand out from the glow. */
+  .runs-log .table-wrap { background: var(--surface); }
+  :root[data-theme="light"] .runs-log :is(.summary-bar, .table-wrap, pre.file-preview) { background: #fbfbfb; border-color: var(--border-strong); }
+  :root[data-theme="light"] .runs-log table.csv-table th { background: #eeeeee; }
   /* Each game's card in the list: its art too, stronger towards the right
      (the name stays on a quieter part), brighter when selected. */
   .run-card { position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; justify-content: center; min-height: 5.2rem; }
@@ -1032,9 +1037,15 @@
   .run-card.selected::before { opacity: 0.34; }
   .run-card:is(.resting, .over)::before { opacity: 0.1; }
   /* Light: art fades into white, so it needs more to read. */
-  :root[data-theme="light"] .run-card::before { opacity: 0.36; }
-  :root[data-theme="light"] .run-card.selected::before { opacity: 0.5; }
-  :root[data-theme="light"] .run-card:is(.resting, .over)::before { opacity: 0.18; }
+  :root[data-theme="light"] .run-card::before { opacity: 0.55; }
+  :root[data-theme="light"] .run-card.selected::before { opacity: 0.7; }
+  :root[data-theme="light"] .run-card:is(.resting, .over)::before { opacity: 0.28; }
+  /* …faded more where the text is, which keeps a soft white halo. */
+  :root[data-theme="light"] .run-card::before {
+    -webkit-mask-image: linear-gradient(to left, #000 25%, rgba(0, 0, 0, 0.15));
+    mask-image: linear-gradient(to left, #000 25%, rgba(0, 0, 0, 0.15));
+  }
+  :root[data-theme="light"] .run-card :is(.run-name, .run-meta) { text-shadow: 0 0 6px rgba(255, 255, 255, 0.9), 0 0 2px rgba(255, 255, 255, 0.9); }
   .runs-log-head {
     display: flex;
     align-items: center;
