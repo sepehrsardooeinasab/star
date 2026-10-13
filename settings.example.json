@@ -20,5 +20,7 @@
   "theme": "dark",
   "accent": "violet",
   "unlocks_range": "month",
-  "library_tab": "achievements"
+  "library_tab": "achievements",
+  "library_sort": "played",
+  "library_order": "desc"
 }

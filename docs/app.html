@@ -204,6 +204,17 @@
           <button class="btn-ghost" type="submit">Save</button>
         </form>
         <p class="step-text unlocks-key-error" id="unlocks-key-error" hidden></p>
+        <div class="lib-defaults">
+          <div class="lib-default"><span>Games sorted by</span>
+            <select id="default-sort" aria-label="Games sorted by">
+              <option value="played">Last played</option>
+              <option value="achievement">Last achievement</option>
+              <option value="name">Name</option>
+              <option value="progress">Progress</option>
+            </select>
+            <select id="default-order" aria-label="Order"></select>
+          </div>
+        </div>
       </li>
       <li class="setup-step done" id="step-clock" hidden>
         <div class="step-head"><span class="step-mark"></span><b>Clock</b></div>
@@ -453,6 +464,17 @@
   <div class="unlocks-list" id="unlocks-list"></div>
   </div>
   <div class="library-pane" id="pane-games" hidden>
+    <div class="unlocks-bar">
+      <div class="games-sort">
+        <select id="games-sort" aria-label="Sort by">
+          <option value="played">Last played</option>
+          <option value="achievement">Last achievement</option>
+          <option value="name">Name</option>
+          <option value="progress">Progress</option>
+        </select>
+        <button class="btn-ghost" id="games-order" type="button"></button>
+      </div>
+    </div>
     <div class="unlocks-status" id="games-status"></div>
     <div class="unlocks-group library-games" id="games-list"></div>
   </div>

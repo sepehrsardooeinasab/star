@@ -61,6 +61,10 @@ DEFAULTS = {
     "accent": "violet",
     # How far back the app's Library lists achievements: day, week, month, year or all.
     "unlocks_range": "month",
+    # How the Library's Games are sorted: by when last played, the last
+    # achievement, name or progress; descending (newest, Z–A, most) or not.
+    "library_sort": "played",
+    "library_order": "desc",
     # Which section the app's Library opens on: achievements or games.
     "library_tab": "achievements",
 }
@@ -88,6 +92,8 @@ _TYPES = {
     "theme": (str,),
     "accent": (str,),
     "unlocks_range": (str,),
+    "library_sort": (str,),
+    "library_order": (str,),
     "library_tab": (str,),
 }
 
@@ -107,6 +113,8 @@ APP_TOGGLES = ["keep_awake", "auto_update", "show_finished"]
 APP_CHOICES = {"clock": ["system", "12h", "24h"], "theme": ["dark", "light"],
                "accent": ["violet", "wine", "blue", "teal", "amber"],
                "unlocks_range": ["day", "week", "month", "year", "all"],
+               "library_sort": ["played", "achievement", "name", "progress"],
+               "library_order": ["desc", "asc"],
                "library_tab": ["achievements", "games"]}
 
 # Settings older versions had, ignored (and dropped on the next save from

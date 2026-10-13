@@ -2681,10 +2681,24 @@
       libraryTab = tab.value;
       if (unlocksData) renderUnlocks();
     }
-    var range = (runSettings || []).filter(function (x) { return x.key === "unlocks_range"; })[0];
-    if (range && range.value !== unlocksRange) {
-      unlocksRange = range.value;
+    // Library defaults: applied when they change (or first load), so a
+    // range or sort picked in Library lasts until then.
+    var lib = {};
+    (runSettings || []).forEach(function (x) { lib[x.key] = x.value; });
+    if (lib.unlocks_range && lib.unlocks_range !== unlocksRange) {
+      unlocksRange = lib.unlocks_range;
       if (unlocksData) renderUnlocks();
+    }
+    if (lib.library_sort && lib.library_order) {
+      byId("default-sort").value = lib.library_sort;
+      syncOrderOptions(byId("default-order"), lib.library_sort, lib.library_order);
+      var sortKey = lib.library_sort + " " + lib.library_order;
+      if (sortKey !== appliedLib.sort) {
+        appliedLib.sort = sortKey;
+        gamesSort = lib.library_sort;
+        gamesOrder = lib.library_order;
+        if (unlocksData) renderUnlocks();
+      }
     }
     var clock = (runSettings || []).filter(function (x) { return x.key === "clock"; })[0];
     if (clock && clock.value !== clockPref) {
@@ -2922,6 +2936,31 @@
   var unlocksPoll = null;
   // The Library's two sections (library_tab in settings.json).
   var libraryTab = "achievements";
+  // How Games are sorted (defaults: library_sort, library_order).
+  var gamesSort = "played", gamesOrder = "desc", appliedLib = {};
+  var ORDER_NAMES = {played: ["Newest first", "Oldest first"], achievement: ["Newest first", "Oldest first"],
+    name: ["Z \u2192 A", "A \u2192 Z"], progress: ["Most first", "Least first"]};
+  function orderName(sort, order) { return ORDER_NAMES[sort][order === "desc" ? 0 : 1]; }
+  function syncOrderOptions(select, sort, order) {
+    select.innerHTML = ["desc", "asc"].map(function (o) {
+      return '<option value="' + o + '">' + orderName(sort, o) + "</option>";
+    }).join("");
+    select.value = order;
+  }
+  function sortGames(games) {
+    function key(g) {
+      if (gamesSort === "name") return g.name.toLowerCase();
+      if (gamesSort === "achievement") return g.last_unlock || 0;
+      if (gamesSort === "progress") return g.total ? g.unlocked / g.total : -1;
+      return g.played || 0;
+    }
+    var dir = gamesOrder === "desc" ? -1 : 1;
+    return games.slice().sort(function (a, b) {
+      var ka = key(a), kb = key(b);
+      var c = typeof ka === "string" ? ka.localeCompare(kb) : ka - kb;
+      return c * dir || a.name.localeCompare(b.name);
+    });
+  }
   function fmtPlaytime(minutes) {
     if (!minutes) return "";
     return minutes < 60 ? minutes + " min played" : Math.round(minutes / 60).toLocaleString() + " h played";
@@ -2934,7 +2973,9 @@
   // Games: each game's achievement progress, play time and when it was
   // last played; games hidden in Steam dimmed and tagged.
   function renderGames(d) {
-    var games = d && !unlocksError ? d.games_list || [] : [];
+    var games = sortGames(d && !unlocksError ? d.games_list || [] : []);
+    byId("games-sort").value = gamesSort;
+    byId("games-order").textContent = orderName(gamesSort, gamesOrder);
     var withAch = games.filter(function (g) { return g.stats; });
     var complete = games.filter(function (g) { return g.total && g.unlocked >= g.total; }).length;
     var hiddenCount = games.filter(function (g) { return g.hidden; }).length;
@@ -3083,6 +3124,28 @@
     api("/api/settings", {settings: {unlocks_range: unlocksRange}}).then(function (d) { runSettings = d.settings; })
       .catch(function (err) { showToast("Couldn't save: " + err.message); });
   });
+  // The sorting picked here lasts until the app closes; its default is
+  // in Settings → Library.
+  byId("games-sort").addEventListener("change", function () {
+    gamesSort = this.value;
+    gamesOrder = gamesSort === "name" ? "asc" : "desc";  // A–Z, or newest / most first
+    renderUnlocks();
+  });
+  byId("games-order").addEventListener("click", function () {
+    gamesOrder = gamesOrder === "desc" ? "asc" : "desc";
+    renderUnlocks();
+  });
+  // Settings → Library: the defaults, saved in settings.json.
+  function saveSetting(values) {
+    api("/api/settings", {settings: values}).then(function (d) { runSettings = d.settings; syncToggles(); })
+      .catch(function (err) { showToast("Couldn't save: " + err.message); });
+  }
+  byId("default-sort").addEventListener("change", function () {
+    var order = this.value === "name" ? "asc" : "desc";
+    syncOrderOptions(byId("default-order"), this.value, order);
+    saveSetting({library_sort: this.value, library_order: order});
+  });
+  byId("default-order").addEventListener("change", function () { saveSetting({library_order: this.value}); });
   // Settings → Library: the Steam Web API key, so the Library covers the
   // whole library.
   function renderUnlocksKey() {

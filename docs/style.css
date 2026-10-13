@@ -1968,6 +1968,13 @@
   .unlocks-sync { color: var(--accent); }
   .unlocks-bar .library-tabs button { padding: 0.35rem 1rem; font-size: 0.82rem; font-weight: 500; }
   .library-pane[hidden] { display: none; }
+  .games-sort { display: flex; align-items: center; gap: 0.5rem; }
+  .games-sort select { margin-top: 0 !important; display: inline-block !important; }
+  .games-sort .btn-ghost { height: 2.2rem; padding: 0 0.8rem; font-size: 0.8rem; }
+  .lib-defaults { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.9rem; padding-top: 0.8rem; border-top: 1px solid var(--border); }
+  .lib-default { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; font-size: 0.8rem; color: var(--text-dim); }
+  .lib-default > span { min-width: 9.5rem; }
+  .lib-default select { margin-top: 0 !important; display: inline-block !important; }
   /* Games: icon, name, progress bar; when it was played on the right. */
   .library-games { margin-top: 0.6rem; }
   .library-games[hidden] { display: none; }
@@ -2008,7 +2015,7 @@
   .to-top:hover { background: var(--surface-3); }
   .unlocks-hidden { margin: 0.2rem 0 0.6rem; padding: 0.6rem 0.8rem; font-size: 0.78rem; color: var(--text-dim); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
   /* Like the Runs options' dropdowns. */
-  #step-clock select {
+  :is(#step-clock, #step-unlocks, .games-sort) select {
     display: block;
     height: 2.2rem;
     margin-top: 0.6rem;
@@ -2020,7 +2027,7 @@
     border: 1px solid var(--border-strong);
     border-radius: 8px;
   }
-  #step-clock select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  :is(#step-clock, #step-unlocks, .games-sort) select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .unlocks-day { margin: 1.1rem 0 0.45rem; font-size: 0.75rem; font-weight: 600; color: var(--text-dim); }
   .unlocks-group { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
   .unlock { display: flex; align-items: center; gap: 0.8rem; padding: 0.6rem 0.8rem; }
