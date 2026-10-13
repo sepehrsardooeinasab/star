@@ -149,6 +149,7 @@ def _game_state(name, session_label):
         copied_from=config.get("copied_from"),
         title=_title(config),
         icon=achievements.app_icon(config["appid"]),
+        counters=achievements.app_counters(config["appid"]),
         total=total,
         done=min(progress["last_completed"] + 1, total),
         config_changed=config_changed(config, progress))
@@ -197,6 +198,7 @@ def game_states():
             if config:
                 game.update(appid=config["appid"], copied_from=config.get("copied_from"),
                             title=_title(config), icon=achievements.app_icon(config["appid"]),
+                            counters=achievements.app_counters(config["appid"]),
                             total=len(config["achievements"]),
                             done=len(config["achievements"]))
             games.append(game)
@@ -507,6 +509,16 @@ def achievements_from_link(url):
         raise AppError(str(e), 409, title=e.title)
 
 
+def app_counters(appid):
+    """How many of a game's achievements are counters, for Schedule; None
+    while it's looked up."""
+    try:
+        appid = int(appid)
+    except (TypeError, ValueError):
+        return {"appid": None, "counters": None}
+    return {"appid": appid, "counters": achievements.app_counters(appid)}
+
+
 def recent_unlocks(refresh):
     """This account's latest unlocks, read from Steam (see unlocks)."""
     try:
@@ -702,6 +714,7 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/log": lambda: read_log(query.get("name")),
             "/api/timeline": lambda: read_timeline(query.get("name")),
             "/api/achievements/progress": lambda: numbers_progress(query.get("appid")),
+            "/api/achievements/counters": lambda: app_counters(query.get("appid")),
             "/api/settings": run_settings,
             "/api/unlocks": lambda: recent_unlocks(query.get("refresh") == "1"),
             "/api/unlocks/key": lambda: {"has_key": bool(unlocks._key())},
