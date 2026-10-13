@@ -21,7 +21,7 @@ It installs the **STAR** app and ArchiSteamFarm with its achievement plugin (fro
 
 ## Using the app
 
-Open STAR and sign in to Steam. The title bar switches between **Schedule**, **Runs**, **Unlocks** and **Settings** (or the **Go** menu, ⌘1 to ⌘3; Settings is ⌘,). **Unlocks** lists your latest achievements from Steam, newest first.
+Open STAR and sign in to Steam. The title bar switches between **Schedule**, **Runs**, **Library** and **Settings** (or the **Go** menu, ⌘1 to ⌘3; Settings is ⌘,). **Library** shows your achievements from Steam, newest first, and your games with their achievement progress.
 
 ### 1. Make a schedule
 
@@ -154,10 +154,11 @@ In the app, **Settings** has the keep-awake and update switches and **Advanced r
 | `keep_awake` | `true` | Keeps the computer from sleeping while a run waits or plays. |
 | `auto_update` | `true` | Installs a new STAR release by itself, once no game is in a session. |
 | `show_finished` | `false` | Lists finished games in the app's Runs (at the bottom). |
-| `steam_api_key` | `null` | A [Steam Web API key](https://steamcommunity.com/dev/apikey), so the app's **Unlocks** covers every game you play, not just the games in STAR. Set it in Settings → Unlocks. |
+| `steam_api_key` | `null` | A [Steam Web API key](https://steamcommunity.com/dev/apikey), so the app's **Library** covers every game you play, not just the games in STAR. Set it in Settings → Library. |
 | `clock` | `"system"` | How the app writes times: `"system"` (the computer's way), `"12h"` (2:30 PM) or `"24h"` (14:30). Set it in Settings → Clock. |
 | `theme`, `accent` | `"dark"`, `"violet"` | The app's look, from its Appearance menu: `"dark"` or `"light"`; `"violet"`, `"wine"`, `"blue"`, `"teal"` or `"amber"`. |
-| `unlocks_range` | `"month"` | How far back the app's **Unlocks** lists: `"day"`, `"week"`, `"month"`, `"year"` or `"all"`. Set it on Unlocks. |
+| `unlocks_range` | `"month"` | How far back the app's **Library** lists achievements: `"day"`, `"week"`, `"month"`, `"year"` or `"all"`. Set it in Library. |
+| `library_tab` | `"achievements"` | Which section **Library** opens on: `"achievements"` or `"games"`. |
 
 With randomness on, it applies to the delays between achievements and to the gaps between sessions. The random value is picked when that delay is scheduled and saved with your progress, so stopping and resuming doesn't pick a new one. Unlocks that happened together in the source data (see `simultaneous_max_delay`) are still sent together. Estimates such as `-t`, `-ls` and the session length shown before you confirm still use the config's exact values.
 

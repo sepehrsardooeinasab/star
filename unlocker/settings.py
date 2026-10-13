@@ -51,7 +51,7 @@ DEFAULTS = {
     # The app's Runs list: show finished games too (at the bottom).
     "show_finished": False,
     # A Steam Web API key (steamcommunity.com/dev/apikey), so the app's
-    # Unlocks covers every game played, not just the games in STAR.
+    # Library covers every game played, not just the games in STAR.
     "steam_api_key": None,
     # How the app writes clock times: "system" (the computer's way),
     # "12h" (2:30 PM) or "24h" (14:30).
@@ -59,8 +59,10 @@ DEFAULTS = {
     # The app's look (its Appearance menu).
     "theme": "dark",
     "accent": "violet",
-    # How far back the app's Unlocks lists: day, week, month, year or all.
+    # How far back the app's Library lists achievements: day, week, month, year or all.
     "unlocks_range": "month",
+    # Which section the app's Library opens on: achievements or games.
+    "library_tab": "achievements",
 }
 
 # Accepted types per setting; None means null is allowed.
@@ -86,6 +88,7 @@ _TYPES = {
     "theme": (str,),
     "accent": (str,),
     "unlocks_range": (str,),
+    "library_tab": (str,),
 }
 
 
@@ -103,7 +106,8 @@ APP_TOGGLES = ["keep_awake", "auto_update", "show_finished"]
 # Choices the app shows on their own, with what each can be.
 APP_CHOICES = {"clock": ["system", "12h", "24h"], "theme": ["dark", "light"],
                "accent": ["violet", "wine", "blue", "teal", "amber"],
-               "unlocks_range": ["day", "week", "month", "year", "all"]}
+               "unlocks_range": ["day", "week", "month", "year", "all"],
+               "library_tab": ["achievements", "games"]}
 
 # Settings older versions had, ignored (and dropped on the next save from
 # the app) rather than refused as unknown.

@@ -19,5 +19,6 @@
   "clock": "system",
   "theme": "dark",
   "accent": "violet",
-  "unlocks_range": "month"
+  "unlocks_range": "month",
+  "library_tab": "achievements"
 }

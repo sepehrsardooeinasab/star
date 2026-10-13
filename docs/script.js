@@ -732,7 +732,7 @@
   var PAGE_HEADS = {
     schedule: ["Schedule", "Make a schedule", " from a real player"],
     runs: ["Runs", "Run a game", " at the player's pace"],
-    unlocks: ["Unlocks", "Your latest achievements", " from Steam"],
+    unlocks: ["Library", "Your games and achievements", " from Steam"],
     guide: ["Settings", "Settings", " for this computer"]
   };
   function renderPageHead() {
@@ -2676,6 +2676,11 @@
       var s = (runSettings || []).filter(function (x) { return x.key === key; })[0];
       if (s && document.documentElement.getAttribute("data-" + key) !== s.value) applyAppearance(key, s.value, false);
     });
+    var tab = (runSettings || []).filter(function (x) { return x.key === "library_tab"; })[0];
+    if (tab && tab.value !== libraryTab) {
+      libraryTab = tab.value;
+      if (unlocksData) renderUnlocks();
+    }
     var range = (runSettings || []).filter(function (x) { return x.key === "unlocks_range"; })[0];
     if (range && range.value !== unlocksRange) {
       unlocksRange = range.value;
@@ -2915,9 +2920,69 @@
   var RANGES = {day: [86400, "in the last day"], week: [7 * 86400, "in the last week"],
     month: [30 * 86400, "in the last month"], year: [365 * 86400, "in the last year"], all: [Infinity, "in total"]};
   var unlocksPoll = null;
+  // The Library's two sections (library_tab in settings.json).
+  var libraryTab = "achievements";
+  function fmtPlaytime(minutes) {
+    if (!minutes) return "";
+    return minutes < 60 ? minutes + " min played" : Math.round(minutes / 60).toLocaleString() + " h played";
+  }
+  function fmtDay(seconds) {
+    var at = new Date(seconds * 1000), opts = {month: "short", day: "numeric"};
+    if (at.getFullYear() !== new Date().getFullYear()) opts.year = "numeric";
+    return at.toLocaleDateString([], opts);
+  }
+  // Games: each game's achievement progress, play time and when it was
+  // last played.
+  function renderGames(d) {
+    var games = d && !unlocksError ? d.games_list || [] : [];
+    var withAch = games.filter(function (g) { return g.stats; });
+    var complete = games.filter(function (g) { return g.total && g.unlocked >= g.total; }).length;
+    var parts = [];
+    if (d && !unlocksError) {
+      parts.push("<b>" + games.length.toLocaleString() + "</b> game" + (games.length === 1 ? "" : "s"));
+      parts.push(withAch.length.toLocaleString() + " with achievements");
+      if (games.length > withAch.length) parts.push((games.length - withAch.length).toLocaleString() + " without");
+      if (complete) parts.push(complete + " complete");
+    }
+    byId("games-status").innerHTML = parts.length ? "<div>" + parts.join(" \u00b7 ") + "</div>" : "";
+    byId("games-list").hidden = !games.length;
+    byId("games-list").innerHTML = games.map(function (g) {
+      var progress;
+      if (!g.stats) progress = '<span class="lib-dim">No achievements</span>';
+      else if (g.unreadable) progress = '<span class="lib-dim">Not shown by Steam</span>';
+      else if (!g.read) progress = '<span class="lib-dim">' + (g.played ? "Not read yet" : "Never played") + "</span>";
+      else {
+        var pct = g.total ? Math.round(100 * g.unlocked / g.total) : 0;
+        progress = '<span class="lib-bar"><span style="width:' + pct + '%"></span></span>' +
+          '<span class="lib-count">' + g.unlocked + " / " + g.total + (g.total && g.unlocked >= g.total ? " \u00b7 Complete" : " \u00b7 " + pct + "%") + "</span>";
+      }
+      var done = g.total && g.unlocked >= g.total;
+      return '<div class="lib-game' + (done ? " complete" : "") + '">' +
+        (g.icon ? '<img class="lib-icon" src="' + escapeHtml(g.icon) + '" alt="" loading="lazy">' : '<span class="lib-icon"></span>') +
+        '<div class="lib-text"><div class="lib-name">' + escapeHtml(g.name) + "</div>" +
+        '<div class="lib-progress">' + progress + "</div></div>" +
+        '<div class="unlock-meta"><div>' + (g.played ? "Played " + escapeHtml(fmtDay(g.played)) : "Never played") + "</div>" +
+        "<div>" + escapeHtml(fmtPlaytime(g.playtime)) + "</div></div></div>";
+    }).join("");
+  }
+  byId("library-tabs").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-tab]");
+    if (!b || b.getAttribute("data-tab") === libraryTab) return;
+    libraryTab = b.getAttribute("data-tab");
+    renderUnlocks();
+    api("/api/settings", {settings: {library_tab: libraryTab}}).then(function (d) { runSettings = d.settings; })
+      .catch(function (err) { showToast("Couldn't save: " + err.message); });
+  });
+
   function renderUnlocks() {
     var d = unlocksData, list = byId("unlocks-list");
     var syncing = d && d.syncing;
+    byId("library-tabs").querySelectorAll("[data-tab]").forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.getAttribute("data-tab") === libraryTab));
+    });
+    byId("pane-achievements").hidden = libraryTab !== "achievements";
+    byId("pane-games").hidden = libraryTab !== "games";
+    renderGames(d);
     byId("unlocks-refresh").disabled = unlocksBusy || !!syncing;
     byId("unlocks-range").querySelectorAll("[data-range]").forEach(function (b) {
       b.setAttribute("aria-pressed", String(b.getAttribute("data-range") === unlocksRange));
@@ -2941,11 +3006,6 @@
       }
       if (d.offline) line = '<span class="warn">' + escapeHtml(d.offline) + "</span> " + line;
       lines.push(line);
-      if (d.library) {
-        lines.push(escapeHtml("Your library: " + d.library.games.toLocaleString() + " games, " +
-          d.library.with_achievements.toLocaleString() + " with achievements, " +
-          d.library.without_achievements.toLocaleString() + " without"));
-      }
       if (syncing) {
         lines.push('<span class="unlocks-sync">' + escapeHtml(syncing.total
           ? "Reading your games from Steam: " + syncing.done + " of " + syncing.total + "\u2026"
@@ -2953,6 +3013,7 @@
       }
     }
     byId("unlocks-status").innerHTML = lines.map(function (l) { return "<div>" + l + "</div>"; }).join("");
+    if (syncing) byId("games-status").innerHTML += "<div>" + lines[lines.length - 1] + "</div>";
     byId("unlocks-updated").textContent = d && !unlocksError && d.fetched_at ? "Updated " + fmtClock(new Date(d.fetched_at * 1000)) : "";
     var hidden = d && !unlocksError && d.unreadable;
     byId("unlocks-hidden").hidden = !(hidden && unlocksHiddenOpen);
@@ -3006,14 +3067,14 @@
     api("/api/settings", {settings: {unlocks_range: unlocksRange}}).then(function (d) { runSettings = d.settings; })
       .catch(function (err) { showToast("Couldn't save: " + err.message); });
   });
-  // Settings → Unlocks: the Steam Web API key, so Unlocks covers the
+  // Settings → Library: the Steam Web API key, so the Library covers the
   // whole library.
   function renderUnlocksKey() {
     var unknown = unlocksHasKey === null;
     var link = '<a href="https://steamcommunity.com/dev/apikey" target="_blank" rel="noopener">steamcommunity.com/dev/apikey</a>';
     byId("unlocks-key-text").innerHTML = unknown ? "" : unlocksHasKey
       ? "Uses your Steam Web API key to cover every game you play and display its unlocked achievements."
-      : "Unlocks covers the games in STAR. To include every game you play, add a Steam Web API key: get one free at " +
+      : "The Library covers the games in STAR. To include every game you play, add a Steam Web API key: get one free at " +
         link + " (any domain name works).";
     byId("unlocks-key-actions").hidden = unknown || !unlocksHasKey || unlocksKeyOpen;
     byId("unlocks-key-form").hidden = unknown || (unlocksHasKey && !unlocksKeyOpen);

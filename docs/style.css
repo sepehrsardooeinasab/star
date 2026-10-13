@@ -1966,21 +1966,22 @@
   .unlocks-status { min-height: 1.2rem; margin-bottom: 0.4rem; font-size: 0.78rem; line-height: 1.6; color: var(--text-dim); font-variant-numeric: tabular-nums; }
   .unlocks-status b { color: var(--text); font-weight: 600; }
   .unlocks-sync { color: var(--accent); }
-  .unlocks-hidden { margin: 0.2rem 0 0.6rem; padding: 0.6rem 0.8rem; font-size: 0.78rem; color: var(--text-dim); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
-  /* Like the Runs options' dropdowns. */
-  #step-clock select {
-    display: block;
-    height: 2.2rem;
-    margin-top: 0.6rem;
-    padding: 0 0.5rem;
-    font: inherit;
-    font-size: 0.8rem;
-    color: var(--text);
-    background: var(--surface);
-    border: 1px solid var(--border-strong);
-    border-radius: 8px;
-  }
-  #step-clock select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .unlocks-bar .library-tabs button { padding: 0.35rem 1rem; font-size: 0.82rem; font-weight: 500; }
+  .library-pane[hidden] { display: none; }
+  /* Games: icon, name, progress bar; when it was played on the right. */
+  .library-games { margin-top: 0.6rem; }
+  .library-games[hidden] { display: none; }
+  .lib-game { display: flex; align-items: center; gap: 0.8rem; padding: 0.55rem 0.8rem; }
+  .lib-game + .lib-game { border-top: 1px solid var(--border); }
+  .lib-icon { flex: none; width: 32px; height: 32px; border-radius: 6px; background: var(--surface-3); }
+  .lib-text { flex: 1; min-width: 0; }
+  .lib-name { font-size: 0.86rem; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lib-progress { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.2rem; font-size: 0.76rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .lib-bar { flex: 0 1 12rem; height: 4px; background: var(--surface-3); border-radius: 2px; overflow: hidden; }
+  .lib-bar span { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
+  .lib-game.complete .lib-bar span { background: var(--warn); }
+  .lib-game.complete .lib-count { color: var(--warn); }
+  .lib-dim { color: var(--placeholder); }
   .unlocks-day { margin: 1.1rem 0 0.45rem; font-size: 0.75rem; font-weight: 600; color: var(--text-dim); }
   .unlocks-group { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
   .unlock { display: flex; align-items: center; gap: 0.8rem; padding: 0.6rem 0.8rem; }

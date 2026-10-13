@@ -225,7 +225,7 @@ fn menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     menu.append(&Submenu::with_items(app, "Go", true, &[
         &item("go-schedule", "Schedule", Some("CmdOrCtrl+1"))?,
         &item("go-runs", "Runs", Some("CmdOrCtrl+2"))?,
-        &item("go-unlocks", "Unlocks", Some("CmdOrCtrl+3"))?,
+        &item("go-unlocks", "Library", Some("CmdOrCtrl+3"))?,
     ])?)?;
     menu.append(&Submenu::with_items(app, "Window", true, &[
         &PredefinedMenuItem::minimize(app, None)?,

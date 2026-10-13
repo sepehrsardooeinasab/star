@@ -1,5 +1,6 @@
-"""Recent unlocks: the achievements this Steam account unlocked lately,
-newest first, with their exact times, read from Steam.
+"""The app's Library: this Steam account's games (with their achievement
+progress) and the achievements it unlocked, newest first, with their
+exact times, read from Steam.
 
 Each game's unlocks come from its public stats page (as in achievements),
 so the account's game details need to be public. Which games to read:
@@ -94,8 +95,9 @@ def _key():
 
 
 def _owned_games(key, sid):
-    """Every game in the library: [{"appid", "played": when it was last
-    played (0: never), "stats": whether it has achievements}]."""
+    """Every game in the library: [{"appid", "name", "icon" (URL),
+    "played": when it was last played (0: never), "playtime" (minutes),
+    "stats": whether it has achievements}]."""
     url = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?" + urllib.parse.urlencode({
         "key": key, "steamid": sid, "include_appinfo": 1, "include_played_free_games": 1})
     try:
@@ -111,7 +113,10 @@ def _owned_games(key, sid):
     if games is None:
         raise Problem("Steam didn't list your games",
                       "Your Steam profile's game details need to be public (Steam: Edit Profile → Privacy Settings).")
-    return [{"appid": g["appid"], "played": g.get("rtime_last_played") or 0,
+    return [{"appid": g["appid"], "name": g.get("name") or "",
+             "icon": (achievements.ICON_URL.format(appid=g["appid"], icon=g["img_icon_url"])
+                      if re.fullmatch(r"[0-9a-f]{40}", str(g.get("img_icon_url") or "")) else None),
+             "played": g.get("rtime_last_played") or 0, "playtime": g.get("playtime_forever") or 0,
              "stats": bool(g.get("has_community_visible_stats"))} for g in games if isinstance(g.get("appid"), int)]
 
 
@@ -149,8 +154,9 @@ def _game_unlocks(sid, appid):
                 time.sleep(3)
     else:
         return FAILED
-    return stats["game"], [{"name": a["name"], "description": a["description"], "icon": a["icon"], "time": a["unlock_time"]}
-                           for a in stats["achievements"] if a["unlocked"] and a["unlock_time"]]
+    return stats["game"], len(stats["achievements"]), [
+        {"name": a["name"], "description": a["description"], "icon": a["icon"], "time": a["unlock_time"]}
+        for a in stats["achievements"] if a["unlocked"] and a["unlock_time"]]
 
 
 def _load_store(sid):
@@ -184,15 +190,37 @@ def _to_read(store, star, owned, refresh):
         if not g["stats"] or not g["played"]:
             continue  # no achievements, or never played: nothing unlocked
         saved = games.get(str(g["appid"]))
-        if (saved is None or g["played"] != saved.get("played")
+        if (saved is None or g["played"] != saved.get("played") or "total" not in saved
                 or (g["played"] >= now - LIVE_FOR and (refresh or now - saved["read"] >= CACHE_FOR))):
             want[g["appid"]] = g["played"]
     for appid in star:
         saved = games.get(str(appid))
-        if appid not in want and (saved is None or refresh or now - saved["read"] >= CACHE_FOR):
+        if appid not in want and (saved is None or refresh or "total" not in saved or now - saved["read"] >= CACHE_FOR):
             want[appid] = saved.get("played") if saved else None
     order = sorted(want, key=lambda appid: want[appid] or 0, reverse=True)
     return [a for a in order if a in star] + [a for a in order if a not in star], want
+
+
+def _games_list(store, key):
+    """Every game, for the Library's Games: the library's (with a key) and
+    those read, each with its achievement progress, most recently played
+    first."""
+    games = store["games"]
+    owned = {g["appid"]: g for g in (store.get("owned") or [])} if key else {}
+    out = []
+    for appid in set(owned) | {int(a) for a in games}:
+        o, saved = owned.get(appid, {}), games.get(str(appid), {})
+        unlocks = saved.get("unlocks") or []
+        out.append({
+            "appid": appid, "name": saved.get("game") or o.get("name") or achievements.app_title(appid) or f"App {appid}",
+            "icon": o.get("icon") or achievements.app_icon(appid),
+            "played": o.get("played") or saved.get("played") or 0, "playtime": o.get("playtime"),
+            "stats": o.get("stats", True), "read": bool(saved) and "total" in saved,
+            "unlocked": len(unlocks), "total": saved.get("total"),
+            "last_unlock": max((u["time"] for u in unlocks), default=None),
+            "unreadable": bool(saved.get("unreadable"))})
+    out.sort(key=lambda g: (g["played"] or 0, g["last_unlock"] or 0), reverse=True)
+    return out
 
 
 def _result(store):
@@ -201,7 +229,8 @@ def _result(store):
                for appid, g in games.items() for u in g.get("unlocks") or []]
     unlocks.sort(key=lambda u: u["time"], reverse=True)
     key = bool(_key())
-    return {"unlocks": unlocks[:SHOWN], "has_key": key, "library": store.get("library") if key else None,
+    return {"unlocks": unlocks[:SHOWN], "games_list": _games_list(store, key),
+            "has_key": key, "library": store.get("library") if key else None,
             "games": len(games), "unreadable": sum(1 for g in games.values() if g.get("unreadable")),
             "unreadable_games": sorted(g.get("game") or achievements.app_title(int(appid)) or f"App {appid}"
                                        for appid, g in games.items() if g.get("unreadable")),
@@ -253,6 +282,7 @@ def _sync(sid, refresh):
             with_stats = sum(1 for g in owned if g["stats"])
             store["library"] = {"games": len(owned), "with_achievements": with_stats,
                                 "without_achievements": len(owned) - with_stats}
+            store["owned"] = owned
         appids, played = _to_read(store, _star_appids(), owned, refresh)
         SYNC["total"] = len(appids)
         failed = 0
@@ -266,7 +296,7 @@ def _sync(sid, refresh):
                 saved = store["games"].setdefault(str(appid), {"game": "", "unlocks": []})
                 saved.update(read=time.time(), played=played[appid], unreadable=got is None)
                 if got:
-                    saved["game"], saved["unlocks"] = got
+                    saved["game"], saved["total"], saved["unlocks"] = got
                 if done % 10 == 0:
                     _save_store(store)
         if appids and failed == len(appids) and store["games"] and not _steam_reachable():
