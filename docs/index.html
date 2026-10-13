@@ -106,7 +106,7 @@
 
   <h3>3. Settings</h3>
   <p><b>Settings</b> shows the ArchiSteamFarm and plugin versions with <b>Check for updates</b>, the Steam account (<b>Use another account</b>), a switch (and a test) for keeping the computer awake, whether finished games are listed in Runs, the <b>Advanced run settings</b> (locked until you open them), and the data folder. Theme and accent are under the palette button.</p>
-  <p>ArchiSteamFarm and the plugin are pinned to versions known to work together, and ASF's own auto-update is off so it can't drift from the plugin. <b>Check for updates</b> offers the newest ASF in the series the latest plugin is built for; newer series need a new plugin first. Updates are swapped in between sessions, never during one. STAR itself updates from <b>Check for Updates…</b> in its menu, or by running the install command again.</p>
+  <p>ArchiSteamFarm and the plugin are pinned to versions known to work together, and ASF's own auto-update is off so it can't drift from the plugin. <b>Check for updates</b> offers the newest ASF in the series the latest plugin is built for; newer series need a new plugin first. Updates are swapped in between sessions, never during one. STAR updates itself: when a new release is out, it installs it once no game is in a session (<b>Update automatically</b> in Settings turns this off). <b>Check for Updates…</b> in its menu does it right away.</p>
 </section>
 
 <section id="good-to-know">
@@ -157,6 +157,8 @@ runsteamunlocker -h              # help</code></pre>
       <thead><tr><th>Key</th><th>Default</th><th>What it does</th></tr></thead>
       <tbody>
         <tr><td><code>keep_awake</code></td><td><code>true</code></td><td>Keeps the computer from sleeping while a run waits or plays.</td></tr>
+        <tr><td><code>auto_update</code></td><td><code>true</code></td><td>Installs a new STAR release by itself, once no game is in a session.</td></tr>
+        <tr><td><code>show_finished</code></td><td><code>false</code></td><td>Lists finished games in the app's Runs (at the bottom).</td></tr>
         <tr><td><code>jitter_enabled</code></td><td><code>false</code></td><td>Randomness on delays, so a run doesn't replay the player's timings to the second.</td></tr>
         <tr><td><code>jitter_percent</code></td><td><code>10</code></td><td>How far a delay can move, either way, as a percentage of itself (0–100).</td></tr>
         <tr><td><code>jitter_min_delay</code></td><td><code>60</code></td><td>Only delays longer than this many seconds get randomness.</td></tr>

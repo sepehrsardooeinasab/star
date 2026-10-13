@@ -56,17 +56,21 @@ fn read_games() -> Option<(Vec<String>, Vec<(String, String)>)> {
     for g in data["games"].as_array()?.iter().filter(|g| g["running"].as_bool() == Some(true)) {
         let name = g["name"].as_str().unwrap_or_default().to_string();
         let title = g["title"].as_str().filter(|t| !t.is_empty()).unwrap_or(&name).to_string();
-        let session = match (g["session"].as_u64(), g["sessions"].as_u64()) {
-            (Some(s), Some(n)) => format!(" {s} of {n}"),
-            _ => String::new(),
-        };
-        if g["state"].as_str() == Some("in_session") {
-            lines.push(format!("{title} — playing session{session}"));
+        // The game, its session, then how long the session has left and
+        // when the next unlock is (or, between sessions, when it starts).
+        lines.push(title.clone());
+        let playing = g["state"].as_str() == Some("in_session");
+        if let (Some(s), Some(n)) = (g["session"].as_u64(), g["sessions"].as_u64()) {
+            lines.push(format!("    {} {s} of {n}", if playing { "Playing session" } else { "Waiting for session" }));
+        }
+        if playing {
+            if let Some(left) = g["session_left"].as_f64() {
+                lines.push(format!("    Session ends in {}", span(left)));
+            }
             if let Some(next) = g["next_unlock_in"].as_f64() {
                 lines.push(format!("    Next unlock in {}", span(next)));
             }
         } else {
-            lines.push(format!("{title} — waiting for session{session}"));
             let wait = g["starts_in"].as_f64().or(g["ready_in"].as_f64()).unwrap_or(0.0);
             if wait > 0.0 {
                 lines.push(format!("    Starts in {}", span(wait)));
@@ -227,7 +231,7 @@ extern "C-unwind" fn should_terminate(_this: &AnyObject, _cmd: Sel, _sender: *mu
     let (Some(action), true) = (system_quit(), active()) else { return NS_TERMINATE_NOW };
     let Some(mtm) = MainThreadMarker::new() else { return NS_TERMINATE_NOW };
     let games = SUMMARY.lock().map(|s| s.iter().filter(|l| !l.starts_with(' ')).cloned().collect::<Vec<_>>()).unwrap_or_default();
-    let what = games.first().and_then(|l| l.split(" — ").next()).unwrap_or("A game").to_string();
+    let what = games.first().cloned().unwrap_or_else(|| "A game".to_string());
     let alert = NSAlert::new(mtm);
     alert.setAlertStyle(NSAlertStyle::Warning);
     alert.setMessageText(&NSString::from_str(&format!("{what} is running in STAR")));
