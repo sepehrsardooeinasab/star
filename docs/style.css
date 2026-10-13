@@ -1967,6 +1967,7 @@
   .unlocks-bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.7rem; }
   .unlocks-bar .segmented button { padding: 0.3rem 0.75rem; font-size: 0.78rem; }
   #unlocks-screen .segmented button[aria-pressed="true"] { background: var(--accent-tint); color: var(--accent); }
+  #unlocks-screen .segmented button:hover { color: var(--accent); }
   .unlocks-updated { font-size: 0.78rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
   .unlocks-status { min-height: 1.2rem; margin-bottom: 0.4rem; font-size: 0.78rem; line-height: 1.6; color: var(--text-dim); font-variant-numeric: tabular-nums; }
   .unlocks-status b { color: var(--text); font-weight: 600; }
@@ -1974,7 +1975,7 @@
   .unlocks-bar .library-tabs button { padding: 0.35rem 1rem; font-size: 0.82rem; font-weight: 500; }
   .library-pane[hidden], #games-index[hidden], .game-page[hidden] { display: none; }
   .lib-game { cursor: pointer; }
-  .lib-game:hover { background: var(--surface-2); }
+  .lib-game:hover { background: color-mix(in srgb, var(--accent-tint) 60%, var(--surface-2)); }
   .lib-game:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
   /* A game's own page. */
   .game-back { padding: 0.35rem 0.8rem; font-size: 0.78rem; margin-bottom: 0.9rem; }
