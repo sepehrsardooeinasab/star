@@ -3023,6 +3023,14 @@
       return words.every(function (w) { return name.indexOf(w) !== -1; });
     });
   }
+  // A game's progress: its bar, then "unlocked / total" with the slash in
+  // the same place on every row, then Complete or the percentage.
+  function progressHtml(unlocked, total) {
+    var pct = total ? Math.round(100 * unlocked / total) : 0;
+    return '<span class="lib-bar"><span style="width:' + pct + '%"></span></span>' +
+      '<span class="lib-count"><span class="lib-got">' + unlocked + '</span><span class="lib-of">/</span><span class="lib-all">' + total + "</span></span>" +
+      '<span class="lib-state">' + (total && unlocked >= total ? "Complete" : pct + "%") + "</span>";
+  }
   function renderGames(d) {
     var games = sortGames(d && !unlocksError ? d.games_list || [] : []);
     byId("games-sort").value = gamesSort;
@@ -3067,11 +3075,7 @@
       if (!g.stats) progress = '<span class="lib-dim">No achievements</span>';
       else if (g.unreadable) progress = '<span class="lib-dim">' + (g.private ? "Not shown while Private" : "Not shown by Steam") + "</span>";
       else if (!g.read) progress = '<span class="lib-dim">' + (g.played ? "Not read yet" : "Never played") + "</span>";
-      else {
-        var pct = g.total ? Math.round(100 * g.unlocked / g.total) : 0;
-        progress = '<span class="lib-bar"><span style="width:' + pct + '%"></span></span>' +
-          '<span class="lib-count">' + g.unlocked + " / " + g.total + (g.total && g.unlocked >= g.total ? " \u00b7 Complete" : " \u00b7 " + pct + "%") + "</span>";
-      }
+      else progress = progressHtml(g.unlocked, g.total);
       var done = g.total && g.unlocked >= g.total;
       return '<div class="lib-game' + (g.hidden || g.private ? " hidden-game" : "") + (done ? " complete" : "") +
         '" data-appid="' + g.appid + '" role="button" tabindex="0">' +
@@ -3127,7 +3131,7 @@
     var p = gamePage, html = '<button class="btn-ghost game-back" type="button" data-game-back>\u2190 Games</button>';
     if (!p) { page.innerHTML = html + '<div class="unlocks-status">' + escapeHtml("Loading\u2026") + "</div>"; return; }
     if (p.error) { page.innerHTML = html + problemHtml("warn", (p.error.data || {}).title, p.error.message); return; }
-    var pct = p.total ? Math.round(100 * p.unlocked / p.total) : 0, done = p.total && p.unlocked >= p.total;
+    var done = p.total && p.unlocked >= p.total;
     var links = '<a class="btn-ghost" target="_blank" rel="noopener" href="https://steamcommunity.com/profiles/' + encodeURIComponent(p.steamid || "") +
       "/stats/" + p.appid + '/achievements/">Steam</a>' +
       '<a class="btn-ghost" target="_blank" rel="noopener" href="https://steamhunters.com/apps/' + p.appid + '/achievements">SteamHunters</a>' +
@@ -3135,8 +3139,7 @@
     html += '<div class="game-head' + (p.hidden || p.private ? " hidden-game" : "") + (done ? " complete" : "") + '">' +
       iconHtml("lib-icon", p.icon, p.name) +
       '<div class="lib-text"><div class="game-title">' + escapeHtml(p.name) + markHtml(p) + "</div>" +
-      (p.read ? '<div class="lib-progress"><span class="lib-bar"><span style="width:' + pct + '%"></span></span><span class="lib-count">' +
-        p.unlocked + " / " + p.total + (done ? " \u00b7 Complete" : " \u00b7 " + pct + "%") + "</span></div>" : "") +
+      (p.read ? '<div class="lib-progress">' + progressHtml(p.unlocked, p.total) + "</div>" : "") +
       '<div class="game-meta">' + escapeHtml([p.played ? "Played " + fmtDay(p.played) : "Never played", fmtPlaytime(p.playtime)].filter(Boolean).join(" \u00b7 ")) + "</div>" +
       "</div></div>" + '<div class="game-links">' + links + "</div>";
     if (p.unreadable && p.private) html += noticeHtml("info", "Steam doesn't show the achievements of a game marked Private. To show them, right-click it in Steam \u2192 Manage \u2192 Unmark as Private.");

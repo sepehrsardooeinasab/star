@@ -2034,15 +2034,20 @@
   .lib-progress { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.2rem; font-size: 0.76rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
   .lib-bar { flex: 0 1 12rem; height: 4px; background: var(--surface-3); border-radius: 2px; overflow: hidden; }
   .lib-bar span { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
-  .lib-game.complete .lib-bar span { background: var(--warn); }
-  .lib-game.complete .lib-count { color: var(--warn); }
+  .lib-count { display: inline-flex; margin-left: 0.2rem; }
+  .lib-got { min-width: 3ch; text-align: right; }
+  .lib-of { padding: 0 0.35em; color: var(--placeholder); }
+  .lib-all { min-width: 3ch; }
+  .lib-state { margin-left: 0.8rem; }
+  :is(.lib-game, .game-head).complete .lib-bar span { background: var(--warn); }
+  :is(.lib-game, .game-head).complete :is(.lib-count, .lib-of, .lib-state) { color: var(--warn); }
   .lib-dim { color: var(--placeholder); }
   /* Hidden in Steam: dimmed, and tagged. */
   .hidden-game :is(.lib-icon, .unlock-icon) { opacity: 0.45; }
   .hidden-game :is(.lib-name, .unlock-name, .lib-progress, .unlock-desc, .unlock-meta) { color: var(--placeholder); }
   .hidden-game .lib-bar { opacity: 0.5; }
   .hidden-game .unlock-game { color: var(--placeholder); }
-  .mark-off { display: inline-flex; align-items: center; gap: 0.25rem; margin-left: 0.3rem; font-size: 0.7rem; font-weight: 500; color: var(--placeholder); vertical-align: 1px; }
+  .mark-off { display: inline-flex; align-items: center; gap: 0.25rem; margin-left: 0.3rem; font-size: 0.7rem; font-weight: 500; line-height: 1; color: var(--placeholder); vertical-align: middle; }
   .unlock-game .mark-off { margin: 0 0.35rem 0 0; }
   .mark-off svg { width: 13px; height: 13px; }
   .tag { display: inline-block; padding: 0 0.4rem; font-size: 0.66rem; font-weight: 600; line-height: 1.5; letter-spacing: 0.02em; color: var(--text-dim); border: 1px solid var(--border-strong); border-radius: 4px; vertical-align: 1px; }
