@@ -1853,6 +1853,7 @@
   /* Finished: dimmed the same way, its Done badge too. */
   .run-card.over .run-name, .run-card.over .run-meta { color: var(--placeholder); }
   .run-card.over .run-badge { opacity: 0.6; }
+  .run-rest-mark { flex: none; display: inline-flex; cursor: help; }
   .run-rest { flex: none; width: 14px; height: 14px; color: var(--placeholder); }
   /* The selected game's line, under its name. */
   .run-summary-title { font-size: 1.2rem; }
@@ -2082,7 +2083,7 @@
   .bar-counters:empty { display: none; }
   .bar-counters .mark-counters { margin-left: -0.5rem; }
   .bar-counters .mark-counters svg { width: 16px; height: 16px; }
-  .tip-box { position: fixed; z-index: 1000; max-width: 18rem; padding: 0.4rem 0.6rem; font-size: 0.75rem; line-height: 1.4; color: var(--text); background: var(--surface-3); border: 1px solid var(--border-strong); border-radius: 7px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25); pointer-events: none; }
+  .tip-box { position: fixed; z-index: 1000; max-width: calc(100vw - 16px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0.4rem 0.6rem; font-size: 0.75rem; line-height: 1.4; color: var(--text); background: var(--surface-3); border: 1px solid var(--border-strong); border-radius: 7px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25); pointer-events: none; }
   .tip-box[hidden] { display: none; }
   .tag { display: inline-block; padding: 0 0.4rem; font-size: 0.66rem; font-weight: 600; line-height: 1.5; letter-spacing: 0.02em; color: var(--text-dim); border: 1px solid var(--border-strong); border-radius: 4px; vertical-align: 1px; }
   /* Back to top: bottom right, over the list. */

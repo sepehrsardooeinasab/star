@@ -1255,8 +1255,9 @@
     tipBox.textContent = el.getAttribute("data-tip");
     tipBox.hidden = false;
     var r = el.getBoundingClientRect(), w = tipBox.offsetWidth, h = tipBox.offsetHeight;
-    var left = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, window.innerWidth - w - 8));
-    var top = r.top - h - 6 < 8 ? r.bottom + 6 : r.top - h - 6;
+    // Under the icon, running to its left (above it at the window's foot).
+    var left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8));
+    var top = r.bottom + 6 + h > window.innerHeight - 8 ? r.top - h - 6 : r.bottom + 6;
     tipBox.style.left = left + "px";
     tipBox.style.top = top + "px";
   });
@@ -1805,11 +1806,11 @@
       (cut ? ' · <span class="warn">stopped at ' + cut.played + " of " + cut.of + "</span>" : "");
     // On a break: dimmed, with a clock; when it can play is on hover and
     // in the line over its sessions.
-    var clock = resting ? '<svg class="run-rest" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" ' +
-      'stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 4.8V8l2.2 1.5"/></svg>' : "";
+    var clock = resting ? '<span class="run-rest-mark" data-tip="' + escapeHtml(playableAt(wait)) + '"><svg class="run-rest" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" ' +
+      'stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 4.8V8l2.2 1.5"/></svg></span>' : "";
     var over = g.finished || g.state === "completed";
     return '<div class="run-card' + (g.name === selectedRun ? " selected" : "") + (resting ? " resting" : "") + (over ? " over" : "") + (cut ? " cut" : "") +
-      '" data-name="' + escapeHtml(g.name) + '"' + (resting ? ' data-tip="' + escapeHtml(playableAt(wait)) + '"' : "") +
+      '" data-name="' + escapeHtml(g.name) + '"' +
       (g.appid > 0 ? ' style="--card-hero: ' + escapeHtml(heroUrl(g)) + '"' : "") + ">" +
       '<div class="run-head">' + gameIconHtml(g) + '<span class="run-name">' + escapeHtml(gameTitle(g)) + "</span>" + counterMark(g) + clock +
       (badge ? '<span class="run-badge ' + badge[0] + '">' + badge[1] + "</span>" : "") + "</div>" +
@@ -3070,7 +3071,7 @@
   // icon in Schedule, Runs and Library; what it means is on hover.
   var COUNTER_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">' +
     '<path d="M2.3 11.5a5.7 5.7 0 1 1 11.4 0"/><path d="M8 11.5l2.7-2.9"/><circle cx="8" cy="11.5" r="0.6" fill="currentColor"/></svg>';
-  var COUNTERS_TIP = "Some achievements track stats (like kill counts). For a more realistic unlock, change their counters too";
+  var COUNTERS_TIP = "Some achievements track stats (like kill counts)";
   function counterMark(g) {
     return g.counters > 0 ? ' <span class="mark-counters" data-tip="' + COUNTERS_TIP + '" aria-label="' + COUNTERS_TIP + '">' + COUNTER_ICON + "</span>" : "";
   }
