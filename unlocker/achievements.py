@@ -378,9 +378,13 @@ def app_icon(appid):
     return None
 
 
-# Counters: achievements that track progress in a stat (kill 200 enemies,
-# find 26 radios), whose counter an unlock doesn't move; a game with any
-# is flagged, as its unlocks won't look earned.
+# From Steam's list of a game's achievements: its counters, achievements
+# that track progress in a stat (kill 200 enemies, find 26 radios), whose
+# counter an unlock doesn't move (a game with any is flagged, as its
+# unlocks won't look earned); and its hidden achievements' descriptions,
+# which the stats page leaves out. Saved per game as {"counters": n,
+# "hidden": {name: description}} (just n, from an older STAR, is looked
+# up again for the descriptions).
 COUNTERS_PATH = JSONS_DIR / ".counters.json"
 _counters_lock = threading.Lock()
 _counters_pending = set()
@@ -388,14 +392,14 @@ _counters_failed = {}  # appid -> when a lookup last failed
 
 
 def _fetch_counters():
-    """Looks up the pending games' counters, one game a request (no key
-    needed), until none are left; saved to jsons/.counters.json."""
+    """Looks up the pending games' achievement lists, one game a request
+    (no key needed), until none are left; saved to jsons/.counters.json."""
     while True:
         with _counters_lock:
             if not _counters_pending:
                 return
             appid = min(_counters_pending)
-        count = None
+        info = None
         try:
             req = urllib.request.Request("https://api.steampowered.com/IPlayerService/GetGameAchievements/v1/?" +
                                          urllib.parse.urlencode({"appid": appid, "language": "english"}),
@@ -403,21 +407,34 @@ def _fetch_counters():
             with urllib.request.urlopen(req, timeout=15) as r:
                 found = (json.loads(r.read()).get("response") or {}).get("achievements") or []
             # A target of 1 is a yes/no stat, not a counter.
-            count = sum(1 for a in found if int(a.get("max_progress_int") or 0) > 1)
+            info = {"counters": sum(1 for a in found if int(a.get("max_progress_int") or 0) > 1),
+                    "hidden": {a["localized_name"]: a.get("localized_desc") or "" for a in found
+                               if a.get("hidden") and a.get("localized_name")}}
         except (urllib.error.URLError, OSError, ValueError, TypeError, AttributeError):
             pass
         with _counters_lock:
             _counters_pending.discard(appid)
-            if count is None:
+            if info is None:
                 _counters_failed[appid] = time.monotonic()
             else:
-                try:
-                    counters = json.loads(COUNTERS_PATH.read_text())
-                except (OSError, ValueError):
-                    counters = {}
-                counters[str(appid)] = count
-                COUNTERS_PATH.write_text(json.dumps(counters, indent=1) + "\n")
+                saved = dict(_saved_info())
+                saved[str(appid)] = info
+                COUNTERS_PATH.write_text(json.dumps(saved, indent=1) + "\n")
         time.sleep(0.25)  # Steam turns away many requests at once
+
+
+_info_cache = [None, {}]  # the file's mtime, what it holds
+
+
+def _saved_info():
+    """jsons/.counters.json, read again only when it changed."""
+    try:
+        mtime = COUNTERS_PATH.stat().st_mtime
+        if mtime != _info_cache[0]:
+            _info_cache[:] = [mtime, json.loads(COUNTERS_PATH.read_text())]
+    except (OSError, ValueError):
+        _info_cache[:] = [None, {}]
+    return _info_cache[1]
 
 
 def app_counters(appid):
@@ -426,12 +443,28 @@ def app_counters(appid):
     until it's known."""
     if not isinstance(appid, int) or appid <= 0:
         return None
-    try:
-        count = json.loads(COUNTERS_PATH.read_text()).get(str(appid))
-    except (OSError, ValueError):
-        count = None
-    if isinstance(count, int):
-        return count
+    info = _saved_info().get(str(appid))
+    if isinstance(info, int):
+        return info
+    if isinstance(info, dict):
+        return info.get("counters")
+    _look_up(appid)
+    return None
+
+
+def app_hidden(appid):
+    """The game's hidden achievements' descriptions, {name: description}
+    ({} for none); looked up as app_counters, so None until known."""
+    if not isinstance(appid, int) or appid <= 0:
+        return None
+    info = _saved_info().get(str(appid))
+    if isinstance(info, dict):
+        return info.get("hidden") or {}
+    _look_up(appid)
+    return None
+
+
+def _look_up(appid):
     with _counters_lock:
         failed = _counters_failed.get(appid)
         if appid not in _counters_pending and (failed is None or time.monotonic() - failed > TITLE_RETRY):
@@ -439,4 +472,3 @@ def app_counters(appid):
             _counters_pending.add(appid)
             if start:
                 threading.Thread(target=_fetch_counters, daemon=True).start()
-    return None

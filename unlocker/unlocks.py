@@ -369,10 +369,17 @@ def _games_list(store, key, marks):
 def _result(store):
     games = store["games"]
     marks = steam_marks(store["steamid"])
-    unlocks = [{**u, "icon": achievements.current_host(u.get("icon")), "appid": int(appid),
-                "game": g.get("game") or "", "hidden": int(appid) in marks[0],
-                "private": int(appid) in marks[1] or bool(g.get("private"))}
-               for appid, g in games.items() for u in g.get("unlocks") or []]
+    unlocks = []
+    for appid, g in games.items():
+        if not g.get("unlocks"):
+            continue
+        secret = achievements.app_hidden(int(appid)) or {}  # hidden achievements' descriptions
+        unlocks += [{**u, "icon": achievements.current_host(u.get("icon")), "appid": int(appid),
+                     "game": g.get("game") or "", "hidden": int(appid) in marks[0],
+                     "private": int(appid) in marks[1] or bool(g.get("private")),
+                     **({"secret": True, "description": u.get("description") or secret[u["name"]]}
+                        if u.get("name") in secret else {})}
+                    for u in g["unlocks"]]
     unlocks.sort(key=lambda u: u["time"], reverse=True)
     key = bool(_key())
     return {"unlocks": unlocks[:SHOWN], "games_list": _games_list(store, key, marks),
@@ -397,7 +404,13 @@ def game_page(appid):
     owned = next((g for g in store.get("owned") or [] if g["appid"] == appid), {})
     hidden, private = steam_marks(sid) if sid else (set(), set())
     star = next((name for name, a in list_profiles() if a == appid), None)
-    icon = lambda u: achievements.current_host(u.get("icon"))
+    secret = achievements.app_hidden(appid) or {}
+
+    def icon(u):  # and a hidden achievement's description, marked secret
+        u = {**u, "icon": achievements.current_host(u.get("icon"))}
+        if u["name"] in secret:
+            u.update(secret=True, description=u.get("description") or secret[u["name"]])
+        return u
     return {
         "appid": appid, "steamid": sid,
         "name": saved.get("game") or owned.get("name") or achievements.app_title(appid) or f"App {appid}",
@@ -407,9 +420,9 @@ def game_page(appid):
         "read": "total" in saved, "full": _current(saved), "unreadable": bool(saved.get("unreadable")),
         "hidden": appid in hidden, "private": appid in private or bool(saved.get("private")), "star": star,
         "counters": achievements.app_counters(appid), "stats": owned.get("stats", True),
-        "unlocks": sorted(({**u, "icon": icon(u)} for u in saved.get("unlocks") or []), key=lambda u: u["time"], reverse=True),
-        "untimed": [{**u, "icon": icon(u)} for u in saved.get("untimed") or []],
-        "locked": [{**u, "icon": icon(u)} for u in saved.get("locked") or []],
+        "unlocks": sorted((icon(u) for u in saved.get("unlocks") or []), key=lambda u: u["time"], reverse=True),
+        "untimed": [icon(u) for u in saved.get("untimed") or []],
+        "locked": [icon(u) for u in saved.get("locked") or []],
     }
 
 
