@@ -1989,6 +1989,22 @@
   .game-links .primary-ghost { border-color: var(--accent); color: var(--accent); }
   .unlock.locked .unlock-icon { opacity: 0.55; }
   .unlock.locked :is(.unlock-name, .unlock-desc) { color: var(--placeholder); }
+  .games-search {
+    flex: 1 1 10rem;
+    min-width: 0;
+    max-width: 18rem;
+    height: 2.2rem;
+    box-sizing: border-box;
+    padding: 0 0.7rem;
+    font: inherit;
+    font-size: 0.8rem;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+  }
+  .games-search::placeholder { color: var(--placeholder); }
+  .games-search:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .games-sort { display: flex; align-items: center; gap: 0.5rem; }
   .games-sort select { margin-top: 0 !important; display: inline-block !important; }
   .games-sort .btn-ghost { height: 2.2rem; padding: 0 0.8rem; font-size: 0.8rem; }

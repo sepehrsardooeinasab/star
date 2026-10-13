@@ -3013,6 +3013,16 @@
     var label = g.private ? "Private" : "Hidden";
     return ' <span class="mark-off" title="' + label + ' in Steam">' + EYE_OFF + label + "</span> ";
   }
+  // Search: games whose name has every word typed, in any order.
+  var gamesQuery = "";
+  function searchGames(games) {
+    var words = gamesQuery.toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return games;
+    return games.filter(function (g) {
+      var name = g.name.toLowerCase();
+      return words.every(function (w) { return name.indexOf(w) !== -1; });
+    });
+  }
   function renderGames(d) {
     var games = sortGames(d && !unlocksError ? d.games_list || [] : []);
     byId("games-sort").value = gamesSort;
@@ -3031,8 +3041,11 @@
       if (hiddenCount) parts.push(hiddenCount + " hidden");
     }
     byId("games-status").innerHTML = parts.length ? "<div>" + parts.join(" \u00b7 ") + "</div>" : "";
-    byId("games-list").hidden = !games.length;
-    byId("games-list").innerHTML = games.map(function (g) {
+    var shown = searchGames(games);
+    if (gamesQuery.trim() && d && !unlocksError)
+      byId("games-status").innerHTML += "<div>" + (shown.length ? "<b>" + shown.length.toLocaleString() + "</b> matching" : "No games match \u201c" + escapeHtml(gamesQuery.trim()) + "\u201d") + "</div>";
+    byId("games-list").hidden = !shown.length;
+    byId("games-list").innerHTML = shown.map(function (g) {
       var progress;
       if (!g.stats) progress = '<span class="lib-dim">No achievements</span>';
       else if (g.unreadable) progress = '<span class="lib-dim">Not shown by Steam</span>';
@@ -3257,6 +3270,10 @@
     gamesSort = this.value;
     gamesOrder = gamesSort === "name" ? "asc" : "desc";  // A–Z, or newest / most first
     renderUnlocks();
+  });
+  byId("games-search").addEventListener("input", function () {
+    gamesQuery = this.value;
+    renderGames(unlocksData);
   });
   byId("games-order").addEventListener("click", function () {
     gamesOrder = gamesOrder === "desc" ? "asc" : "desc";
