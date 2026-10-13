@@ -3027,7 +3027,7 @@
     api("/api/unlocks" + (refresh ? "?refresh=1" : ""))
       .then(function (d) {
         unlocksData = d; unlocksError = null; unlocksHasKey = d.has_key;
-        if (gamePage && !gamePage.error && !d.syncing) openGamePageQuiet(gamePageFor);
+        if (gamePage && !gamePage.error && !d.syncing) openGamePage(gamePageFor, true);
       })
       .catch(function (e) {
         unlocksError = e;
@@ -3212,22 +3212,20 @@
   // locked, from what's saved; links to Steam and SteamHunters, and to its
   // run when STAR has a schedule for it.
   var gamePage = null, gamePageFor = null;
-  function openGamePage(appid) {
-    gamePageFor = appid;
-    gamePage = null;
-    renderGamePage();
-    scrollLibraryTop();
+  // Quiet: reloaded when a check finishes (no "Loading", same scroll, an
+  // error leaves what's shown).
+  function openGamePage(appid, quiet) {
+    if (!quiet) {
+      gamePageFor = appid;
+      gamePage = null;
+      renderGamePage();
+      scrollLibraryTop();
+    }
     api("/api/unlocks/game?appid=" + encodeURIComponent(appid)).then(function (p) {
       if (gamePageFor === appid) { gamePage = p; renderGamePage(); }
     }).catch(function (e) {
-      if (gamePageFor === appid) { gamePage = {error: e}; renderGamePage(); }
+      if (gamePageFor === appid && !quiet) { gamePage = {error: e}; renderGamePage(); }
     });
-  }
-  // Reloaded quietly (no "Loading", same scroll) when a check finishes.
-  function openGamePageQuiet(appid) {
-    api("/api/unlocks/game?appid=" + encodeURIComponent(appid)).then(function (p) {
-      if (gamePageFor === appid) { gamePage = p; renderGamePage(); }
-    }).catch(function () {});
   }
   function closeGamePage() {
     gamePageFor = gamePage = null;

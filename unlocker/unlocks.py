@@ -491,10 +491,11 @@ def game_page(appid):
 def recent(refresh=False):
     """The saved unlocks, starting a check with Steam in the background
     when one is due (or on refresh): {"unlocks": [...] newest first,
+    "games_list": every game with its progress (see _games_list),
     "has_key", "library": counts of the library's games (with a key),
-    "games": how many are saved, "unreadable": how many Steam doesn't
-    show, "fetched_at": when Steam was last asked, "offline": a message
-    when it couldn't be, "syncing": how far a running check is}."""
+    "games": how many are saved, "fetched_at": when Steam was last
+    asked, "offline": a message when it couldn't be, "syncing": how far a
+    running check is}."""
     sid = steamid()
     if not sid:
         raise Problem("STAR doesn't know your Steam account yet",
