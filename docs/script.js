@@ -3064,7 +3064,7 @@
   // icon in Schedule, Runs and Library; what it means is on hover.
   var COUNTER_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">' +
     '<path d="M3.5 13V9.5M8 13V3.5M12.5 13V7"/></svg>';
-  var COUNTERS_TIP = "Some achievements track stats (like kill counts), which unlocking doesn't change";
+  var COUNTERS_TIP = "Some achievements track stats (like kill counts). For a more realistic unlock, change their counters too";
   function counterMark(g) {
     return g.counters > 0 ? ' <span class="mark-counters" data-tip="' + COUNTERS_TIP + '" aria-label="' + COUNTERS_TIP + '">' + COUNTER_ICON + "</span>" : "";
   }
