@@ -1646,6 +1646,52 @@
   }
 
   function gameTitle(g) { return g.title || g.name; }
+  // A game's main colour ("r, g, b"), from its art: the most common
+  // colourful shade, so a dark or grey background doesn't win. Worked out
+  // once per game and remembered on this computer.
+  var tints = {};
+  try { tints = JSON.parse(localStorage.getItem("game-tints") || "{}") || {}; } catch (e) {}
+  var tintWanted = null;
+  function tintFor(g, done) {
+    var appid = g && g.appid > 0 ? g.appid : null;
+    tintWanted = appid;
+    if (!appid) return done(null);
+    if (appid in tints) return done(tints[appid]);
+    var img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = function () {
+      var tint = null;
+      try {
+        var canvas = document.createElement("canvas");
+        canvas.width = 48; canvas.height = 16;
+        var ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, 48, 16);
+        var px = ctx.getImageData(0, 0, 48, 16).data, buckets = {}, best = null;
+        for (var i = 0; i < px.length; i += 4) {
+          var r = px[i], gr = px[i + 1], b = px[i + 2];
+          var max = Math.max(r, gr, b), min = Math.min(r, gr, b);
+          if (max < 40 || max - min < 30) continue;  // too dark or grey
+          var key = (r >> 5) + "," + (gr >> 5) + "," + (b >> 5);
+          var k = buckets[key] || (buckets[key] = {n: 0, r: 0, g: 0, b: 0});
+          var w = (max - min) / max;  // the more colourful, the more it counts
+          k.n += w; k.r += r * w; k.g += gr * w; k.b += b * w;
+          if (!best || k.n > best.n) best = k;
+        }
+        if (best) tint = [best.r, best.g, best.b].map(function (c) { return Math.round(c / best.n); }).join(", ");
+      } catch (e) {}
+      tints[appid] = tint;
+      try { localStorage.setItem("game-tints", JSON.stringify(tints)); } catch (e) {}
+      if (tintWanted === appid) done(tint);
+    };
+    img.onerror = function () { if (tintWanted === appid) done(null); };
+    img.src = "https://cdn.cloudflare.steamstatic.com/steam/apps/" + appid + "/library_hero.jpg";
+  }
+
+  // The game's wide art from Steam's library (no logo), as a CSS url, or
+  // "none" without an appid. Steam serves it straight from the appid.
+  function heroUrl(g) {
+    return g && g.appid > 0 ? 'url("https://cdn.cloudflare.steamstatic.com/steam/apps/' + g.appid + '/library_hero.jpg")' : "none";
+  }
   // The game's small icon from Steam, or an empty square of its size
   // until it's known, so names line up.
   function gameIconHtml(g) {
@@ -1686,7 +1732,8 @@
       'stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 4.8V8l2.2 1.5"/></svg>' : "";
     var over = g.finished || g.state === "completed";
     return '<div class="run-card' + (g.name === selectedRun ? " selected" : "") + (resting ? " resting" : "") + (over ? " over" : "") + (cut ? " cut" : "") +
-      '" data-name="' + escapeHtml(g.name) + '"' + (resting ? ' title="Playable ' + escapeHtml(fmtAt(wait)) + '"' : "") + ">" +
+      '" data-name="' + escapeHtml(g.name) + '"' + (resting ? ' title="Playable ' + escapeHtml(fmtAt(wait)) + '"' : "") +
+      (g.appid > 0 ? ' style="--card-hero: ' + escapeHtml(heroUrl(g)) + '"' : "") + ">" +
       '<div class="run-head">' + gameIconHtml(g) + '<span class="run-name">' + escapeHtml(gameTitle(g)) + "</span>" + clock +
       (badge ? '<span class="run-badge ' + badge[0] + '">' + badge[1] + "</span>" : "") + "</div>" +
       (meta ? '<div class="run-meta">' + meta + "</div>" : "") +
@@ -1855,6 +1902,12 @@
         : emptyHtml("▶", "Every game is finished. Turn on Show finished games in Settings to see them.");
     }
     var shown = selectedGame();
+    // Behind the selected game: a glow in its art's main colour.
+    tintFor(runsError ? null : shown, function (tint) {
+      var runsLog = document.querySelector(".runs-log");
+      if (tint) runsLog.style.setProperty("--run-tint", tint);
+      else runsLog.style.removeProperty("--run-tint");
+    });
     byId("run-summary").innerHTML = runsError ? "" : summaryHtml(shown);
     byId("run-info").innerHTML = runsError ? "" : infoHtml(shown);
     byId("run-info").hidden = !runInfoOpen || !shown;

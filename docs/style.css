@@ -994,7 +994,41 @@
   .details-facts { display: flex; flex-wrap: wrap; gap: 0.3rem 0.6rem; padding: 0.6rem 1rem; border-top: 1px solid var(--border); font-size: 0.78rem; color: var(--text-dim); }
   .details-facts b { color: var(--text); font-weight: 500; }
   .details-facts span { color: var(--border-strong); }
-  .runs-log { display: flex; flex-direction: column; min-height: 0; }
+  .runs-log { display: flex; flex-direction: column; min-height: 0; position: relative; isolation: isolate; }
+  /* The selected game's colour (from its art), as a soft glow from the
+     top over the whole panel; none until it's known. */
+  .runs-log::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(130% 90% at 50% 0%, rgba(var(--run-tint, 0, 0, 0), 0.34), rgba(var(--run-tint, 0, 0, 0), 0.08) 60%, transparent);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  .runs-log[style*="--run-tint"]::before { opacity: 1; }
+  :root[data-theme="light"] .runs-log[style*="--run-tint"]::before { opacity: 0.7; }
+  /* Each game's card in the list: its art too, stronger towards the right
+     (the name stays on a quieter part), brighter when selected. */
+  .run-card { position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; justify-content: center; min-height: 5.2rem; }
+  .run-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: var(--card-hero, none) center 35% / cover no-repeat;
+    opacity: 0.22;
+    -webkit-mask-image: linear-gradient(to left, #000 20%, rgba(0, 0, 0, 0.35));
+    mask-image: linear-gradient(to left, #000 20%, rgba(0, 0, 0, 0.35));
+  }
+  .run-card.selected::before { opacity: 0.34; }
+  .run-card:is(.resting, .over)::before { opacity: 0.1; }
+  /* Light: art fades into white, so it needs more to read. */
+  :root[data-theme="light"] .run-card::before { opacity: 0.36; }
+  :root[data-theme="light"] .run-card.selected::before { opacity: 0.5; }
+  :root[data-theme="light"] .run-card:is(.resting, .over)::before { opacity: 0.18; }
   .runs-log-head {
     display: flex;
     align-items: center;
@@ -1508,7 +1542,7 @@
      border line instead of beside the games. */
   :root[data-desktop] .runs-list { gap: 2px; margin-right: -0.6rem; padding-right: 0.6rem; }
   :root[data-desktop] .run-card {
-    padding: 0.5rem 0.7rem;
+    padding: 0.85rem 0.8rem;
     background: transparent;
     border: 0;
     border-radius: 7px;
