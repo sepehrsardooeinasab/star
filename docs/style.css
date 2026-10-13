@@ -2015,7 +2015,7 @@
   /* Games: icon, name, progress bar; when it was played on the right. */
   .library-games { margin-top: 0.6rem; }
   .library-games[hidden] { display: none; }
-  .lib-game { display: flex; align-items: center; gap: 0.8rem; padding: 0.6rem 0.8rem; min-height: 3.75rem; }
+  .lib-game { display: flex; align-items: center; gap: 0.8rem; padding: 0.6rem 0.8rem; box-sizing: border-box; height: 3.75rem; }
   .lib-game + .lib-game { border-top: 1px solid var(--border); }
   .lib-icon { flex: none; width: 40px; height: 40px; border-radius: 6px; background: var(--surface-3); }
   /* No icon from Steam: the game's first letter, or a trophy. */
@@ -2088,11 +2088,13 @@
   :is(#step-clock, #step-unlocks, .games-sort) select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .unlocks-day { margin: 1.1rem 0 0.45rem; font-size: 0.75rem; font-weight: 600; color: var(--text-dim); }
   .unlocks-group { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-  .unlock { display: flex; align-items: center; gap: 0.8rem; padding: 0.6rem 0.8rem; }
+  /* Every row one height, in both tabs: one line each for the name and
+     description, cut short with an ellipsis. */
+  .unlock { display: flex; align-items: center; gap: 0.8rem; padding: 0.6rem 0.8rem; box-sizing: border-box; height: 3.75rem; }
   .unlock + .unlock { border-top: 1px solid var(--border); }
   .unlock-icon { flex: none; width: 40px; height: 40px; border-radius: 6px; background: var(--surface-3); }
   .unlock-text { flex: 1; min-width: 0; }
-  .unlock-name { font-size: 0.88rem; font-weight: 600; color: var(--text); }
+  .unlock-name { font-size: 0.88rem; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .unlock-desc { font-size: 0.78rem; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .unlock-meta { flex: none; max-width: 40%; text-align: right; font-size: 0.78rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
   .unlock-game { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
