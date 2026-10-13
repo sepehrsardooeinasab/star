@@ -2770,6 +2770,14 @@
         if (unlocksData) renderUnlocks();
       }
     }
+    if (lib.hidden_descriptions) {
+      byId("hidden-descriptions").value = lib.hidden_descriptions;
+      if (lib.hidden_descriptions !== hiddenDesc) {
+        hiddenDesc = lib.hidden_descriptions;
+        if (unlocksData) renderUnlocks();
+        if (gamePage) renderGamePage();
+      }
+    }
     var clock = (runSettings || []).filter(function (x) { return x.key === "clock"; })[0];
     if (clock && clock.value !== clockPref) {
       clockPref = clock.value;
@@ -3162,6 +3170,15 @@
     gamePageFor = gamePage = null;
     renderGamePage();
   }
+  // A hidden achievement's description (Steam's stats page leaves it out;
+  // STAR fills it in): shown as Settings → Library says, hidden_descriptions:
+  // once unlocked, always, or never; else "Hidden achievement".
+  var hiddenDesc = "unlocked";
+  function achDescHtml(a, locked) {
+    if (a.secret && (hiddenDesc === "none" || (hiddenDesc === "unlocked" && locked)))
+      return '<div class="unlock-desc lib-dim">Hidden achievement</div>';
+    return a.description ? '<div class="unlock-desc">' + escapeHtml(a.description) + "</div>" : "";
+  }
   function achRowsHtml(list, groupKind) {
     return list.map(function (a) {
       var when = "", kind = groupKind || a.kind;
@@ -3171,7 +3188,7 @@
       }
       return '<div class="unlock' + (kind === "locked" ? " locked" : "") + '">' + iconHtml("unlock-icon", a.icon, "ach") +
         '<div class="unlock-text"><div class="unlock-name">' + escapeHtml(a.name) + "</div>" +
-        (a.description ? '<div class="unlock-desc">' + escapeHtml(a.description) + "</div>" : "") + "</div>" + when + "</div>";
+        achDescHtml(a, kind === "locked") + "</div>" + when + "</div>";
     }).join("");
   }
   // A game's achievements, unlocked and locked kept apart or all in one
@@ -3330,7 +3347,7 @@
         html += '<div class="unlock' + (u.hidden || u.private ? " hidden-game" : "") + '">' +
           iconHtml("unlock-icon", u.icon, "ach") +
           '<div class="unlock-text"><div class="unlock-name">' + escapeHtml(u.name) + "</div>" +
-          (u.description ? '<div class="unlock-desc">' + escapeHtml(u.description) + "</div>" : "") + "</div>" +
+          achDescHtml(u, false) + "</div>" +
           '<div class="unlock-meta"><div class="unlock-game">' + markHtml(u) + escapeHtml(u.game) + "</div>" +
           '<div class="unlock-time">' + escapeHtml(fmtClock(at)) + "</div></div></div>";
       });
@@ -3376,6 +3393,7 @@
       .catch(function (err) { showToast("Couldn't save: " + err.message); });
   }
   byId("default-range").addEventListener("change", function () { saveSetting({unlocks_range: this.value}); });
+  byId("hidden-descriptions").addEventListener("change", function () { saveSetting({hidden_descriptions: this.value}); });
   byId("default-sort").addEventListener("change", function () {
     var order = this.value === "name" ? "asc" : "desc";
     syncOrderOptions(byId("default-order"), this.value, order);

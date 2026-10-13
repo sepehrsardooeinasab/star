@@ -67,6 +67,9 @@ DEFAULTS = {
     "library_order": "desc",
     # Which section the app's Library opens on: achievements or games.
     "library_tab": "achievements",
+    # Hidden achievements' descriptions in the Library: shown once
+    # unlocked, always ("all"), or never ("none").
+    "hidden_descriptions": "unlocked",
 }
 
 # Accepted types per setting; None means null is allowed.
@@ -95,6 +98,7 @@ _TYPES = {
     "library_sort": (str,),
     "library_order": (str,),
     "library_tab": (str,),
+    "hidden_descriptions": (str,),
 }
 
 
@@ -115,7 +119,8 @@ APP_CHOICES = {"clock": ["system", "12h", "24h"], "theme": ["dark", "light"],
                "unlocks_range": ["day", "week", "month", "year", "all"],
                "library_sort": ["played", "achievement", "name", "progress", "playtime"],
                "library_order": ["desc", "asc"],
-               "library_tab": ["achievements", "games"]}
+               "library_tab": ["achievements", "games"],
+               "hidden_descriptions": ["unlocked", "all", "none"]}
 
 # Settings older versions had, ignored (and dropped on the next save from
 # the app) rather than refused as unknown.

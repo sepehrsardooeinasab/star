@@ -22,5 +22,6 @@
   "unlocks_range": "month",
   "library_tab": "achievements",
   "library_sort": "played",
-  "library_order": "desc"
+  "library_order": "desc",
+  "hidden_descriptions": "unlocked"
 }
