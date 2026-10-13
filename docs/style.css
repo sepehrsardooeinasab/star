@@ -1555,6 +1555,10 @@
   }
   :root[data-desktop] .run-card:hover { background: var(--surface-2); }
   :root[data-desktop] .run-card.selected { background: var(--accent-tint); }
+  /* The selected game: a border in the accent colour, clear over its art
+     (a game stopped midway keeps its stripe on the left). */
+  :root[data-desktop] .run-card.selected { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 80%, transparent); }
+  :root[data-desktop] .run-card.cut.selected { box-shadow: inset 3px 0 0 var(--warn), inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 80%, transparent); }
   :root[data-desktop] .run-card.selected .run-name { color: var(--text); }
   :root[data-desktop] .run-card.resting { background: transparent; }
   :root[data-desktop] .run-card.resting.selected { background: var(--accent-tint); }
