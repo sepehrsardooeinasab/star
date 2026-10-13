@@ -2054,6 +2054,12 @@
   .mark-off { display: inline-flex; align-items: center; gap: 0.25rem; margin-left: 0.3rem; font-size: 0.7rem; font-weight: 500; line-height: 1; color: var(--placeholder); vertical-align: middle; }
   .unlock-game .mark-off { margin: 0 0.35rem 0 0; }
   .mark-off svg { width: 13px; height: 13px; }
+  .mark-counters { color: var(--warn); }
+  .run-counters { display: inline-flex; align-items: center; gap: 0.25rem; color: var(--warn); vertical-align: middle; }
+  .run-counters svg { width: 13px; height: 13px; }
+  .counters-note { display: flex; align-items: center; gap: 0.5rem; margin: 0; padding: 0.45rem 1.2rem; font-size: 0.78rem; color: var(--warn); background: var(--surface); border-bottom: 1px solid var(--border); }
+  .counters-note[hidden] { display: none; }
+  .counters-note svg { flex: none; width: 14px; height: 14px; }
   .tag { display: inline-block; padding: 0 0.4rem; font-size: 0.66rem; font-weight: 600; line-height: 1.5; letter-spacing: 0.02em; color: var(--text-dim); border: 1px solid var(--border-strong); border-radius: 4px; vertical-align: 1px; }
   /* Back to top: bottom right, over the list. */
   .to-top {
