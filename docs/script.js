@@ -3144,7 +3144,9 @@
     if (p.error) { page.innerHTML = html + problemHtml("warn", (p.error.data || {}).title, p.error.message); return; }
     var done = p.total && p.unlocked >= p.total;
     var links = '<a class="btn-ghost" target="_blank" rel="noopener" href="https://steamcommunity.com/stats/' + p.appid + '/achievements/">Steam</a>' +
-      '<a class="btn-ghost" target="_blank" rel="noopener" href="https://steamhunters.com/apps/' + p.appid + '/achievements">SteamHunters</a>' +
+      // Yours on SteamHunters (by Steam ID, as for a custom URL), else the game's.
+      '<a class="btn-ghost" target="_blank" rel="noopener" href="https://steamhunters.com/' +
+        (p.steamid ? "profiles/" + encodeURIComponent(p.steamid) + "/" : "") + "apps/" + p.appid + '/achievements">SteamHunters</a>' +
       (p.star ? '<button class="btn-ghost primary-ghost" type="button" data-game-run="' + escapeHtml(p.star) + '">Open in Runs</button>' : "");
     html += '<div class="game-head' + (p.hidden || p.private ? " hidden-game" : "") + (done ? " complete" : "") + '">' +
       iconHtml("lib-icon", p.icon, p.name) +
