@@ -2038,6 +2038,9 @@
   .game-links .btn-ghost { padding: 0.35rem 0.8rem; font-size: 0.78rem; font-weight: 500; text-decoration: none; border: 1px solid var(--border-strong); border-radius: 8px; }
   .game-page .notice { margin-top: 0.8rem; }
   .game-links .primary-ghost { border-color: var(--accent); color: var(--accent); }
+  .game-finish { display: inline-flex; align-items: center; gap: 0.35rem; }
+  .game-finish svg { width: 14px; height: 14px; }
+  .game-finish.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); background: var(--accent-tint); }
   .ach-sort { justify-content: flex-start; margin: 1rem 0 0; }
   .unlock.locked .unlock-icon { opacity: 0.55; }
   .unlock.locked :is(.unlock-name, .unlock-desc) { color: var(--placeholder); }
@@ -2064,7 +2067,7 @@
   .games-sort .btn-ghost { box-sizing: border-box; width: 7.2rem; text-align: center; }
   .lib-defaults { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.9rem; padding-top: 0.8rem; border-top: 1px solid var(--border); }
   .lib-default { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; font-size: 0.8rem; color: var(--text-dim); }
-  .lib-default > span { min-width: 9.5rem; }
+  .lib-default > span { min-width: 12rem; }
   .lib-default select { margin-top: 0 !important; display: inline-block !important; }
   /* Its choices change with the sort; one width, so nothing moves. */
   :is(#default-order, #default-ach-order) { box-sizing: border-box; width: 8.4rem; }

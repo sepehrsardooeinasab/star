@@ -2791,6 +2791,17 @@
         if (gamePage) renderGamePage();
       }
     }
+    if (lib.library_private && lib.library_no_achievements && lib.library_finished) {
+      byId("lib-private").value = lib.library_private;
+      byId("lib-no-ach").value = lib.library_no_achievements;
+      byId("lib-finished").value = lib.library_finished;
+      var filterKey = [lib.library_private, lib.library_no_achievements, lib.library_finished].join(" ");
+      if (filterKey !== appliedLib.filter) {
+        appliedLib.filter = filterKey;
+        libFilter = {private: lib.library_private, noAch: lib.library_no_achievements, finished: lib.library_finished};
+        if (unlocksData) renderUnlocks();
+      }
+    }
     if (lib.library_check) byId("library-check").value = lib.library_check;
     if (lib.hidden_descriptions) {
       byId("hidden-descriptions").value = lib.hidden_descriptions;
@@ -3113,6 +3124,23 @@
       '<span class="lib-count"><span class="lib-got">' + unlocked + '</span><span class="lib-of">/</span><span class="lib-all">' + total + "</span></span>") +
       '<span class="lib-state">' + Math.min(pct, 100) + "%</span>";
   }
+  // Settings → Library: which games the list shows.
+  var libFilter = {private: "show", noAch: "show", finished: "show"};
+  function filterGames(games) {
+    return games.filter(function (g) {
+      if (libFilter.private === "hide" && g.private) return false;
+      if (libFilter.noAch === "hide" && !g.stats) return false;
+      if (libFilter.finished === "hide" && g.finished) return false;
+      if (libFilter.finished === "only" && !g.finished) return false;
+      return true;
+    });
+  }
+  // Marked finished (done with, for good) on its page.
+  var CHECK_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<circle cx="8" cy="8" r="6.2"/><path d="M5.3 8.2l1.8 1.8 3.6-3.8"/></svg>';
+  function finishedMark(g) {
+    return g.finished ? '<span class="mark-off mark-finished" data-tip="Finished" aria-label="Finished">' + CHECK_ICON + "</span>" : "";
+  }
   function renderGames(d) {
     var games = sortGames(d && !unlocksError ? d.games_list || [] : []);
     byId("games-sort").value = gamesSort;
@@ -3128,6 +3156,8 @@
       parts.push(withAch.length.toLocaleString() + " with achievements");
       if (games.length > withAch.length) parts.push((games.length - withAch.length).toLocaleString() + " without");
       if (complete) parts.push(complete + " complete");
+      var finishedCount = games.filter(function (g) { return g.finished; }).length;
+      if (finishedCount) parts.push(finishedCount + " finished");
       if (privateCount) parts.push(privateCount + " private");
       if (hiddenCount) parts.push(hiddenCount + " hidden");
       if (unshown.length) {
@@ -3148,7 +3178,12 @@
         renderGames(unlocksData);
       });
     }
-    var shown = searchGames(games);
+    // Which games show, as Settings → Library says (Private, without
+    // achievements, finished); then the search.
+    var kept = filterGames(games);
+    if (games.length > kept.length) byId("games-status").firstChild.innerHTML += " \u00b7 " +
+      (games.length - kept.length).toLocaleString() + " filtered out";
+    var shown = searchGames(kept);
     if (gamesQuery.trim() && d && !unlocksError)
       byId("games-status").innerHTML += "<div>" + (shown.length ? "<b>" + shown.length.toLocaleString() + "</b> matching" : "No games match \u201c" + escapeHtml(gamesQuery.trim()) + "\u201d") + "</div>";
     byId("games-list").hidden = !shown.length;
@@ -3162,7 +3197,7 @@
       return '<div class="lib-game' + (g.hidden || g.private ? " hidden-game" : "") + (done ? " complete" : "") +
         '" data-appid="' + g.appid + '" role="button" tabindex="0">' +
         iconHtml("lib-icon", g.icon, g.name) +
-        '<div class="lib-text"><div class="lib-name"><span class="name-text">' + escapeHtml(g.name) + "</span>" + markHtml(g) + counterMark(g) + "</div>" +
+        '<div class="lib-text"><div class="lib-name"><span class="name-text">' + escapeHtml(g.name) + "</span>" + finishedMark(g) + markHtml(g) + counterMark(g) + "</div>" +
         '<div class="lib-progress">' + progress + "</div></div>" +
         '<div class="unlock-meta"><div>' + (g.played ? "Played " + escapeHtml(fmtDay(g.played)) : "Never played") + "</div>" +
         "<div>" + escapeHtml(fmtPlaytime(g.playtime)) + "</div></div></div>";
@@ -3241,13 +3276,15 @@
       // Yours on SteamHunters (by Steam ID, as for a custom URL), else the game's.
       '<a class="btn-ghost" target="_blank" rel="noopener" href="https://steamhunters.com/' +
         (p.steamid ? "profiles/" + encodeURIComponent(p.steamid) + "/" : "") + "apps/" + p.appid + '/achievements">SteamHunters</a>' +
-      (p.star ? '<button class="btn-ghost primary-ghost" type="button" data-game-run="' + escapeHtml(p.star) + '">Open in Runs</button>' : "");
+      (p.star ? '<button class="btn-ghost primary-ghost" type="button" data-game-run="' + escapeHtml(p.star) + '">Open in Runs</button>' : "") +
+      '<button class="btn-ghost game-finish' + (p.finished ? " on" : "") + '" type="button" data-game-finish aria-pressed="' + !!p.finished + '">' +
+        (p.finished ? CHECK_ICON + "Finished" : "Mark as finished") + "</button>";
     // A banner: the game's art faded in from the right, under its name,
     // progress and links.
     html += '<div class="game-banner"' + (p.appid > 0 ? ' style="--card-hero: ' + escapeHtml(heroUrl(p)) + '"' : "") + ">" +
       '<div class="game-head' + (p.hidden || p.private ? " hidden-game" : "") + (done ? " complete" : "") + '">' +
       iconHtml("lib-icon", p.icon, p.name) +
-      '<div class="lib-text"><div class="game-title"><span class="name-text">' + escapeHtml(p.name) + "</span>" + markHtml(p) + counterMark(p) + "</div>" +
+      '<div class="lib-text"><div class="game-title"><span class="name-text">' + escapeHtml(p.name) + "</span>" + finishedMark(p) + markHtml(p) + counterMark(p) + "</div>" +
       (p.read ? '<div class="lib-progress">' + progressHtml(p.unlocked, p.total) + "</div>" : "") +
       '<div class="game-meta">' + escapeHtml([p.played ? "Played " + fmtDay(p.played) : "Never played", fmtPlaytime(p.playtime)].filter(Boolean).join(" \u00b7 ")) + "</div>" +
       "</div></div>" + '<div class="game-links">' + links + "</div></div>";
@@ -3291,6 +3328,16 @@
     var run = e.target.closest("[data-game-run]");
     if (run) { selectedRun = run.getAttribute("data-game-run"); showScreen("work"); setView("runs"); }
     if (e.target.closest("#ach-order")) { achOrder = achOrder === "desc" ? "asc" : "desc"; renderGamePage(); }
+    var fin = e.target.closest("[data-game-finish]");
+    if (fin && gamePage) {
+      fin.disabled = true;
+      api("/api/unlocks/finished", {appid: gamePage.appid, finished: !gamePage.finished}).then(function (r) {
+        gamePage.finished = r.finished;
+        ((unlocksData && unlocksData.games_list) || []).forEach(function (g) { if (g.appid === r.appid) g.finished = r.finished; });
+        renderGamePage();
+        renderGames(unlocksData);
+      }).catch(function (err) { fin.disabled = false; showToast("Couldn't save: " + err.message); });
+    }
   });
   byId("game-back").addEventListener("click", closeGamePage);
   byId("game-page").addEventListener("change", function (e) {
@@ -3432,6 +3479,9 @@
       .catch(function (err) { showToast("Couldn't save: " + err.message); });
   }
   byId("default-range").addEventListener("change", function () { saveSetting({unlocks_range: this.value}); });
+  byId("lib-private").addEventListener("change", function () { saveSetting({library_private: this.value}); });
+  byId("lib-no-ach").addEventListener("change", function () { saveSetting({library_no_achievements: this.value}); });
+  byId("lib-finished").addEventListener("change", function () { saveSetting({library_finished: this.value}); });
   byId("library-check").addEventListener("change", function () { saveSetting({library_check: this.value}); });
   byId("hidden-descriptions").addEventListener("change", function () { saveSetting({hidden_descriptions: this.value}); });
   byId("default-sort").addEventListener("change", function () {

@@ -26,6 +26,9 @@
   "achievement_sort": "date",
   "achievement_order": "desc",
   "achievement_group": "status",
+  "library_private": "show",
+  "library_no_achievements": "show",
+  "library_finished": "show",
   "hidden_descriptions": "unlocked",
   "library_check": "6h"
 }

@@ -161,6 +161,7 @@ In the app, **Settings** has the keep-awake and update switches and **Advanced r
 | `library_tab` | `"achievements"` | Which section **Library** opens on: `"achievements"` or `"games"`. |
 | `library_check` | `"6h"` | How often **Library** checks Steam for new games and achievements, in the background: `"1h"`, `"3h"`, `"6h"`, `"12h"`, `"24h"`, or `"manual"` (only on Refresh). Set it in Settings → Library. |
 | `achievement_sort`, `achievement_order`, `achievement_group` | `"date"`, `"desc"`, `"status"` | How a game's page in **Library** lists its achievements: by `"date"` unlocked or `"name"`; `"desc"` (newest, Z–A) or `"asc"`; grouped into unlocked and locked (`"status"`) or not (`"none"`). Set it in Settings → Library. |
+| `library_private`, `library_no_achievements`, `library_finished` | `"show"`, `"show"`, `"show"` | Which games **Library**'s Games lists: those marked Private in Steam and those without achievements (`"show"` or `"hide"`), and those you marked finished on their page (`"show"`, `"hide"` or `"only"`). Set it in Settings → Library. |
 | `hidden_descriptions` | `"unlocked"` | When **Library** shows a hidden achievement's description: `"unlocked"` (once you've unlocked it), `"all"` or `"none"`. Set it in Settings → Library. |
 | `library_sort`, `library_order` | `"played"`, `"desc"` | How **Library**'s Games are sorted: `"played"` (last played), `"achievement"` (last achievement), `"name"`, `"progress"` or `"playtime"`; `"desc"` (newest, Z–A, most first) or `"asc"`. Set it in Settings → Library. |
 
