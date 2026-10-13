@@ -1966,6 +1966,7 @@
   body[data-screen="unlocks"] .unlocks { display: block; }
   .unlocks-bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.7rem; }
   .unlocks-bar .segmented button { padding: 0.3rem 0.75rem; font-size: 0.78rem; }
+  #unlocks-screen .segmented button[aria-pressed="true"] { background: var(--accent-tint); color: var(--accent); }
   .unlocks-updated { font-size: 0.78rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
   .unlocks-status { min-height: 1.2rem; margin-bottom: 0.4rem; font-size: 0.78rem; line-height: 1.6; color: var(--text-dim); font-variant-numeric: tabular-nums; }
   .unlocks-status b { color: var(--text); font-weight: 600; }
