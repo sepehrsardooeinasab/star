@@ -903,6 +903,10 @@
   }
   .run-badge.wait { background: var(--info-bg); color: var(--info); }
   .run-badge.bad { background: var(--danger-bg); color: var(--danger); }
+  .run-badge.cut { background: var(--warn-bg); color: var(--warn); }
+  /* Stopped partway through a session: a warm edge and how far it got. */
+  .run-card.cut { box-shadow: inset 3px 0 0 var(--warn); }
+  .run-card.cut .run-progress span { background: var(--warn); }
   /* Still in its break: a touch quieter until it can play. */
   .run-card.resting { background: transparent; }
   @keyframes run-pulse { 50% { opacity: 0.3; } }

@@ -28,7 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from unlocker import achievements, asf_setup, extras, updates
 from unlocker import settings as settings_module
 from unlocker.paths import CODE_DIR, DATA_DIR
-from unlocker.runner import _session_status, config_changed
+from unlocker.runner import _session_bounds, _session_status, config_changed
 from unlocker.settings import SETTINGS, SETTINGS_PATH
 from unlocker.state import (
     COMPLETED_DIR,
@@ -160,6 +160,12 @@ def _game_state(name, session_label):
     number, sessions, count, duration, wait = status
     game.update(session=number, sessions=sessions, count=count,
                 duration=duration, ready_in=wait)
+    # Stopped partway through a session (a shutdown, a crash, Stop): how
+    # much of it played. Running it again picks up from there.
+    start, end = _session_bounds(config["achievements"])[number - 1]
+    played = progress["last_completed"] + 1 - start
+    if not running and played > 0:
+        game["cut_short"] = {"played": played, "of": end - start}
     if in_session:
         game["next_unlock_in"] = _seconds_until(progress["next_unlock_at"])
         game["session_left"] = _session_left(config, progress, game["next_unlock_in"])
