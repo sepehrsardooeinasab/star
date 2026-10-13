@@ -1221,7 +1221,7 @@
     el.addEventListener("input", scheduleRecompute);
   });
 
-  // Schedule: a line under the bar when the game has counters; looked up
+  // Schedule: the counters icon by the App ID when the game has them; looked up
   // (in the background, by the app) once per App ID.
   var countersFor = null, countersTimer = null;
   function checkCounters(appid) {
@@ -1242,10 +1242,24 @@
     })();
   }
   function showCounters(n) {
-    var note = byId("schedule-counters");
-    note.hidden = !(n > 0);
-    note.innerHTML = n > 0 ? COUNTER_ICON + "<span>" + escapeHtml(countersLine(n).replace("its", "this game's")) + "</span>" : "";
+    byId("schedule-counters").innerHTML = counterMark({counters: n});
   }
+
+  // [data-tip] hints, in a box over what's hovered (the app's web view
+  // shows no title tooltips).
+  var tipBox = null;
+  document.addEventListener("mouseover", function (e) {
+    var el = e.target.closest && e.target.closest("[data-tip]");
+    if (!el) { if (tipBox) tipBox.hidden = true; return; }
+    if (!tipBox) { tipBox = document.createElement("div"); tipBox.className = "tip-box"; document.body.appendChild(tipBox); }
+    tipBox.textContent = el.getAttribute("data-tip");
+    tipBox.hidden = false;
+    var r = el.getBoundingClientRect(), w = tipBox.offsetWidth, h = tipBox.offsetHeight;
+    var left = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, window.innerWidth - w - 8));
+    var top = r.top - h - 6 < 8 ? r.bottom + 6 : r.top - h - 6;
+    tipBox.style.left = left + "px";
+    tipBox.style.top = top + "px";
+  });
 
   function resetAll() {
     els.exportText.value = "";
@@ -1788,11 +1802,10 @@
     var clock = resting ? '<svg class="run-rest" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" ' +
       'stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 4.8V8l2.2 1.5"/></svg>' : "";
     var over = g.finished || g.state === "completed";
-    if (g.counters > 0) meta = (meta ? meta + " \u00b7 " : "") + '<span class="run-counters">' + COUNTER_ICON + "Counters</span>";
     return '<div class="run-card' + (g.name === selectedRun ? " selected" : "") + (resting ? " resting" : "") + (over ? " over" : "") + (cut ? " cut" : "") +
       '" data-name="' + escapeHtml(g.name) + '"' + (resting ? ' title="Playable ' + escapeHtml(fmtAt(wait)) + '"' : "") +
       (g.appid > 0 ? ' style="--card-hero: ' + escapeHtml(heroUrl(g)) + '"' : "") + ">" +
-      '<div class="run-head">' + gameIconHtml(g) + '<span class="run-name">' + escapeHtml(gameTitle(g)) + "</span>" + clock +
+      '<div class="run-head">' + gameIconHtml(g) + '<span class="run-name">' + escapeHtml(gameTitle(g)) + "</span>" + counterMark(g) + clock +
       (badge ? '<span class="run-badge ' + badge[0] + '">' + badge[1] + "</span>" : "") + "</div>" +
       (meta ? '<div class="run-meta">' + meta + "</div>" : "") +
       (cut ? '<div class="run-progress"><span style="width:' + Math.round(100 * cut.played / cut.of) + '%"></span></div>' : "") +
@@ -3037,17 +3050,14 @@
   // Private or hidden in Steam: an eye-off mark, named on hover.
   var EYE_OFF = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
     '<path d="M2.2 2.2l11.6 11.6M6.6 3.5A6.9 6.9 0 0 1 8 3.4c3.2 0 5.3 2.5 6.1 4.6a8 8 0 0 1-1.9 2.8M4.1 4.9A8.2 8.2 0 0 0 1.9 8c.8 2.1 2.9 4.6 6.1 4.6a6.6 6.6 0 0 0 2.9-.7M6.6 6.7a2 2 0 0 0 2.7 2.7"/></svg>';
-  // Counters: the game has achievements that track progress (kill 200
-  // enemies); unlocking them doesn't move the counter, so they won't look
-  // earned. Flagged in Schedule, Runs and Library.
-  var COUNTER_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true">' +
-    '<rect x="1.8" y="5.2" width="12.4" height="5.6" rx="2.8"/><path d="M4.6 8h3.6"/></svg>';
-  var COUNTERS_TEXT = "track progress (like kill counts); unlocking them won't move those counters, so they won't look earned.";
+  // Counters: the game has achievements that track progress in a stat
+  // (kill 200 enemies), which an unlock doesn't move. Flagged with an
+  // icon in Schedule, Runs and Library; what it means is on hover.
+  var COUNTER_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">' +
+    '<path d="M3.5 13V9.5M8 13V3.5M12.5 13V7"/></svg>';
+  var COUNTERS_TIP = "Some achievements track stats (like kill counts), which unlocking doesn't change";
   function counterMark(g) {
-    return g.counters > 0 ? ' <span class="mark-off mark-counters">' + COUNTER_ICON + "Counters</span> " : "";
-  }
-  function countersLine(n) {
-    return (n === 1 ? "1 of its achievements tracks progress" : n + " of its achievements track progress") + COUNTERS_TEXT.slice("track progress".length);
+    return g.counters > 0 ? ' <span class="mark-counters" data-tip="' + COUNTERS_TIP + '" aria-label="' + COUNTERS_TIP + '">' + COUNTER_ICON + "</span>" : "";
   }
   function markHtml(g) {
     if (!g.private && !g.hidden) return "";
@@ -3195,7 +3205,6 @@
       (p.read ? '<div class="lib-progress">' + progressHtml(p.unlocked, p.total) + "</div>" : "") +
       '<div class="game-meta">' + escapeHtml([p.played ? "Played " + fmtDay(p.played) : "Never played", fmtPlaytime(p.playtime)].filter(Boolean).join(" \u00b7 ")) + "</div>" +
       "</div></div>" + '<div class="game-links">' + links + "</div>";
-    if (p.counters > 0) html += noticeHtml("info", countersLine(p.counters));
     if (p.unreadable && p.private) html += noticeHtml("info", "Steam doesn't show the achievements of a game marked Private. To show them, right-click it in Steam \u2192 Manage \u2192 Unmark as Private.");
     else if (p.unreadable) html += noticeHtml("warn", "Steam doesn't show this game's achievements, though it isn't marked Private.");
     else if (!p.read && !p.stats) html += noticeHtml("info", "This game has no achievements.");
