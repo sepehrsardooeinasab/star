@@ -1631,9 +1631,6 @@
   .bar-stats { margin-left: auto; }
   .bar-stats .stats-strip { gap: 0.2rem 1.1rem; font-size: 0.76rem; }
   .bar-help .hover-help { display: none; }
-  .paste-summary .hover-help { display: none; margin-left: 0; }
-  body.local .box.has-timeline.sched-full .paste-summary .hover-help { display: block; }
-  .paste-summary .hover-help-panel { right: 0; left: auto; }
 
   body.local .view-pane[data-view="input"].active { grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); }
   /* The how-to shows inside the empty paste box, like a placeholder, and

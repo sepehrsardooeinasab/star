@@ -1279,12 +1279,8 @@
     saveDraft();
     recompute();
     render();
-    // A new gap starts as the achievement's old delay; open its duration
-    // for editing right away.
-    if (on) {
-      var cell = document.querySelector('tr.gap-row td.delay-cell.editable[data-id="' + id.replace(/["\\]/g, "\\$&") + '"]');
-      if (cell) startEditing(cell);
-    }
+    // A new gap starts as the achievement's old delay, as in Runs; click
+    // it to change it.
   }
 
   document.addEventListener("click", function (e) {
@@ -2317,8 +2313,8 @@
     // What the paste gave (achievements, sessions, lengths), in a line
     // over the result.
     byId("paste-summary").querySelector('[data-slot="stats"]').appendChild(els.statsStrip);
-    // How to edit: beside Full timeline, which it's about.
-    byId("paste-summary").insertBefore(document.querySelector(".hover-help"), byId("sched-full-btn"));
+    // No How to edit in the app: the timeline's tooltips say it.
+    document.querySelector(".hover-help").remove();
     // The how-to sits inside the empty paste box, like a placeholder; the
     // timeline takes the right side.
     var help = document.querySelector(".input-help");
