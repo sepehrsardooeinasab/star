@@ -3141,6 +3141,10 @@
   function finishedMark(g) {
     return g.finished ? '<span class="mark-off mark-finished" data-tip="Finished" aria-label="Finished">' + CHECK_ICON + "</span>" : "";
   }
+  // When a game was last played comes from Steam with a key; without one
+  // it isn't known, so a game isn't called never played.
+  function neverPlayed(g) { return !g.played && unlocksHasKey === true && !g.unlocked; }
+  function playedText(g) { return g.played ? "Played " + fmtDay(g.played) : neverPlayed(g) ? "Never played" : ""; }
   function renderGames(d) {
     var games = sortGames(d && !unlocksError ? d.games_list || [] : []);
     byId("games-sort").value = gamesSort;
@@ -3165,7 +3169,8 @@
           unshown.length + " not shown by Steam</button>");
       }
     }
-    byId("games-status").innerHTML = parts.length ? "<div>" + parts.join(" \u00b7 ") + "</div>" : "";
+    byId("games-status").innerHTML = unlocksError ? problemHtml("warn", (unlocksError.data || {}).title, unlocksError.message)
+      : parts.length ? "<div>" + parts.join(" \u00b7 ") + "</div>" : "";
     // Games Steam doesn't show though they aren't Private (a Private
     // game's achievements are never shown, so it's counted as private).
     byId("games-unshown").hidden = !(unshown.length && unshownOpen);
@@ -3191,7 +3196,7 @@
       var progress;
       if (!g.stats) progress = '<span class="lib-dim">No achievements</span>';
       else if (g.unreadable) progress = '<span class="lib-dim">' + (g.private ? "Not shown while Private" : "Not shown by Steam") + "</span>";
-      else if (!g.read) progress = '<span class="lib-dim">' + (g.played ? "Not read yet" : "Never played") + "</span>";
+      else if (!g.read) progress = '<span class="lib-dim">' + (neverPlayed(g) ? "Never played" : "Not read yet") + "</span>";
       else progress = progressHtml(g.unlocked, g.total, true);
       var done = g.total && g.unlocked >= g.total;
       return '<div class="lib-game' + (g.hidden || g.private ? " hidden-game" : "") + (done ? " complete" : "") +
@@ -3199,7 +3204,7 @@
         iconHtml("lib-icon", g.icon, g.name) +
         '<div class="lib-text"><div class="lib-name"><span class="name-text">' + escapeHtml(g.name) + "</span>" + finishedMark(g) + markHtml(g) + counterMark(g) + "</div>" +
         '<div class="lib-progress">' + progress + "</div></div>" +
-        '<div class="unlock-meta"><div>' + (g.played ? "Played " + escapeHtml(fmtDay(g.played)) : "Never played") + "</div>" +
+        '<div class="unlock-meta"><div>' + escapeHtml(playedText(g)) + "</div>" +
         "<div>" + escapeHtml(fmtPlaytime(g.playtime)) + "</div></div></div>";
     }).join("");
   }
@@ -3286,12 +3291,12 @@
       iconHtml("lib-icon", p.icon, p.name) +
       '<div class="lib-text"><div class="game-title"><span class="name-text">' + escapeHtml(p.name) + "</span>" + finishedMark(p) + markHtml(p) + counterMark(p) + "</div>" +
       (p.read ? '<div class="lib-progress">' + progressHtml(p.unlocked, p.total) + "</div>" : "") +
-      '<div class="game-meta">' + escapeHtml([p.played ? "Played " + fmtDay(p.played) : "Never played", fmtPlaytime(p.playtime)].filter(Boolean).join(" \u00b7 ")) + "</div>" +
+      '<div class="game-meta">' + escapeHtml([playedText(p), fmtPlaytime(p.playtime)].filter(Boolean).join(" \u00b7 ")) + "</div>" +
       "</div></div>" + '<div class="game-links">' + links + "</div></div>";
     if (p.unreadable && p.private) html += noticeHtml("info", "Steam doesn't show the achievements of a game marked Private. To show them, right-click it in Steam \u2192 Manage \u2192 Unmark as Private.");
     else if (p.unreadable) html += noticeHtml("warn", "Steam doesn't show this game's achievements, though it isn't marked Private.");
     else if (!p.read && !p.stats) html += noticeHtml("info", "This game has no achievements.");
-    else if (!p.read && !p.played) html += noticeHtml("info", "Never played, so nothing is unlocked yet.");
+    else if (!p.read && neverPlayed(p)) html += noticeHtml("info", "Never played, so nothing is unlocked yet.");
     else if (!p.read) html += noticeHtml("info", "Not read from Steam yet. It's read on a coming check.");
     else {
       if (!p.full) html += noticeHtml("info", "Its locked achievements show after its next read from Steam.");
