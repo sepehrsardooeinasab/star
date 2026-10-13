@@ -21,7 +21,7 @@ It installs the **STAR** app and ArchiSteamFarm with its achievement plugin (fro
 
 ## Using the app
 
-Open STAR and sign in to Steam. The title bar switches between **Schedule**, **Runs** and **Settings** (or the **Go** menu, ⌘1 and ⌘2; Settings is ⌘,).
+Open STAR and sign in to Steam. The title bar switches between **Schedule**, **Runs**, **Library** and **Settings** (or the **Go** menu, ⌘1 to ⌘3; Settings is ⌘,). **Library** shows your achievements from Steam, newest first, and your games with their achievement progress; games marked Private or hidden in Steam are faded and marked.
 
 ### 1. Make a schedule
 
@@ -154,6 +154,16 @@ In the app, **Settings** has the keep-awake and update switches and **Advanced r
 | `keep_awake` | `true` | Keeps the computer from sleeping while a run waits or plays. |
 | `auto_update` | `true` | Installs a new STAR release by itself, once no game is in a session. |
 | `show_finished` | `false` | Lists finished games in the app's Runs (at the bottom). |
+| `steam_api_key` | `null` | A [Steam Web API key](https://steamcommunity.com/dev/apikey), so the app's **Library** covers every game you play, not just the games in STAR. Set it in Settings → Library. |
+| `clock` | `"system"` | How the app writes times: `"system"` (the computer's way), `"12h"` (2:30 PM) or `"24h"` (14:30). Set it in Settings → Clock. |
+| `theme`, `accent` | `"dark"`, `"violet"` | The app's look, from its Appearance menu: `"dark"` or `"light"`; `"violet"`, `"wine"`, `"blue"`, `"teal"` or `"amber"`. |
+| `unlocks_range` | `"month"` | How far back the app's **Library** lists achievements: `"day"`, `"week"`, `"month"`, `"year"` or `"all"`. Set it in Settings → Library. |
+| `library_tab` | `"achievements"` | Which section **Library** opens on: `"achievements"` or `"games"`. |
+| `library_check` | `"6h"` | How often **Library** checks Steam for new games and achievements, in the background: `"1h"`, `"3h"`, `"6h"`, `"12h"`, `"24h"`, or `"manual"` (only on Refresh). Set it in Settings → Library. |
+| `achievement_sort`, `achievement_order`, `achievement_group` | `"date"`, `"desc"`, `"status"` | How a game's page in **Library** lists its achievements: by `"date"` unlocked or `"name"`; `"desc"` (newest, Z–A) or `"asc"`; grouped into unlocked and locked (`"status"`) or not (`"none"`). Set it in Settings → Library. |
+| `library_private`, `library_no_achievements`, `library_finished` | `"show"`, `"show"`, `"show"` | Which games **Library**'s Games lists: those marked Private in Steam and those without achievements (`"show"` or `"hide"`), and those you marked finished on their page (`"show"`, `"hide"` or `"only"`). Set it in Settings → Library. |
+| `hidden_descriptions` | `"unlocked"` | When **Library** shows a hidden achievement's description: `"unlocked"` (once you've unlocked it), `"all"` or `"none"`. Set it in Settings → Library. |
+| `library_sort`, `library_order` | `"played"`, `"desc"` | How **Library**'s Games are sorted: `"played"` (last played), `"achievement"` (last achievement), `"name"`, `"progress"` or `"playtime"`; `"desc"` (newest, Z–A, most first) or `"asc"`. Set it in Settings → Library. |
 
 With randomness on, it applies to the delays between achievements and to the gaps between sessions. The random value is picked when that delay is scheduled and saved with your progress, so stopping and resuming doesn't pick a new one. Unlocks that happened together in the source data (see `simultaneous_max_delay`) are still sent together. Estimates such as `-t`, `-ls` and the session length shown before you confirm still use the config's exact values.
 

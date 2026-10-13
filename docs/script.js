@@ -507,10 +507,21 @@
     return parts.join(" ") || "0s";
   }
 
+  // Clock times as Settings → Clock says: the computer's way, 12-hour
+  // ("2:30 PM") or 24-hour ("14:30").
+  var clockPref = "system";
+  function clockOpts(opts) {
+    if (clockPref === "12h") { opts.hour = "numeric"; opts.hour12 = true; }
+    else { opts.hour = "2-digit"; if (clockPref === "24h") opts.hourCycle = "h23"; }
+    opts.minute = "2-digit";
+    return opts;
+  }
+  function fmtClock(d) { return d.toLocaleTimeString([], clockOpts({})); }
+
   // The app's timeline, written for people: "Oct 9, 21:25" and "1h 21m".
   function prettyTime(text) {
     var d = new Date(String(text).replace(" ", "T"));
-    return isNaN(d) ? text : d.toLocaleString([], {month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"});
+    return isNaN(d) ? text : d.toLocaleString([], clockOpts({month: "short", day: "numeric"}));
   }
   function prettyLabel(r) {
     var secs = Number(r[CSV_DELAY_COL + 1]) || 0, m;
@@ -721,11 +732,12 @@
   var PAGE_HEADS = {
     schedule: ["Schedule", "Make a schedule", " from a real player"],
     runs: ["Runs", "Run a game", " at the player's pace"],
+    unlocks: ["Library", "Your games and achievements", " from Steam"],
     guide: ["Settings", "Settings", " for this computer"]
   };
   function renderPageHead() {
     var screen = document.body.getAttribute("data-screen");
-    var head = PAGE_HEADS[screen === "guide" ? "guide" : currentView === "runs" ? "runs" : "schedule"];
+    var head = PAGE_HEADS[screen === "guide" || screen === "unlocks" ? screen : currentView === "runs" ? "runs" : "schedule"];
     byId("page-eyebrow").textContent = "STAR · " + head[0];
     byId("page-title").innerHTML = '<span class="hero-bright">' + head[1] + "</span>" + head[2];
   }
@@ -811,6 +823,7 @@
   // ---- core recompute (pure, runs on every input change) ----
   function recompute() {
     var appidVal = parseInt(els.appid.value, 10);
+    checkCounters(appidVal);
     // The game's real name is shown in the app; its files get a short
     // name made from it.
     var title = els.gameName.value.trim();
@@ -1208,6 +1221,48 @@
     el.addEventListener("input", scheduleRecompute);
   });
 
+  // Schedule: the counters icon by the App ID when the game has them; looked up
+  // (in the background, by the app) once per App ID.
+  var countersFor = null, countersTimer = null;
+  function checkCounters(appid) {
+    if (!local) return;
+    appid = appid > 0 ? appid : null;
+    if (appid === countersFor) return;
+    countersFor = appid;
+    clearTimeout(countersTimer);
+    showCounters(0);
+    if (!appid) return;
+    var tries = 0;
+    (function ask() {
+      api("/api/achievements/counters?appid=" + appid).then(function (d) {
+        if (countersFor !== appid) return;
+        if (d.counters === null && ++tries < 15) countersTimer = setTimeout(ask, 2000);
+        else showCounters(d.counters || 0);
+      }).catch(function () {});
+    })();
+  }
+  function showCounters(n) {
+    byId("schedule-counters").innerHTML = counterMark({counters: n});
+  }
+
+  // [data-tip] hints, in a box over what's hovered (the app's web view
+  // shows no title tooltips).
+  var tipBox = null;
+  document.addEventListener("mouseover", function (e) {
+    var el = e.target.closest && e.target.closest("[data-tip]");
+    if (!el) { if (tipBox) tipBox.hidden = true; return; }
+    if (!tipBox) { tipBox = document.createElement("div"); tipBox.className = "tip-box"; document.body.appendChild(tipBox); }
+    tipBox.textContent = el.getAttribute("data-tip");
+    tipBox.hidden = false;
+    var r = el.getBoundingClientRect(), w = tipBox.offsetWidth, h = tipBox.offsetHeight;
+    // Above the icon, running to its right, the pointer at its bottom-left
+    // corner (under it at the window's top, left of it at its edge).
+    var left = Math.max(8, Math.min(r.left + r.width / 2, window.innerWidth - w - 8));
+    var top = r.top - h - 4 < 8 ? r.bottom + 4 : r.top - h - 4;
+    tipBox.style.left = left + "px";
+    tipBox.style.top = top + "px";
+  });
+
   function resetAll() {
     els.exportText.value = "";
     resetSettingFields();
@@ -1349,16 +1404,23 @@
     var b = e.target.closest("button");
     if (!b) return;
     var theme = b.getAttribute("data-theme-choice"), accent = b.getAttribute("data-accent-choice");
-    if (theme) {
-      document.documentElement.setAttribute("data-theme", theme);
-      try { localStorage.setItem("unlock-scheduler-theme", theme); } catch (err) {}
-    }
-    if (accent) {
-      document.documentElement.setAttribute("data-accent", accent);
-      try { localStorage.setItem("unlock-scheduler-accent", accent); } catch (err) {}
-    }
-    syncThemeControls();
+    if (theme) applyAppearance("theme", theme, true);
+    if (accent) applyAppearance("accent", accent, true);
   });
+  // The look is kept in settings.json in the app (so an update doesn't
+  // reset it), and in this window's storage too, so the page paints in it
+  // before the server answers.
+  function applyAppearance(key, value, save) {
+    document.documentElement.setAttribute("data-" + key, value);
+    try { localStorage.setItem("unlock-scheduler-" + key, value); } catch (err) {}
+    syncThemeControls();
+    if (save && local) {
+      var values = {};
+      values[key] = value;
+      api("/api/settings", {settings: values}).then(function (d) { runSettings = d.settings; })
+        .catch(function (err) { showToast("Couldn't save: " + err.message); });
+    }
+  }
   // Closes on a click elsewhere or Escape.
   document.addEventListener("click", function (e) {
     if (!appearanceMenu.hidden && !e.target.closest(".appearance")) setAppearanceOpen(false);
@@ -1609,9 +1671,15 @@
   // When something happens: the time today, "Tomorrow", a weekday within
   // the coming week, and past that the date ("Nov 6"), so a day name never
   // means a later week's.
+  // "Playable at 5:30 PM", "Playable tomorrow 9:00 AM": a game on its
+  // break, on hover.
+  function playableAt(seconds) {
+    var at = fmtAt(seconds);
+    return "Playable " + (/^\d/.test(at) ? "at " + at : at.replace(/^Tomorrow/, "tomorrow"));
+  }
   function fmtAt(seconds) {
     var now = new Date(), at = new Date(now.getTime() + seconds * 1000);
-    var time = at.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+    var time = fmtClock(at);
     var day = function (d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); };
     var days = Math.round((day(at) - day(now)) / 86400000);
     if (days <= 0) return time;
@@ -1628,6 +1696,86 @@
   }
 
   function gameTitle(g) { return g.title || g.name; }
+  // A game's main colour ("r, g, b"), from its art: the most common
+  // colourful shade, so a dark or grey background doesn't win. Worked out
+  // once per game and remembered on this computer.
+  var tints = {};
+  try { tints = JSON.parse(localStorage.getItem("game-tints") || "{}") || {}; } catch (e) {}
+  var tintWanted = null;
+  function tintFor(g, done) {
+    var appid = g && g.appid > 0 ? g.appid : null;
+    tintWanted = appid;
+    if (!appid) return done(null);
+    if (appid in tints) return done(tints[appid]);
+    var img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = function () {
+      var tint = null;
+      try {
+        var canvas = document.createElement("canvas");
+        canvas.width = 48; canvas.height = 16;
+        var ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, 48, 16);
+        var px = ctx.getImageData(0, 0, 48, 16).data, buckets = {}, best = null;
+        for (var i = 0; i < px.length; i += 4) {
+          var r = px[i], gr = px[i + 1], b = px[i + 2];
+          var max = Math.max(r, gr, b), min = Math.min(r, gr, b);
+          if (max < 40 || max - min < 30) continue;  // too dark or grey
+          var key = (r >> 5) + "," + (gr >> 5) + "," + (b >> 5);
+          var k = buckets[key] || (buckets[key] = {n: 0, r: 0, g: 0, b: 0});
+          var w = (max - min) / max;  // the more colourful, the more it counts
+          k.n += w; k.r += r * w; k.g += gr * w; k.b += b * w;
+          if (!best || k.n > best.n) best = k;
+        }
+        if (best) tint = [best.r, best.g, best.b].map(function (c) { return Math.round(c / best.n); }).join(", ");
+      } catch (e) {}
+      tints[appid] = tint;
+      try { localStorage.setItem("game-tints", JSON.stringify(tints)); } catch (e) {}
+      if (tintWanted === appid) done(tint);
+    };
+    // No library art: the next picture Steam has for the game.
+    var tries = heroUrls(appid);
+    img.onerror = function () {
+      if (tries.length) img.src = tries.shift();
+      else if (tintWanted === appid) done(null);
+    };
+    img.src = tries.shift();
+  }
+
+  // The game's wide art, as CSS urls, or "none" without an appid: its
+  // library art (no logo), else its store page's background, else its
+  // header. Stacked, the first that loads covers the rest.
+  function heroUrl(g) {
+    return g && g.appid > 0 ? heroUrls(g.appid).map(function (u) { return 'url("' + u + '")'; }).join(", ") : "none";
+  }
+  // Steam's current image host (the older cdn.cloudflare one lacks newer
+  // games' images).
+  // Some games have no library art (Attack on Titan 2, ReCore): then the
+  // store page's background, then the header image.
+  function heroUrls(appid) {
+    return ["library_hero.jpg", "page_bg_raw.jpg", "header.jpg"].map(function (f) {
+      return "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/" + appid + "/" + f;
+    });
+  }
+  // A game's or achievement's icon from Steam; when there's none, or it
+  // doesn't load, a stand-in: the game's first letter, or a trophy.
+  var TROPHY = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M5 2.5h6v3.2a3 3 0 0 1-6 0z"/><path d="M5 3.6H3.2a2 2 0 0 0 2 2.6M11 3.6h1.8a2 2 0 0 1-2 2.6M8 8.7v2.6M5.6 13.5h4.8M6.4 11.3h3.2l.4 2.2H6z"/></svg>';
+  function iconHtml(cls, url, stand) {
+    var ph = stand === "ach" ? "ach" : (String(stand || "?").trim().charAt(0) || "?").toUpperCase();
+    if (url) return '<img class="' + cls + '" src="' + escapeHtml(url) + '" alt="" loading="lazy" data-ph="' + escapeHtml(ph) + '">';
+    return '<span class="' + cls + ' icon-ph" aria-hidden="true">' + (ph === "ach" ? TROPHY : escapeHtml(ph)) + "</span>";
+  }
+  document.addEventListener("error", function (e) {
+    var img = e.target;
+    if (!img || img.tagName !== "IMG" || !img.hasAttribute("data-ph")) return;
+    var ph = img.getAttribute("data-ph"), span = document.createElement("span");
+    span.className = img.className + " icon-ph";
+    span.setAttribute("aria-hidden", "true");
+    if (ph === "ach") span.innerHTML = TROPHY; else span.textContent = ph;
+    img.replaceWith(span);
+  }, true);
+  function gameIconHtml(g) { return iconHtml("game-icon", g.icon, gameTitle(g)); }
 
   // When the game's next session can start: its break, and for a run
   // started with Start in, that delay too.
@@ -1659,12 +1807,13 @@
       (cut ? ' · <span class="warn">stopped at ' + cut.played + " of " + cut.of + "</span>" : "");
     // On a break: dimmed, with a clock; when it can play is on hover and
     // in the line over its sessions.
-    var clock = resting ? '<svg class="run-rest" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" ' +
-      'stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 4.8V8l2.2 1.5"/></svg>' : "";
+    var clock = resting ? '<span class="run-rest-mark" data-tip="' + escapeHtml(playableAt(wait)) + '"><svg class="run-rest" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" ' +
+      'stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 4.8V8l2.2 1.5"/></svg></span>' : "";
     var over = g.finished || g.state === "completed";
     return '<div class="run-card' + (g.name === selectedRun ? " selected" : "") + (resting ? " resting" : "") + (over ? " over" : "") + (cut ? " cut" : "") +
-      '" data-name="' + escapeHtml(g.name) + '"' + (resting ? ' title="Playable ' + escapeHtml(fmtAt(wait)) + '"' : "") + ">" +
-      '<div class="run-head"><span class="run-name">' + escapeHtml(gameTitle(g)) + "</span>" + clock +
+      '" data-name="' + escapeHtml(g.name) + '"' +
+      (g.appid > 0 ? ' style="--card-hero: ' + escapeHtml(heroUrl(g)) + '"' : "") + ">" +
+      '<div class="run-head">' + gameIconHtml(g) + '<span class="run-name">' + escapeHtml(gameTitle(g)) + "</span>" + counterMark(g) + clock +
       (badge ? '<span class="run-badge ' + badge[0] + '">' + badge[1] + "</span>" : "") + "</div>" +
       (meta ? '<div class="run-meta">' + meta + "</div>" : "") +
       (cut ? '<div class="run-progress"><span style="width:' + Math.round(100 * cut.played / cut.of) + '%"></span></div>' : "") +
@@ -1675,7 +1824,7 @@
   // parts: session, this session's size, progress, and when it plays.
   function summaryHtml(g) {
     if (!g) return "";
-    var title = '<div class="run-summary-title">' + escapeHtml(gameTitle(g)) + "</div>";
+    var title = '<div class="run-summary-title">' + gameIconHtml(g) + "<span>" + escapeHtml(gameTitle(g)) + "</span></div>";
     // A small arrow opens the schedule's info (App ID, where it came from)
     // under the summary.
     var more = '<button class="summary-more" type="button" data-run-info aria-expanded="' + !!runInfoOpen + '" title="' +
@@ -1832,6 +1981,12 @@
         : emptyHtml("▶", "Every game is finished. Turn on Show finished games in Settings to see them.");
     }
     var shown = selectedGame();
+    // Behind the selected game: a glow in its art's main colour.
+    tintFor(runsError ? null : shown, function (tint) {
+      var runsLog = document.querySelector(".runs-log");
+      if (tint) runsLog.style.setProperty("--run-tint", tint);
+      else runsLog.style.removeProperty("--run-tint");
+    });
     byId("run-summary").innerHTML = runsError ? "" : summaryHtml(shown);
     byId("run-info").innerHTML = runsError ? "" : infoHtml(shown);
     byId("run-info").hidden = !runInfoOpen || !shown;
@@ -2432,6 +2587,12 @@
     renderExtras(d);
     byId("step-runs").hidden = !(d.asf && d.plugin);
     if (!runSettings) loadRunSettings();
+    byId("step-unlocks").hidden = !d.data_dir;
+    byId("step-clock").hidden = !d.data_dir;
+    if (!unlocksKeyLoaded) {
+      unlocksKeyLoaded = true;
+      api("/api/unlocks/key").then(function (r) { unlocksHasKey = r.has_key; renderUnlocksKey(); }).catch(function () {});
+    }
     byId("step-data").hidden = !d.data_dir;
     byId("data-path").textContent = d.data_dir || "";
     byId("open-folder").textContent = document.documentElement.getAttribute("data-desktop") === "linux"
@@ -2589,12 +2750,89 @@
       box.disabled = !s || !extrasTools[key];
       box.checked = !!(s && s.value && extrasTools[key]);
     });
+    ["theme", "accent"].forEach(function (key) {
+      var s = (runSettings || []).filter(function (x) { return x.key === key; })[0];
+      if (s && document.documentElement.getAttribute("data-" + key) !== s.value) applyAppearance(key, s.value, false);
+    });
+    var tab = (runSettings || []).filter(function (x) { return x.key === "library_tab"; })[0];
+    if (tab && tab.value !== libraryTab) {
+      libraryTab = tab.value;
+      if (unlocksData) renderUnlocks();
+    }
+    // Library defaults: applied when they change (or first load), so a
+    // range or sort picked in Library lasts until then.
+    var lib = {};
+    (runSettings || []).forEach(function (x) { lib[x.key] = x.value; });
+    if (lib.unlocks_range) {
+      byId("default-range").value = lib.unlocks_range;
+      if (lib.unlocks_range !== appliedLib.range) { appliedLib.range = unlocksRange = lib.unlocks_range; if (unlocksData) renderUnlocks(); }
+    }
+    if (lib.library_sort && lib.library_order) {
+      byId("default-sort").value = lib.library_sort;
+      syncOrderOptions(byId("default-order"), lib.library_sort, lib.library_order);
+      var sortKey = lib.library_sort + " " + lib.library_order;
+      if (sortKey !== appliedLib.sort) {
+        appliedLib.sort = sortKey;
+        gamesSort = lib.library_sort;
+        gamesOrder = lib.library_order;
+        if (unlocksData) renderUnlocks();
+      }
+    }
+    if (lib.achievement_sort && lib.achievement_order && lib.achievement_group) {
+      byId("default-ach-sort").value = lib.achievement_sort;
+      syncOrderOptions(byId("default-ach-order"), lib.achievement_sort, lib.achievement_order);
+      byId("default-ach-group").value = lib.achievement_group;
+      var achKey = [lib.achievement_sort, lib.achievement_order, lib.achievement_group].join(" ");
+      if (achKey !== appliedLib.ach) {
+        appliedLib.ach = achKey;
+        achSort = lib.achievement_sort;
+        achOrder = lib.achievement_order;
+        achGroup = lib.achievement_group;
+        if (gamePage) renderGamePage();
+      }
+    }
+    if (lib.library_private && lib.library_no_achievements && lib.library_finished) {
+      byId("lib-private").value = lib.library_private;
+      byId("lib-no-ach").value = lib.library_no_achievements;
+      byId("lib-finished").value = lib.library_finished;
+      var filterKey = [lib.library_private, lib.library_no_achievements, lib.library_finished].join(" ");
+      if (filterKey !== appliedLib.filter) {
+        appliedLib.filter = filterKey;
+        libFilter = {private: lib.library_private, noAch: lib.library_no_achievements, finished: lib.library_finished};
+        if (unlocksData) renderUnlocks();
+      }
+    }
+    if (lib.library_check) byId("library-check").value = lib.library_check;
+    if (lib.hidden_descriptions) {
+      byId("hidden-descriptions").value = lib.hidden_descriptions;
+      if (lib.hidden_descriptions !== hiddenDesc) {
+        hiddenDesc = lib.hidden_descriptions;
+        if (unlocksData) renderUnlocks();
+        if (gamePage) renderGamePage();
+      }
+    }
+    var clock = (runSettings || []).filter(function (x) { return x.key === "clock"; })[0];
+    if (clock && clock.value !== clockPref) {
+      clockPref = clock.value;
+      byId("clock-format").value = clockPref;
+      renderRuns();
+      if (unlocksData) renderUnlocks();
+    }
     var show = (runSettings || []).filter(function (x) { return x.key === "show_finished"; })[0];
     if (show && !!show.value !== showDone) {
       showDone = !!show.value;
       renderRuns();
     }
   }
+  byId("clock-format").addEventListener("change", function () {
+    var select = this;
+    select.disabled = true;
+    api("/api/settings", {settings: {clock: select.value}}).then(function (d) {
+      runSettings = d.settings;
+      if (!editingSettings) renderRunSettings();
+    }).catch(function (err) { showToast("Couldn't save: " + err.message); })
+      .then(function () { select.disabled = false; syncToggles(); });
+  });
   Object.keys(TOGGLES).forEach(function (key) {
     byId(TOGGLES[key]).addEventListener("change", function () {
       var box = this, values = {};
@@ -2775,16 +3013,554 @@
     sizeBoxes();
   }
 
+  // Unlocks: the account's latest achievements across its games, newest
+  // first, read from Steam (see unlocks.py). Read when the screen opens;
+  // the server asks Steam again at most every few minutes, or on Refresh.
+  var unlocksData = null, unlocksError = null, unlocksBusy = false, unshownOpen = false;
+  // Whether a Steam Web API key is set: null until the server says, so
+  // neither screen shows the wrong text first.
+  var unlocksHasKey = null, unlocksKeyOpen = false, unlocksKeyError = null, unlocksKeyLoaded = false;
+  function loadUnlocks(refresh) {
+    if (unlocksBusy) return;
+    unlocksBusy = true;
+    renderUnlocks();
+    api("/api/unlocks" + (refresh ? "?refresh=1" : ""))
+      .then(function (d) {
+        unlocksData = d; unlocksError = null; unlocksHasKey = d.has_key;
+        if (gamePage && !gamePage.error && !d.syncing) openGamePage(gamePageFor, true);
+      })
+      .catch(function (e) {
+        unlocksError = e;
+        if (e.data && "has_key" in e.data) unlocksHasKey = e.data.has_key;
+      })
+      .then(function () { unlocksBusy = false; renderUnlocks(); });
+  }
+  function unlockDay(date) {
+    var day = function (d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); };
+    var diff = Math.round((day(new Date()) - day(date)) / 86400000);
+    if (diff === 0) return "Today";
+    if (diff === 1) return "Yesterday";
+    return date.toLocaleDateString([], {weekday: "long", month: "long", day: "numeric",
+      year: date.getFullYear() === new Date().getFullYear() ? undefined : "numeric"});
+  }
+  // How far back the list goes (Day … All, unlocks_range in settings.json).
+  var unlocksRange = "month";
+  var RANGES = {day: [86400, "in the last day"], week: [7 * 86400, "in the last week"],
+    month: [30 * 86400, "in the last month"], year: [365 * 86400, "in the last year"], all: [Infinity, "in total"]};
+  var unlocksPoll = null;
+  // The Library's two sections (library_tab in settings.json).
+  var libraryTab = "achievements";
+  // How Games are sorted (defaults: library_sort, library_order).
+  var gamesSort = "played", gamesOrder = "desc", appliedLib = {};
+  var ORDER_NAMES = {played: ["Newest first", "Oldest first"], achievement: ["Newest first", "Oldest first"],
+    name: ["Z \u2192 A", "A \u2192 Z"], progress: ["Most first", "Least first"], playtime: ["Most first", "Least first"],
+    date: ["Newest first", "Oldest first"]};
+  function orderName(sort, order) { return ORDER_NAMES[sort][order === "desc" ? 0 : 1]; }
+  function syncOrderOptions(select, sort, order) {
+    select.innerHTML = ["desc", "asc"].map(function (o) {
+      return '<option value="' + o + '">' + orderName(sort, o) + "</option>";
+    }).join("");
+    select.value = order;
+  }
+  function sortGames(games) {
+    function key(g) {
+      if (gamesSort === "name") return g.name.toLowerCase();
+      if (gamesSort === "achievement") return g.last_unlock || 0;
+      if (gamesSort === "playtime") return g.playtime || 0;
+      if (gamesSort === "progress") return g.total ? g.unlocked / g.total : -1;
+      return g.played || 0;
+    }
+    var dir = gamesOrder === "desc" ? -1 : 1;
+    return games.slice().sort(function (a, b) {
+      var ka = key(a), kb = key(b);
+      var c = typeof ka === "string" ? ka.localeCompare(kb) : ka - kb;
+      return c * dir || a.name.localeCompare(b.name);
+    });
+  }
+  function fmtPlaytime(minutes) {
+    if (!minutes) return "";
+    return minutes < 60 ? minutes + " min played" : Math.round(minutes / 60).toLocaleString() + " h played";
+  }
+  function fmtDay(seconds) {
+    var at = new Date(seconds * 1000), opts = {month: "short", day: "numeric"};
+    if (at.getFullYear() !== new Date().getFullYear()) opts.year = "numeric";
+    return at.toLocaleDateString([], opts);
+  }
+  // Games: each game's achievement progress, play time and when it was
+  // last played; games marked Private or hidden in Steam faded, with an
+  // eye-off mark, like a game on its break in Runs.
+  // Private or hidden in Steam: an eye-off mark, named on hover.
+  var EYE_OFF = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M2.2 2.2l11.6 11.6M6.6 3.5A6.9 6.9 0 0 1 8 3.4c3.2 0 5.3 2.5 6.1 4.6a8 8 0 0 1-1.9 2.8M4.1 4.9A8.2 8.2 0 0 0 1.9 8c.8 2.1 2.9 4.6 6.1 4.6a6.6 6.6 0 0 0 2.9-.7M6.6 6.7a2 2 0 0 0 2.7 2.7"/></svg>';
+  // Counters: the game has achievements that track progress in a stat
+  // (kill 200 enemies), which an unlock doesn't move. Flagged with an
+  // icon in Schedule, Runs and Library; what it means is on hover.
+  var COUNTER_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">' +
+    '<path d="M3.5 3.5v9M6.5 3.5v9M9.5 3.5v9M12.5 3.5v9M2 10.5l12-5"/></svg>';
+  var COUNTERS_TIP = "Some achievements track stats (like kill counts)";
+  function counterMark(g) {
+    return g.counters > 0 ? '<span class="mark-counters" data-tip="' + COUNTERS_TIP + '" aria-label="' + COUNTERS_TIP + '">' + COUNTER_ICON + "</span>" : "";
+  }
+  function markHtml(g) {
+    if (!g.private && !g.hidden) return "";
+    var label = g.private ? "Private" : "Hidden";
+    return '<span class="mark-off" data-tip="' + label + '" aria-label="' + label + '">' + EYE_OFF + "</span>";
+  }
+  // Search: games whose name has every word typed, in any order.
+  var gamesQuery = "";
+  function searchGames(games) {
+    var words = gamesQuery.toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return games;
+    return games.filter(function (g) {
+      var name = g.name.toLowerCase();
+      return words.every(function (w) { return name.indexOf(w) !== -1; });
+    });
+  }
+  // A game's progress: its bar, then (on its own page) "unlocked / total"
+  // with the slash in the same place, then the percentage (gold at 100%).
+  function progressHtml(unlocked, total, short) {
+    var pct = total ? Math.round(100 * unlocked / total) : 0;
+    return '<span class="lib-bar"><span style="width:' + pct + '%"></span></span>' + (short ? "" :
+      '<span class="lib-count"><span class="lib-got">' + unlocked + '</span><span class="lib-of">/</span><span class="lib-all">' + total + "</span></span>") +
+      '<span class="lib-state">' + Math.min(pct, 100) + "%</span>";
+  }
+  // Settings → Library: which games the list shows.
+  var libFilter = {private: "show", noAch: "show", finished: "show"};
+  function filterGames(games) {
+    return games.filter(function (g) {
+      if (libFilter.private === "hide" && g.private) return false;
+      if (libFilter.noAch === "hide" && !g.stats) return false;
+      if (libFilter.finished === "hide" && g.finished) return false;
+      if (libFilter.finished === "only" && !g.finished) return false;
+      return true;
+    });
+  }
+  // Marked finished (done with, for good) on its page.
+  var CHECK_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<circle cx="8" cy="8" r="6.2"/><path d="M5.3 8.2l1.8 1.8 3.6-3.8"/></svg>';
+  function finishedMark(g) {
+    return g.finished ? '<span class="mark-off mark-finished" data-tip="Finished" aria-label="Finished">' + CHECK_ICON + "</span>" : "";
+  }
+  // When a game was last played comes from Steam with a key; without one
+  // it isn't known, so a game isn't called never played.
+  function neverPlayed(g) { return !g.played && unlocksHasKey === true && !g.unlocked; }
+  function playedText(g) { return g.played ? "Played " + fmtDay(g.played) : neverPlayed(g) ? "Never played" : ""; }
+  function renderGames(d) {
+    var games = sortGames(d && !unlocksError ? d.games_list || [] : []);
+    byId("games-sort").value = gamesSort;
+    byId("games-order").textContent = orderName(gamesSort, gamesOrder);
+    var withAch = games.filter(function (g) { return g.stats; });
+    var complete = games.filter(function (g) { return g.total && g.unlocked >= g.total; }).length;
+    var hiddenCount = games.filter(function (g) { return g.hidden; }).length;
+    var privateCount = games.filter(function (g) { return g.private; }).length;
+    var unshown = games.filter(function (g) { return g.unreadable && !g.private; });
+    var parts = [];
+    if (d && !unlocksError) {
+      parts.push("<b>" + games.length.toLocaleString() + "</b> game" + (games.length === 1 ? "" : "s"));
+      parts.push(withAch.length.toLocaleString() + " with achievements");
+      if (games.length > withAch.length) parts.push((games.length - withAch.length).toLocaleString() + " without");
+      if (complete) parts.push(complete + " complete");
+      var finishedCount = games.filter(function (g) { return g.finished; }).length;
+      if (finishedCount) parts.push(finishedCount + " finished");
+      if (privateCount) parts.push(privateCount + " private");
+      if (hiddenCount) parts.push(hiddenCount + " hidden");
+      if (unshown.length) {
+        parts.push('<button class="link-btn" type="button" id="games-unshown-btn" aria-expanded="' + unshownOpen + '">' +
+          unshown.length + " not shown by Steam</button>");
+      }
+    }
+    byId("games-status").innerHTML = unlocksError ? problemHtml("warn", (unlocksError.data || {}).title, unlocksError.message)
+      : parts.length ? "<div>" + parts.join(" \u00b7 ") + "</div>" : "";
+    // Games Steam doesn't show though they aren't Private (a Private
+    // game's achievements are never shown, so it's counted as private).
+    byId("games-unshown").hidden = !(unshown.length && unshownOpen);
+    if (unshown.length) {
+      byId("games-unshown").textContent = "Steam doesn't show the achievements of " +
+        unshown.map(function (g) { return g.name; }).sort().join(", ") + ", though " +
+        (unshown.length === 1 ? "it isn't" : "they aren't") + " marked Private.";
+      byId("games-unshown-btn").addEventListener("click", function () {
+        unshownOpen = !unshownOpen;
+        renderGames(unlocksData);
+      });
+    }
+    // Which games show, as Settings → Library says (Private, without
+    // achievements, finished); then the search.
+    var kept = filterGames(games);
+    if (games.length > kept.length) byId("games-status").firstChild.innerHTML += " \u00b7 " +
+      (games.length - kept.length).toLocaleString() + " filtered out";
+    var shown = searchGames(kept);
+    if (gamesQuery.trim() && d && !unlocksError)
+      byId("games-status").innerHTML += "<div>" + (shown.length ? "<b>" + shown.length.toLocaleString() + "</b> matching" : "No games match \u201c" + escapeHtml(gamesQuery.trim()) + "\u201d") + "</div>";
+    byId("games-list").hidden = !shown.length;
+    byId("games-list").innerHTML = shown.map(function (g) {
+      var progress;
+      if (!g.stats) progress = '<span class="lib-dim">No achievements</span>';
+      else if (g.unreadable) progress = '<span class="lib-dim">' + (g.private ? "Not shown while Private" : "Not shown by Steam") + "</span>";
+      else if (!g.read) progress = '<span class="lib-dim">' + (neverPlayed(g) ? "Never played" : "Not read yet") + "</span>";
+      else progress = progressHtml(g.unlocked, g.total, true);
+      var done = g.total && g.unlocked >= g.total;
+      return '<div class="lib-game' + (g.hidden || g.private ? " hidden-game" : "") + (done ? " complete" : "") +
+        '" data-appid="' + g.appid + '" role="button" tabindex="0">' +
+        iconHtml("lib-icon", g.icon, g.name) +
+        '<div class="lib-text"><div class="lib-name"><span class="name-text">' + escapeHtml(g.name) + "</span>" + finishedMark(g) + markHtml(g) + counterMark(g) + "</div>" +
+        '<div class="lib-progress">' + progress + "</div></div>" +
+        '<div class="unlock-meta"><div>' + escapeHtml(playedText(g)) + "</div>" +
+        "<div>" + escapeHtml(fmtPlaytime(g.playtime)) + "</div></div></div>";
+    }).join("");
+  }
+  // A game's own page: its achievements, unlocked (newest first) and
+  // locked, from what's saved; links to Steam and SteamHunters, and to its
+  // run when STAR has a schedule for it.
+  var gamePage = null, gamePageFor = null;
+  // Quiet: reloaded when a check finishes (no "Loading", same scroll, an
+  // error leaves what's shown).
+  function openGamePage(appid, quiet) {
+    if (!quiet) {
+      gamePageFor = appid;
+      gamePage = null;
+      renderGamePage();
+      scrollLibraryTop();
+    }
+    api("/api/unlocks/game?appid=" + encodeURIComponent(appid)).then(function (p) {
+      if (gamePageFor === appid) { gamePage = p; renderGamePage(); }
+    }).catch(function (e) {
+      if (gamePageFor === appid && !quiet) { gamePage = {error: e}; renderGamePage(); }
+    });
+  }
+  function closeGamePage() {
+    gamePageFor = gamePage = null;
+    renderGamePage();
+  }
+  // A hidden achievement's description (Steam's stats page leaves it out;
+  // STAR fills it in): shown as Settings → Library says, hidden_descriptions:
+  // once unlocked, always, or never; else "Hidden achievement".
+  var hiddenDesc = "unlocked";
+  function achDescHtml(a, locked) {
+    if (a.secret && (hiddenDesc === "none" || (hiddenDesc === "unlocked" && locked)))
+      return '<div class="unlock-desc lib-dim">Hidden achievement</div>';
+    return a.description ? '<div class="unlock-desc">' + escapeHtml(a.description) + "</div>" : "";
+  }
+  function achRowsHtml(list, groupKind) {
+    return list.map(function (a) {
+      var when = "", kind = groupKind || a.kind;
+      if (kind === "unlocked") {
+        var at = new Date(a.time * 1000);
+        when = '<div class="unlock-meta"><div>' + escapeHtml(fmtDay(a.time)) + "</div><div>" + escapeHtml(fmtClock(at)) + "</div></div>";
+      }
+      return '<div class="unlock' + (kind === "locked" ? " locked" : "") + '">' + iconHtml("unlock-icon", a.icon, "ach") +
+        '<div class="unlock-text"><div class="unlock-name">' + escapeHtml(a.name) + "</div>" +
+        achDescHtml(a, kind === "locked") + "</div>" + when + "</div>";
+    }).join("");
+  }
+  // A game's achievements, unlocked and locked kept apart or all in one
+  // list, by date unlocked (those without a time, and locked ones, after,
+  // in Steam's order) or by name; picked here, kept until the app closes
+  // (the defaults are in Settings → Library).
+  var achSort = "date", achOrder = "desc", achGroup = "status";
+  function sortAch(list, timed) {
+    var out = list.slice();
+    if (achSort === "name") out.sort(function (a, b) { return a.name.localeCompare(b.name); });
+    else if (timed) out.sort(function (a, b) { return a.time - b.time; });
+    else return out;
+    return achOrder === "desc" ? out.reverse() : out;
+  }
+  function renderGamePage() {
+    var page = byId("game-page"), open = gamePageFor !== null;
+    page.hidden = !open;
+    byId("games-index").hidden = open;
+    byId("library-tabs").hidden = open;
+    byId("game-back").hidden = !open;
+    if (!open) { page.innerHTML = ""; return; }
+    var p = gamePage, html = "";
+    if (!p) { page.innerHTML = html + '<div class="unlocks-status">' + escapeHtml("Loading\u2026") + "</div>"; return; }
+    if (p.error) { page.innerHTML = html + problemHtml("warn", (p.error.data || {}).title, p.error.message); return; }
+    var done = p.total && p.unlocked >= p.total;
+    var links = '<a class="btn-ghost" target="_blank" rel="noopener" href="https://steamcommunity.com/stats/' + p.appid + '/achievements/">Steam</a>' +
+      // Yours on SteamHunters (by Steam ID, as for a custom URL), else the game's.
+      '<a class="btn-ghost" target="_blank" rel="noopener" href="https://steamhunters.com/' +
+        (p.steamid ? "profiles/" + encodeURIComponent(p.steamid) + "/" : "") + "apps/" + p.appid + '/achievements">SteamHunters</a>' +
+      (p.star ? '<button class="btn-ghost primary-ghost" type="button" data-game-run="' + escapeHtml(p.star) + '">Open in Runs</button>' : "") +
+      '<button class="btn-ghost game-finish' + (p.finished ? " on" : "") + '" type="button" data-game-finish aria-pressed="' + !!p.finished + '">' +
+        (p.finished ? CHECK_ICON + "Finished" : "Mark as finished") + "</button>";
+    // A banner: the game's art faded in from the right, under its name,
+    // progress and links.
+    html += '<div class="game-banner"' + (p.appid > 0 ? ' style="--card-hero: ' + escapeHtml(heroUrl(p)) + '"' : "") + ">" +
+      '<div class="game-head' + (p.hidden || p.private ? " hidden-game" : "") + (done ? " complete" : "") + '">' +
+      iconHtml("lib-icon", p.icon, p.name) +
+      '<div class="lib-text"><div class="game-title"><span class="name-text">' + escapeHtml(p.name) + "</span>" + finishedMark(p) + markHtml(p) + counterMark(p) + "</div>" +
+      (p.read ? '<div class="lib-progress">' + progressHtml(p.unlocked, p.total) + "</div>" : "") +
+      '<div class="game-meta">' + escapeHtml([playedText(p), fmtPlaytime(p.playtime)].filter(Boolean).join(" \u00b7 ")) + "</div>" +
+      "</div></div>" + '<div class="game-links">' + links + "</div></div>";
+    if (p.unreadable && p.private) html += noticeHtml("info", "Steam doesn't show the achievements of a game marked Private. To show them, right-click it in Steam \u2192 Manage \u2192 Unmark as Private.");
+    else if (p.unreadable) html += noticeHtml("warn", "Steam doesn't show this game's achievements, though it isn't marked Private.");
+    else if (!p.read && !p.stats) html += noticeHtml("info", "This game has no achievements.");
+    else if (!p.read && neverPlayed(p)) html += noticeHtml("info", "Never played, so nothing is unlocked yet.");
+    else if (!p.read) html += noticeHtml("info", "Not read from Steam yet. It's read on a coming check.");
+    else {
+      if (!p.full) html += noticeHtml("info", "Its locked achievements show after its next read from Steam.");
+      html += '<div class="unlocks-bar ach-sort games-sort"><select id="ach-sort" aria-label="Sort achievements by">' +
+        '<option value="date">Date unlocked</option><option value="name">Name</option></select>' +
+        '<button class="btn-ghost" id="ach-order" type="button">' + orderName(achSort, achOrder) + "</button>" +
+        '<select id="ach-group" aria-label="Group achievements by"><option value="status">Group: Unlocked / Locked</option>' +
+        '<option value="none">Group: None</option></select></div>';
+      var tag = function (list, kind) { return list.map(function (a) { return Object.assign({kind: kind}, a); }); };
+      if (achGroup === "none") {
+        var all = sortAch(tag(p.unlocks, "unlocked"), true).concat(tag(p.untimed, "untimed"), tag(p.locked, "locked"));
+        if (achSort === "name") all = sortAch(all);
+        html += '<div class="unlocks-day">All \u00b7 ' + all.length + '</div><div class="unlocks-group">' + achRowsHtml(all) + "</div>";
+      } else {
+        var groups = [["Unlocked", sortAch(p.unlocks, true), "unlocked"], ["Unlocked, no time kept by Steam", sortAch(p.untimed), "untimed"], ["Locked", sortAch(p.locked), "locked"]];
+        groups.forEach(function (g) {
+          if (!g[1].length) return;
+          html += '<div class="unlocks-day">' + g[0] + " \u00b7 " + g[1].length + '</div><div class="unlocks-group">' + achRowsHtml(g[1], g[2]) + "</div>";
+        });
+      }
+    }
+    page.innerHTML = html;
+    if (byId("ach-sort")) { byId("ach-sort").value = achSort; byId("ach-group").value = achGroup; }
+  }
+  byId("games-list").addEventListener("click", function (e) {
+    var row = e.target.closest("[data-appid]");
+    if (row) openGamePage(Number(row.getAttribute("data-appid")));
+  });
+  byId("games-list").addEventListener("keydown", function (e) {
+    var row = e.target.closest("[data-appid]");
+    if (row && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openGamePage(Number(row.getAttribute("data-appid"))); }
+  });
+  byId("game-page").addEventListener("click", function (e) {
+    var run = e.target.closest("[data-game-run]");
+    if (run) { selectedRun = run.getAttribute("data-game-run"); showScreen("work"); setView("runs"); }
+    if (e.target.closest("#ach-order")) { achOrder = achOrder === "desc" ? "asc" : "desc"; renderGamePage(); }
+    var fin = e.target.closest("[data-game-finish]");
+    if (fin && gamePage) {
+      fin.disabled = true;
+      api("/api/unlocks/finished", {appid: gamePage.appid, finished: !gamePage.finished}).then(function (r) {
+        gamePage.finished = r.finished;
+        ((unlocksData && unlocksData.games_list) || []).forEach(function (g) { if (g.appid === r.appid) g.finished = r.finished; });
+        renderGamePage();
+        renderGames(unlocksData);
+      }).catch(function (err) { fin.disabled = false; showToast("Couldn't save: " + err.message); });
+    }
+  });
+  byId("game-back").addEventListener("click", closeGamePage);
+  byId("game-page").addEventListener("change", function (e) {
+    if (e.target.id === "ach-group") { achGroup = e.target.value; renderGamePage(); return; }
+    if (e.target.id !== "ach-sort") return;
+    achSort = e.target.value;
+    achOrder = achSort === "name" ? "asc" : "desc";  // A–Z, or newest first
+    renderGamePage();
+  });
+
+  function showLibraryTab(tab) {
+    if (tab === libraryTab) return;
+    libraryTab = tab;
+    renderUnlocks();
+    scrollLibraryTop();
+    api("/api/settings", {settings: {library_tab: libraryTab}}).then(function (d) { runSettings = d.settings; })
+      .catch(function (err) { showToast("Couldn't save: " + err.message); });
+  }
+  byId("library-tabs").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-tab]");
+    if (b) showLibraryTab(b.getAttribute("data-tab"));
+  });
+  // An unlock's game name opens that game's page, in Games.
+  byId("unlocks-list").addEventListener("click", function (e) {
+    var g = e.target.closest("[data-open-game]");
+    if (!g) return;
+    showLibraryTab("games");
+    openGamePage(Number(g.getAttribute("data-open-game")));
+  });
+  // Back to top, once the list has been scrolled a long way. In the app
+  // the Library scrolls on its own; on a page, the window does.
+  function libraryScroller() {
+    return document.documentElement.hasAttribute("data-desktop") ? byId("unlocks-screen") : document.scrollingElement;
+  }
+  function scrollLibraryTop() { libraryScroller().scrollTo({top: 0, behavior: "smooth"}); }
+  function syncToTop() {
+    byId("to-top").hidden = document.body.getAttribute("data-screen") !== "unlocks" || libraryScroller().scrollTop < 900;
+  }
+  byId("unlocks-screen").addEventListener("scroll", syncToTop);
+  window.addEventListener("scroll", syncToTop);
+  byId("to-top").addEventListener("click", scrollLibraryTop);
+
+  function renderUnlocks() {
+    var d = unlocksData, list = byId("unlocks-list");
+    var syncing = d && d.syncing;
+    byId("library-tabs").querySelectorAll("[data-tab]").forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.getAttribute("data-tab") === libraryTab));
+    });
+    byId("pane-achievements").hidden = libraryTab !== "achievements";
+    byId("pane-games").hidden = libraryTab !== "games";
+    renderGames(d);
+    syncToTop();
+    byId("unlocks-refresh").disabled = unlocksBusy || !!syncing;
+    byId("unlocks-range").querySelectorAll("[data-range]").forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.getAttribute("data-range") === unlocksRange));
+    });
+    // The unlocks in the chosen range, and in how many games.
+    var range = RANGES[unlocksRange] || RANGES.all, since = Date.now() / 1000 - range[0];
+    var shown = d && !unlocksError ? d.unlocks.filter(function (u) { return u.time >= since; }) : [];
+    var gameCount = {};
+    shown.forEach(function (u) { gameCount[u.appid] = 1; });
+    gameCount = Object.keys(gameCount).length;
+    // What's counted, then (with a key) the library; while Steam is
+    // read, how far along; when it was last read, on the right.
+    var lines = [];
+    if (unlocksBusy && !d) lines.push(escapeHtml("Asking Steam\u2026"));
+    else if (d && !unlocksError) {
+      var line = "<b>" + shown.length.toLocaleString() + "</b> achievement" + (shown.length === 1 ? "" : "s") + " in <b>" +
+        gameCount + "</b> game" + (gameCount === 1 ? "" : "s") + " " + range[1];
+      if (d.offline) line = '<span class="warn">' + escapeHtml(d.offline) + "</span> " + line;
+      lines.push(line);
+      if (syncing) {
+        lines.push('<span class="unlocks-sync">' + escapeHtml(syncing.total
+          ? "Reading your games from Steam: " + syncing.done + " of " + syncing.total + "\u2026"
+          : "Asking Steam what changed\u2026") + "</span>");
+      }
+    }
+    byId("unlocks-status").innerHTML = lines.map(function (l) { return "<div>" + l + "</div>"; }).join("");
+    if (syncing) byId("games-status").innerHTML += "<div>" + lines[lines.length - 1] + "</div>";
+    byId("unlocks-updated").textContent = d && !unlocksError && d.fetched_at ? "Updated " + fmtClock(new Date(d.fetched_at * 1000)) : "";
+    if (unlocksError) {
+      list.innerHTML = problemHtml("warn", (unlocksError.data || {}).title, unlocksError.message);
+    } else if (d && !shown.length) {
+      list.innerHTML = syncing && !d.unlocks.length ? "" : emptyHtml("\u2606", "No unlocks " + range[1] + ".");
+    } else if (d) {
+      var html = "", lastDay = null;
+      shown.forEach(function (u) {
+        var at = new Date(u.time * 1000), day = unlockDay(at);
+        if (day !== lastDay) {
+          html += (lastDay ? "</div>" : "") + '<div class="unlocks-day">' + escapeHtml(day) + '</div><div class="unlocks-group">';
+          lastDay = day;
+        }
+        html += '<div class="unlock' + (u.hidden || u.private ? " hidden-game" : "") + '">' +
+          iconHtml("unlock-icon", u.icon, "ach") +
+          '<div class="unlock-text"><div class="unlock-name">' + escapeHtml(u.name) + "</div>" +
+          achDescHtml(u, false) + "</div>" +
+          '<div class="unlock-meta"><div class="unlock-game" data-open-game="' + u.appid + '" role="button" tabindex="0">' + markHtml(u) + escapeHtml(u.game) + "</div>" +
+          '<div class="unlock-time">' + escapeHtml(fmtClock(at)) + "</div></div></div>";
+      });
+      list.innerHTML = html + (lastDay ? "</div>" : "");
+    } else if (!unlocksBusy) list.innerHTML = "";
+    // While Steam is read in the background, look again in a moment.
+    clearTimeout(unlocksPoll);
+    if (syncing && document.body.getAttribute("data-screen") === "unlocks") {
+      unlocksPoll = setTimeout(function () { loadUnlocks(false); }, 2000);
+    }
+    // Which games, in a line; the key itself is in Settings.
+    byId("unlocks-note").hidden = unlocksHasKey !== false;
+    byId("unlocks-note").innerHTML = unlocksHasKey !== false ? ""
+      : 'The games in STAR. To include every game you play, add a Steam Web API key in <button class="link-btn" type="button" data-go-settings>Settings</button>.';
+    var go = byId("unlocks-note").querySelector("[data-go-settings]");
+    if (go) go.addEventListener("click", showGuide);
+    renderUnlocksKey();
+  }
+  // The range and sorting picked here last until the app closes; their
+  // defaults are in Settings → Library.
+  byId("unlocks-range").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-range]");
+    if (!b || b.getAttribute("data-range") === unlocksRange) return;
+    unlocksRange = b.getAttribute("data-range");
+    renderUnlocks();
+  });
+  byId("games-sort").addEventListener("change", function () {
+    gamesSort = this.value;
+    gamesOrder = gamesSort === "name" ? "asc" : "desc";  // A–Z, or newest / most first
+    renderUnlocks();
+  });
+  byId("games-search").addEventListener("input", function () {
+    gamesQuery = this.value;
+    renderGames(unlocksData);
+  });
+  byId("games-order").addEventListener("click", function () {
+    gamesOrder = gamesOrder === "desc" ? "asc" : "desc";
+    renderUnlocks();
+  });
+  // Settings → Library: the defaults, saved in settings.json.
+  function saveSetting(values) {
+    api("/api/settings", {settings: values}).then(function (d) { runSettings = d.settings; syncToggles(); })
+      .catch(function (err) { showToast("Couldn't save: " + err.message); });
+  }
+  byId("default-range").addEventListener("change", function () { saveSetting({unlocks_range: this.value}); });
+  byId("lib-private").addEventListener("change", function () { saveSetting({library_private: this.value}); });
+  byId("lib-no-ach").addEventListener("change", function () { saveSetting({library_no_achievements: this.value}); });
+  byId("lib-finished").addEventListener("change", function () { saveSetting({library_finished: this.value}); });
+  byId("library-check").addEventListener("change", function () { saveSetting({library_check: this.value}); });
+  byId("hidden-descriptions").addEventListener("change", function () { saveSetting({hidden_descriptions: this.value}); });
+  byId("default-sort").addEventListener("change", function () {
+    var order = this.value === "name" ? "asc" : "desc";
+    syncOrderOptions(byId("default-order"), this.value, order);
+    saveSetting({library_sort: this.value, library_order: order});
+  });
+  byId("default-order").addEventListener("change", function () { saveSetting({library_order: this.value}); });
+  byId("default-ach-sort").addEventListener("change", function () {
+    var order = this.value === "name" ? "asc" : "desc";
+    syncOrderOptions(byId("default-ach-order"), this.value, order);
+    saveSetting({achievement_sort: this.value, achievement_order: order});
+  });
+  byId("default-ach-order").addEventListener("change", function () { saveSetting({achievement_order: this.value}); });
+  byId("default-ach-group").addEventListener("change", function () { saveSetting({achievement_group: this.value}); });
+  // Settings → Library: the Steam Web API key, so the Library covers the
+  // whole library.
+  function renderUnlocksKey() {
+    var unknown = unlocksHasKey === null;
+    var link = '<a href="https://steamcommunity.com/dev/apikey" target="_blank" rel="noopener">steamcommunity.com/dev/apikey</a>';
+    byId("unlocks-key-text").innerHTML = unknown ? "" : unlocksHasKey
+      ? "Uses your Steam Web API key to cover every game you play and display its unlocked achievements."
+      : "The Library covers the games in STAR. To include every game you play, add a Steam Web API key: get one free at " +
+        link + " (any domain name works).";
+    byId("unlocks-key-actions").hidden = unknown || !unlocksHasKey || unlocksKeyOpen;
+    byId("unlocks-key-form").hidden = unknown || (unlocksHasKey && !unlocksKeyOpen);
+    byId("unlocks-key-error").hidden = !unlocksKeyError;
+    byId("unlocks-key-error").textContent = unlocksKeyError || "";
+  }
+  byId("unlocks-key-change").addEventListener("click", function () {
+    unlocksKeyOpen = true;
+    renderUnlocksKey();
+    byId("unlocks-key-input").focus();
+  });
+  byId("unlocks-key-remove").addEventListener("click", function () { saveUnlocksKey(""); });
+  function saveUnlocksKey(key) {
+    api("/api/unlocks/key", {key: key}).then(function (r) {
+      unlocksHasKey = r.has_key;
+      unlocksKeyOpen = false;
+      unlocksKeyError = null;
+      byId("unlocks-key-input").value = "";
+      unlocksData = null;  // read again with the library in or out
+      renderUnlocks();
+    }).catch(function (e) {
+      unlocksKeyError = ((e.data || {}).title ? e.data.title + ". " : "") + e.message;
+      renderUnlocksKey();
+    });
+  }
+  byId("unlocks-key-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var key = byId("unlocks-key-input").value.trim();
+    if (key) saveUnlocksKey(key);
+  });
+  byId("unlocks-refresh").addEventListener("click", function () { loadUnlocks(true); });
+  function showUnlocks() {
+    showScreen("unlocks");
+    if (unlocksHasKey === null) {
+      api("/api/unlocks/key").then(function (r) {
+        if (unlocksHasKey === null) { unlocksHasKey = r.has_key; renderUnlocks(); }
+      }).catch(function () {});
+    }
+    loadUnlocks(false);
+  }
+
   // Schedule / Runs in the top bar (app only).
   function syncScreenSwitch() {
     var work = document.body.getAttribute("data-screen") === "work";
     byId("switch-schedule").classList.toggle("active", work && currentView !== "runs");
     byId("switch-runs").classList.toggle("active", work && currentView === "runs");
+    byId("switch-unlocks").classList.toggle("active", document.body.getAttribute("data-screen") === "unlocks");
     byId("switch-guide").classList.toggle("active", document.body.getAttribute("data-screen") === "guide");
     byId("switch-home").classList.toggle("active", document.body.getAttribute("data-screen") === "home");
   }
   byId("switch-schedule").addEventListener("click", function () { showScreen("work"); setView(scheduleView); });
   byId("switch-runs").addEventListener("click", function () { showScreen("work"); setView("runs"); });
+  byId("switch-unlocks").addEventListener("click", showUnlocks);
   byId("switch-guide").addEventListener("click", showGuide);
   byId("switch-home").addEventListener("click", function () { showScreen("home"); });
 

@@ -50,6 +50,41 @@ DEFAULTS = {
     "auto_update": True,
     # The app's Runs list: show finished games too (at the bottom).
     "show_finished": False,
+    # A Steam Web API key (steamcommunity.com/dev/apikey), so the app's
+    # Library covers every game played, not just the games in STAR.
+    "steam_api_key": None,
+    # How the app writes clock times: "system" (the computer's way),
+    # "12h" (2:30 PM) or "24h" (14:30).
+    "clock": "system",
+    # The app's look (its Appearance menu).
+    "theme": "dark",
+    "accent": "violet",
+    # How far back the app's Library lists achievements: day, week, month, year or all.
+    "unlocks_range": "month",
+    # How the Library's Games are sorted: by when last played, the last
+    # achievement, name or progress; descending (newest, Z–A, most) or not.
+    "library_sort": "played",
+    "library_order": "desc",
+    # How a game's achievements are listed on its page: by date unlocked
+    # or name, descending (newest, Z–A) or not; grouped into unlocked and
+    # locked ("status") or all in one list ("none").
+    "achievement_sort": "date",
+    "achievement_order": "desc",
+    "achievement_group": "status",
+    # Which games the Library's Games list shows: those marked Private in
+    # Steam, those without achievements ("show" or "hide"), and those
+    # marked finished ("show", "hide" or "only").
+    "library_private": "show",
+    "library_no_achievements": "show",
+    "library_finished": "show",
+    # Which section the app's Library opens on: achievements or games.
+    "library_tab": "achievements",
+    # Hidden achievements' descriptions in the Library: shown once
+    # unlocked, always ("all"), or never ("none").
+    "hidden_descriptions": "unlocked",
+    # How often the Library checks Steam for new games and achievements,
+    # in the background: 1h, 3h, 6h, 12h, 24h, or "manual" (on Refresh).
+    "library_check": "6h",
 }
 
 # Accepted types per setting; None means null is allowed.
@@ -70,6 +105,22 @@ _TYPES = {
     "keep_awake": (bool,),
     "auto_update": (bool,),
     "show_finished": (bool,),
+    "steam_api_key": (str, type(None)),
+    "clock": (str,),
+    "theme": (str,),
+    "accent": (str,),
+    "unlocks_range": (str,),
+    "library_sort": (str,),
+    "library_order": (str,),
+    "achievement_sort": (str,),
+    "achievement_order": (str,),
+    "achievement_group": (str,),
+    "library_private": (str,),
+    "library_no_achievements": (str,),
+    "library_finished": (str,),
+    "library_tab": (str,),
+    "hidden_descriptions": (str,),
+    "library_check": (str,),
 }
 
 
@@ -84,6 +135,21 @@ APP_EDITABLE = [
 ]
 # On/off switches the app shows on their own, outside the run settings.
 APP_TOGGLES = ["keep_awake", "auto_update", "show_finished"]
+# Choices the app shows on their own, with what each can be.
+APP_CHOICES = {"clock": ["system", "12h", "24h"], "theme": ["dark", "light"],
+               "accent": ["violet", "wine", "blue", "teal", "amber"],
+               "unlocks_range": ["day", "week", "month", "year", "all"],
+               "library_sort": ["played", "achievement", "name", "progress", "playtime"],
+               "library_order": ["desc", "asc"],
+               "achievement_sort": ["date", "name"],
+               "achievement_order": ["desc", "asc"],
+               "achievement_group": ["status", "none"],
+               "library_private": ["show", "hide"],
+               "library_no_achievements": ["show", "hide"],
+               "library_finished": ["show", "hide", "only"],
+               "library_tab": ["achievements", "games"],
+               "hidden_descriptions": ["unlocked", "all", "none"],
+               "library_check": ["1h", "3h", "6h", "12h", "24h", "manual"]}
 
 # Settings older versions had, ignored (and dropped on the next save from
 # the app) rather than refused as unknown.
@@ -113,6 +179,9 @@ def problems(overrides):
         found.append("'play_check_interval' must be at least 1")
     if overrides.get("jitter_percent", 0) > 100:
         found.append("'jitter_percent' can't be more than 100")
+    for key, choices in APP_CHOICES.items():
+        if key in overrides and overrides[key] not in choices:
+            found.append(f"{key!r} must be one of: {', '.join(choices)}")
     return found
 
 

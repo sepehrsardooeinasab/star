@@ -25,7 +25,7 @@ from urllib.parse import parse_qs, urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from unlocker import achievements, asf_setup, extras, updates
+from unlocker import achievements, asf_setup, extras, unlocks, updates
 from unlocker import settings as settings_module
 from unlocker.paths import CODE_DIR, DATA_DIR
 from unlocker.runner import _session_bounds, _session_status, config_changed
@@ -148,6 +148,8 @@ def _game_state(name, session_label):
         appid=config["appid"],
         copied_from=config.get("copied_from"),
         title=_title(config),
+        icon=achievements.app_icon(config["appid"]),
+        counters=achievements.app_counters(config["appid"]),
         total=total,
         done=min(progress["last_completed"] + 1, total),
         config_changed=config_changed(config, progress))
@@ -195,7 +197,9 @@ def game_states():
             config = _finished_config(name)
             if config:
                 game.update(appid=config["appid"], copied_from=config.get("copied_from"),
-                            title=_title(config), total=len(config["achievements"]),
+                            title=_title(config), icon=achievements.app_icon(config["appid"]),
+                            counters=achievements.app_counters(config["appid"]),
+                            total=len(config["achievements"]),
                             done=len(config["achievements"]))
             games.append(game)
     games.sort(key=lambda g: g["name"])
@@ -211,14 +215,15 @@ def run_settings():
         raise AppError(f"settings.json is {e}. Fix it or delete it.")
     return {"settings": [{"key": key, "value": overrides.get(key, settings_module.DEFAULTS[key]),
                           "default": settings_module.DEFAULTS[key]}
-                         for key in settings_module.APP_EDITABLE + settings_module.APP_TOGGLES]}
+                         for key in settings_module.APP_EDITABLE + settings_module.APP_TOGGLES
+                         + list(settings_module.APP_CHOICES)]}
 
 
 def save_run_settings(values):
     """Writes the app's settings into settings.json, keeping its other keys
     and leaving out any that are back at their default. Runs started after
     this use them."""
-    editable = settings_module.APP_EDITABLE + settings_module.APP_TOGGLES
+    editable = settings_module.APP_EDITABLE + settings_module.APP_TOGGLES + list(settings_module.APP_CHOICES)
     if not isinstance(values, dict) or any(k not in editable for k in values):
         raise AppError("Unknown setting.")
     try:
@@ -504,6 +509,47 @@ def achievements_from_link(url):
         raise AppError(str(e), 409, title=e.title)
 
 
+def app_counters(appid):
+    """How many of a game's achievements are counters, for Schedule; None
+    while it's looked up."""
+    try:
+        appid = int(appid)
+    except (TypeError, ValueError):
+        return {"appid": None, "counters": None}
+    return {"appid": appid, "counters": achievements.app_counters(appid)}
+
+
+def recent_unlocks(refresh):
+    """This account's latest unlocks, read from Steam (see unlocks)."""
+    try:
+        return unlocks.recent(refresh)
+    except unlocks.Problem as e:
+        raise AppError(str(e), 409, title=e.title, has_key=bool(unlocks._key()))
+
+
+def mark_finished(appid, finished):
+    try:
+        return unlocks.set_finished(appid, finished)
+    except unlocks.Problem as e:
+        raise AppError(str(e), 400, title=e.title)
+
+
+def unlocks_game(appid):
+    try:
+        return unlocks.game_page(appid)
+    except unlocks.Problem as e:
+        raise AppError(str(e), 404, title=e.title)
+
+
+def save_unlocks_key(key):
+    try:
+        return unlocks.save_key(str(key or ""))
+    except unlocks.Problem as e:
+        raise AppError(str(e), 409, title=e.title)
+    except ValueError as e:
+        raise AppError(f"settings.json is {e}. Fix it or delete it.")
+
+
 def test_keep_awake():
     works, found = extras.test_keep_awake()
     return {"works": works, "found": found}
@@ -567,6 +613,26 @@ def _auto_update():
             tried.add(state["latest"])
             updates.start_update()
         time.sleep(600)
+
+
+def _check_library():
+    """Checks Steam for new games and achievements as often as Settings →
+    Library says (library_check), the Library open or not."""
+    time.sleep(120)  # let the app settle first
+    while True:
+        try:
+            unlocks.auto_check()
+        except Exception:  # noqa: BLE001 - a background check never stops the server
+            pass
+        time.sleep(300)
+
+
+def _learn_steamid():
+    """Saves the account's Steam ID the first time ArchiSteamFarm runs
+    signed in (a session, a check), so Unlocks works with it closed."""
+    while not unlocks.STEAMID_PATH.exists():
+        unlocks.steamid()  # asks ASF only when it's running
+        time.sleep(120)
 
 
 def _finish_login(result):
@@ -667,7 +733,11 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/log": lambda: read_log(query.get("name")),
             "/api/timeline": lambda: read_timeline(query.get("name")),
             "/api/achievements/progress": lambda: numbers_progress(query.get("appid")),
+            "/api/achievements/counters": lambda: app_counters(query.get("appid")),
             "/api/settings": run_settings,
+            "/api/unlocks": lambda: recent_unlocks(query.get("refresh") == "1"),
+            "/api/unlocks/key": lambda: {"has_key": bool(unlocks._key())},
+            "/api/unlocks/game": lambda: unlocks_game(query.get("appid")),
         }
         self._route(routes.get(url.path))
 
@@ -706,6 +776,8 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/achievements/appid": lambda: {"appid": achievements.find_appid(str(body.get("name") or "")[:200])},
             "/api/setup/login": lambda: setup_login(body.get("username"), body.get("password")),
             "/api/setup/code": lambda: setup_code(body.get("code")),
+            "/api/unlocks/key": lambda: save_unlocks_key(body.get("key")),
+            "/api/unlocks/finished": lambda: mark_finished(body.get("appid"), bool(body.get("finished"))),
             "/api/update": app_update,
             "/api/quit": quit_server,
         }
@@ -758,6 +830,8 @@ def serve():
     print(f"Serving {URL} (started {datetime.now():%a %H:%M}).")
     threading.Thread(target=_keep_asf_current, daemon=True).start()
     threading.Thread(target=_auto_update, daemon=True).start()
+    threading.Thread(target=_learn_steamid, daemon=True).start()
+    threading.Thread(target=_check_library, daemon=True).start()
     _server = server
     server.serve_forever()
 

@@ -93,6 +93,8 @@ def _steam_stats(kind, who, app):
             "apiname": _clean(a.findtext("apiname")),
             "unlocked": a.get("closed") == "1",
             "unlock_time": int(stamp) if stamp and stamp.isdigit() else None,
+            "icon": _clean(a.findtext("iconClosed")),
+            "icon_locked": _clean(a.findtext("iconOpen")),
         })
     if not achievements:
         raise Problem("Steam shows no achievements for this player and game",
@@ -183,6 +185,9 @@ def _bot_steamid():
     steamid = bot.get("SteamID")
     if not steamid:
         raise Problem("Couldn't check the achievement numbers", "ArchiSteamFarm isn't signed in to Steam yet. Check Settings, then try again.")
+    # Recent unlocks reads this account's games, with ArchiSteamFarm closed too.
+    from unlocker.unlocks import remember_steamid
+    remember_steamid(str(steamid))
     return str(steamid)
 
 
@@ -296,3 +301,174 @@ def app_title(appid):
             _titles_pending.add(appid)
             threading.Thread(target=_fetch_title, args=(appid,), daemon=True).start()
     return None
+
+
+ICONS_PATH = JSONS_DIR / ".icons.json"
+# Steam's current image host: the older one (cdn.cloudflare…/steamcommunity/
+# public/images/apps/) lacks newer games' icons.
+ICON_URL = "https://shared.fastly.steamstatic.com/community_assets/images/apps/{appid}/{icon}.jpg"
+OLD_ICON_HOST = "https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/apps/"
+
+
+def current_host(url):
+    """An icon address moved to Steam's current image host."""
+    return url.replace(OLD_ICON_HOST, ICON_URL.split("{appid}")[0]) if url else url
+_icons_lock = threading.Lock()
+_icons_pending = set()
+_icons_failed = {}  # appid -> when a lookup last failed
+
+
+def _fetch_icons():
+    """Looks up the pending games' icons, until none are left."""
+    while True:
+        time.sleep(0.2)  # let one poll's games gather into one request
+        with _icons_lock:
+            appids = sorted(_icons_pending)
+            if not appids:
+                return
+        _fetch_icon_batch(appids)
+
+
+def _fetch_icon_batch(appids):
+    """Looks up these games' icons in one request to Steam (no key
+    needed), and saves them to jsons/.icons.json."""
+    query = urllib.parse.urlencode({f"appids[{i}]": appid for i, appid in enumerate(appids)})
+    try:
+        req = urllib.request.Request("https://api.steampowered.com/ICommunityService/GetApps/v1/?" + query,
+                                     headers={"User-Agent": "Mozilla/5.0 (STAR)"})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            apps = (json.loads(r.read()).get("response") or {}).get("apps") or []
+    except (urllib.error.URLError, OSError, ValueError):
+        apps = []
+    found = {app["appid"]: app["icon"] for app in apps
+             if isinstance(app.get("appid"), int) and re.fullmatch(r"[0-9a-f]{40}", str(app.get("icon") or ""))}
+    with _icons_lock:
+        _icons_pending.difference_update(appids)
+        for appid in appids:
+            if appid not in found:
+                _icons_failed[appid] = time.monotonic()
+        if found:
+            try:
+                icons = json.loads(ICONS_PATH.read_text())
+            except (OSError, ValueError):
+                icons = {}
+            icons.update({str(appid): icon for appid, icon in found.items()})
+            ICONS_PATH.write_text(json.dumps(icons, indent=1) + "\n")
+
+
+def app_icon(appid):
+    """The game's small square icon on Steam, as a URL. Cached in
+    jsons/.icons.json; looked up in the background, so None until it's
+    known (or if Steam has none)."""
+    if not isinstance(appid, int) or appid <= 0:
+        return None
+    try:
+        icon = json.loads(ICONS_PATH.read_text()).get(str(appid))
+    except (OSError, ValueError):
+        icon = None
+    if icon:
+        return ICON_URL.format(appid=appid, icon=icon)
+    with _icons_lock:
+        failed = _icons_failed.get(appid)
+        if appid not in _icons_pending and (failed is None or time.monotonic() - failed > TITLE_RETRY):
+            start = not _icons_pending
+            _icons_pending.add(appid)
+            if start:
+                threading.Thread(target=_fetch_icons, daemon=True).start()
+    return None
+
+
+# From Steam's list of a game's achievements: its counters, achievements
+# that track progress in a stat (kill 200 enemies, find 26 radios), whose
+# counter an unlock doesn't move (a game with any is flagged, as its
+# unlocks won't look earned); and its hidden achievements' descriptions,
+# which the stats page leaves out. Saved per game as {"counters": n,
+# "hidden": {name: description}} (just n, from an older STAR, is looked
+# up again for the descriptions).
+COUNTERS_PATH = JSONS_DIR / ".counters.json"
+_counters_lock = threading.Lock()
+_counters_pending = set()
+_counters_failed = {}  # appid -> when a lookup last failed
+
+
+def _fetch_counters():
+    """Looks up the pending games' achievement lists, one game a request
+    (no key needed), until none are left; saved to jsons/.counters.json."""
+    while True:
+        with _counters_lock:
+            if not _counters_pending:
+                return
+            appid = min(_counters_pending)
+        info = None
+        try:
+            req = urllib.request.Request("https://api.steampowered.com/IPlayerService/GetGameAchievements/v1/?" +
+                                         urllib.parse.urlencode({"appid": appid, "language": "english"}),
+                                         headers={"User-Agent": "Mozilla/5.0 (STAR)"})
+            with urllib.request.urlopen(req, timeout=15) as r:
+                found = (json.loads(r.read()).get("response") or {}).get("achievements") or []
+            # A target of 1 is a yes/no stat, not a counter.
+            info = {"counters": sum(1 for a in found if int(a.get("max_progress_int") or 0) > 1),
+                    "hidden": {a["localized_name"]: a.get("localized_desc") or "" for a in found
+                               if a.get("hidden") and a.get("localized_name")}}
+        except (urllib.error.URLError, OSError, ValueError, TypeError, AttributeError):
+            pass
+        with _counters_lock:
+            _counters_pending.discard(appid)
+            if info is None:
+                _counters_failed[appid] = time.monotonic()
+            else:
+                saved = dict(_saved_info())
+                saved[str(appid)] = info
+                COUNTERS_PATH.write_text(json.dumps(saved, indent=1) + "\n")
+        time.sleep(0.25)  # Steam turns away many requests at once
+
+
+_info_cache = [None, {}]  # the file's mtime, what it holds
+
+
+def _saved_info():
+    """jsons/.counters.json, read again only when it changed."""
+    try:
+        mtime = COUNTERS_PATH.stat().st_mtime
+        if mtime != _info_cache[0]:
+            _info_cache[:] = [mtime, json.loads(COUNTERS_PATH.read_text())]
+    except (OSError, ValueError):
+        _info_cache[:] = [None, {}]
+    return _info_cache[1]
+
+
+def app_counters(appid):
+    """How many of the game's achievements are counters (0 for none).
+    Cached in jsons/.counters.json; looked up in the background, so None
+    until it's known."""
+    if not isinstance(appid, int) or appid <= 0:
+        return None
+    info = _saved_info().get(str(appid))
+    if isinstance(info, int):
+        return info
+    if isinstance(info, dict):
+        return info.get("counters")
+    _look_up(appid)
+    return None
+
+
+def app_hidden(appid):
+    """The game's hidden achievements' descriptions, {name: description}
+    ({} for none); looked up as app_counters, so None until known."""
+    if not isinstance(appid, int) or appid <= 0:
+        return None
+    info = _saved_info().get(str(appid))
+    if isinstance(info, dict):
+        return info.get("hidden") or {}
+    _look_up(appid)
+    return None
+
+
+def _look_up(appid):
+    with _counters_lock:
+        failed = _counters_failed.get(appid)
+        if appid not in _counters_pending and (failed is None or time.monotonic() - failed > TITLE_RETRY):
+            start = not _counters_pending
+            _counters_pending.add(appid)
+            if start:
+                threading.Thread(target=_fetch_counters, daemon=True).start()

@@ -14,5 +14,21 @@
   "jitter_percent": 10,
   "keep_awake": true,
   "auto_update": true,
-  "show_finished": false
+  "show_finished": false,
+  "steam_api_key": null,
+  "clock": "system",
+  "theme": "dark",
+  "accent": "violet",
+  "unlocks_range": "month",
+  "library_tab": "achievements",
+  "library_sort": "played",
+  "library_order": "desc",
+  "achievement_sort": "date",
+  "achievement_order": "desc",
+  "achievement_group": "status",
+  "library_private": "show",
+  "library_no_achievements": "show",
+  "library_finished": "show",
+  "hidden_descriptions": "unlocked",
+  "library_check": "6h"
 }

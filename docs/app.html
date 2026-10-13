@@ -39,6 +39,7 @@
     <button type="button" id="switch-home" class="switch-home" title="Home" aria-label="Home"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 9.2 10 3.8l6.5 5.4"/><path d="M5.2 8v7.7h3.4v-4.3h2.8v4.3h3.4V8"/></svg></button>
     <button type="button" id="switch-schedule" title="Make a schedule">Schedule</button>
     <button type="button" id="switch-runs" title="Run, stop and follow your games">Runs</button>
+    <button type="button" id="switch-unlocks" title="Your games and achievements, from Steam">Library</button>
     <button type="button" id="switch-guide" title="Setup, updates and how it works">Settings</button>
   </div>
   <div class="topbar-right">
@@ -99,6 +100,9 @@
         </select>
         <button class="btn-primary run-start" id="run-start" type="button" disabled>Run</button>
       </div>
+    </div>
+    <div class="pa pa-unlocks">
+      <button class="btn-ghost page-action" id="unlocks-refresh" type="button" title="Ask Steam again">Refresh</button>
     </div>
   </div>
 </div>
@@ -188,6 +192,97 @@
           </div>
         </details>
       </li>
+      <li class="setup-step done" id="step-unlocks" hidden>
+        <div class="step-head"><span class="step-mark"></span><b>Library</b></div>
+        <p class="step-text" id="unlocks-key-text"></p>
+        <div class="step-actions" id="unlocks-key-actions" hidden>
+          <button class="btn-ghost" id="unlocks-key-change" type="button">Change key</button>
+          <button class="btn-ghost" id="unlocks-key-remove" type="button">Remove key</button>
+        </div>
+        <form class="setup-form" id="unlocks-key-form" autocomplete="off" hidden>
+          <input type="password" id="unlocks-key-input" placeholder="Steam Web API key" spellcheck="false">
+          <button class="btn-ghost" type="submit">Save</button>
+        </form>
+        <p class="step-text unlocks-key-error" id="unlocks-key-error" hidden></p>
+        <div class="lib-defaults">
+          <div class="lib-default"><span>Achievements shown</span>
+            <select id="default-range" aria-label="Achievements shown">
+              <option value="day">Last day</option>
+              <option value="week">Last week</option>
+              <option value="month">Last month</option>
+              <option value="year">Last year</option>
+              <option value="all">All</option>
+            </select>
+          </div>
+          <div class="lib-default"><span>Games sorted by</span>
+            <select id="default-sort" aria-label="Games sorted by">
+              <option value="name">Name</option>
+              <option value="progress">Progress</option>
+              <option value="achievement">Last achievement</option>
+              <option value="played">Last played</option>
+              <option value="playtime">Play time</option>
+            </select>
+            <select id="default-order" aria-label="Order"></select>
+          </div>
+          <div class="lib-default"><span>Private games</span>
+            <select id="lib-private" aria-label="Private games">
+              <option value="show">Show</option>
+              <option value="hide">Hide</option>
+            </select>
+          </div>
+          <div class="lib-default"><span>Games without achievements</span>
+            <select id="lib-no-ach" aria-label="Games without achievements">
+              <option value="show">Show</option>
+              <option value="hide">Hide</option>
+            </select>
+          </div>
+          <div class="lib-default"><span>Finished games</span>
+            <select id="lib-finished" aria-label="Finished games">
+              <option value="show">Show</option>
+              <option value="hide">Hide</option>
+              <option value="only">Show only them</option>
+            </select>
+          </div>
+          <div class="lib-default"><span>Achievements sorted by</span>
+            <select id="default-ach-sort" aria-label="A game's achievements sorted by">
+              <option value="date">Date unlocked</option>
+              <option value="name">Name</option>
+            </select>
+            <select id="default-ach-order" aria-label="Order"></select>
+          </div>
+          <div class="lib-default"><span>Achievements grouped</span>
+            <select id="default-ach-group" aria-label="A game's achievements grouped">
+              <option value="status">Unlocked / Locked</option>
+              <option value="none">None</option>
+            </select>
+          </div>
+          <div class="lib-default"><span>Check Steam</span>
+            <select id="library-check" aria-label="How often to check Steam">
+              <option value="1h">Every hour</option>
+              <option value="3h">Every 3 hours</option>
+              <option value="6h">Every 6 hours</option>
+              <option value="12h">Every 12 hours</option>
+              <option value="24h">Every day</option>
+              <option value="manual">Only on Refresh</option>
+            </select>
+          </div>
+          <div class="lib-default"><span>Hidden achievements</span>
+            <select id="hidden-descriptions" aria-label="Hidden achievements' descriptions">
+              <option value="unlocked">Describe once unlocked</option>
+              <option value="all">Always describe</option>
+              <option value="none">Never describe</option>
+            </select>
+          </div>
+        </div>
+      </li>
+      <li class="setup-step done" id="step-clock" hidden>
+        <div class="step-head"><span class="step-mark"></span><b>Clock</b></div>
+        <select id="clock-format" aria-label="How times are written">
+          <option value="system">Like this computer</option>
+          <option value="12h">12-hour (2:30 PM)</option>
+          <option value="24h">24-hour (14:30)</option>
+        </select>
+      </li>
       <li class="setup-step done" id="step-data" hidden>
         <div class="step-head"><span class="step-mark"></span><b>Data folder</b></div>
         <code class="data-path" id="data-path"></code>
@@ -203,7 +298,7 @@
           <button class="btn-ghost" id="update-check" type="button">Check for updates</button>
           <button class="btn-ghost primary-ghost" id="update-now" type="button" hidden>Update now</button>
         </div>
-        <label class="setting-check" id="auto-update-row"><input type="checkbox" id="auto-update-on" disabled> Update automatically (when no game is playing)</label>
+        <label class="setting-check" id="auto-update-row"><input type="checkbox" id="auto-update-on" disabled> Update automatically</label>
       </li>
     </ol>
     <p class="setup-error" id="setup-error" hidden></p>
@@ -263,6 +358,7 @@
       <div class="schedule-bar" id="schedule-bar">
         <label class="bar-field" data-slot="game-name">Game</label>
         <label class="bar-field bar-appid" data-slot="appid">App ID</label>
+        <span class="bar-counters" id="schedule-counters"></span>
         <label class="bar-field bar-from" data-slot="copied-from">Copied from</label>
         <details class="bar-options" id="bar-options">
           <summary>Options</summary>
@@ -402,6 +498,58 @@
     </div>
   </main>
 </div>
+
+<!-- Unlocks (app only): the account's latest achievements, from Steam. -->
+<section class="unlocks" id="unlocks-screen" aria-label="Library">
+  <div class="unlocks-bar">
+    <div class="segmented library-tabs" id="library-tabs" role="group" aria-label="Section">
+      <button type="button" data-tab="games">Games</button>
+      <button type="button" data-tab="achievements">Achievements</button>
+    </div>
+    <!-- In a game's page, in the tabs' place. -->
+    <button class="btn-ghost game-back" id="game-back" type="button" hidden>← Games</button>
+    <span class="unlocks-updated" id="unlocks-updated"></span>
+  </div>
+  <p class="unlocks-note" id="unlocks-note"></p>
+  <div class="library-pane" id="pane-achievements">
+  <div class="unlocks-bar">
+    <div class="segmented" id="unlocks-range" role="group" aria-label="How far back">
+      <button type="button" data-range="day">Day</button>
+      <button type="button" data-range="week">Week</button>
+      <button type="button" data-range="month">Month</button>
+      <button type="button" data-range="year">Year</button>
+      <button type="button" data-range="all">All</button>
+    </div>
+  </div>
+  <div class="unlocks-status" id="unlocks-status"></div>
+  <div class="unlocks-list" id="unlocks-list"></div>
+  </div>
+  <div class="library-pane" id="pane-games" hidden>
+    <div class="game-page" id="game-page" hidden></div>
+    <div id="games-index">
+    <div class="unlocks-bar">
+      <input class="games-search" id="games-search" type="search" placeholder="Search games" aria-label="Search games" autocomplete="off" spellcheck="false">
+      <div class="games-sort">
+        <select id="games-sort" aria-label="Sort by">
+          <option value="name">Name</option>
+          <option value="progress">Progress</option>
+          <option value="achievement">Last achievement</option>
+          <option value="played">Last played</option>
+          <option value="playtime">Play time</option>
+        </select>
+        <button class="btn-ghost" id="games-order" type="button"></button>
+      </div>
+    </div>
+    <div class="unlocks-status" id="games-status"></div>
+    <p class="unlocks-hidden" id="games-unshown" hidden></p>
+    <div class="unlocks-group library-games" id="games-list"></div>
+    </div>
+  </div>
+  <button class="to-top" id="to-top" type="button" hidden aria-label="Back to top">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 13V3.5M3.5 8 8 3.5 12.5 8"/></svg>
+    Top
+  </button>
+</section>
 </div>
 
 <div class="toast" id="toast"></div>
