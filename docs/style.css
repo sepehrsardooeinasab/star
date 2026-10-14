@@ -1715,7 +1715,7 @@
   .bar-popover #reset-btn { height: 30px; padding: 0; font-size: 0.78rem; }
 
   /* Schedule after a clean paste: a line saying what it gave, then the
-     result at full width; the paste box comes back when it's unlocked. */
+     result, with the paste narrowed beside it. */
   .paste-summary { display: none; }
   body.local .box.has-timeline .paste-summary {
     grid-column: 1 / -1;
@@ -1727,13 +1727,13 @@
   .paste-summary-stats { flex: 1; min-width: 0; }
   .paste-summary .stats-strip { display: flex; flex-wrap: wrap; gap: 0.2rem 1.2rem; font-size: 0.8rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
   .paste-summary .stats-strip b { color: var(--text); font-weight: 600; }
-  /* As in Runs: the lock and Full timeline one size. */
-  .paste-summary :is(#paste-edit-btn, #sched-full-btn) { box-sizing: border-box; height: 1.7rem; min-width: 6.5rem; }
+  .paste-summary #sched-full-btn { box-sizing: border-box; height: 1.7rem; min-width: 6.5rem; }
   .paste-summary #sched-full-btn { justify-content: center; text-align: center; }
   .paste-summary .bar-btn[aria-pressed="true"] { color: var(--accent); background: var(--accent-tint); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
   body.local .box.has-timeline .view-pane[data-view="input"].active { grid-template-rows: auto minmax(0, 1fr); }
-  body.local .box.paste-folded .view-pane[data-view="input"].active { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
-  body.local .box.paste-folded .view-pane[data-view="input"] > .field { display: none; }
+  body.local .box.has-timeline .view-pane[data-view="input"].active { grid-template-columns: minmax(0, 1fr) minmax(0, 2.4fr); }
+  /* Its warnings show under the timeline, so not twice. */
+  body.local .box.has-timeline #input-alert-slot { display: none; }
 
   /* The overview and the log take only the room they need: a short
      game's overview isn't padded out, and an empty log is a line, growing

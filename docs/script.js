@@ -1019,7 +1019,6 @@
   }
 
   var combined = false;  // the app's one-screen Schedule (see enableLocal)
-  var pasteOpen = false;  // the paste box shown again after it folded
   var schedFull = false;  // every achievement instead of the sessions
 
   function fileKeyForView(view) {
@@ -1118,13 +1117,10 @@
       var box = document.querySelector(".box");
       box.classList.toggle("has-paste", !!els.exportText.value.trim());
       box.classList.toggle("has-timeline", !!ok);
-      // A clean paste folds away (unlocking it brings it back), leaving the
-      // sessions overview, or with Full timeline, every achievement.
-      box.classList.toggle("paste-folded", !!ok && !pasteOpen);
-      // The App ID goes with the paste: changed only while the paste is
-      // open (empty, or unlocked), not over its timeline.
-      els.appid.readOnly = !!ok && !pasteOpen;
-      if (els.appid.readOnly) els.appid.setAttribute("data-tip", "Unlock to change it");
+      // The App ID goes with the paste: fixed over its timeline, free
+      // again once the paste is cleared.
+      els.appid.readOnly = !!ok;
+      if (els.appid.readOnly) els.appid.setAttribute("data-tip", "Clear the paste to change it");
       else els.appid.removeAttribute("data-tip");
       box.classList.toggle("sched-full", !!ok && schedFull);
       if (!latest || latest.errors.length) {
@@ -1184,16 +1180,6 @@
     schedFull = !schedFull;
     this.setAttribute("aria-pressed", String(schedFull));
     render();
-  });
-  // The same lock as Runs and Settings: unlocked, the paste (and the App
-  // ID) can be edited; locked, it folds away over its timeline.
-  byId("paste-edit-btn").addEventListener("click", function () {
-    pasteOpen = !pasteOpen;
-    this.setAttribute("aria-pressed", String(pasteOpen));
-    byId("paste-lock-label").textContent = pasteOpen ? "Unlocked" : "Locked";
-    this.setAttribute("data-tip", pasteOpen ? "Lock again: the paste folds away" : "Unlock to edit the paste and App ID");
-    render();
-    if (pasteOpen) els.exportText.focus();
   });
 
   var debounceTimer = null;
