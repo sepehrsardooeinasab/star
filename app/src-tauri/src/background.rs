@@ -166,6 +166,10 @@ pub fn hide_instead_of_close(window: &tauri::Window) -> bool {
     }
     let _ = window.hide();
     let _ = window.app_handle().set_activation_policy(ActivationPolicy::Accessory);
+    // Schedule opens empty next time, as after quitting.
+    if let Some(page) = window.app_handle().get_webview_window("main") {
+        let _ = page.eval("window.starWindowClosed && window.starWindowClosed()");
+    }
     true
 }
 

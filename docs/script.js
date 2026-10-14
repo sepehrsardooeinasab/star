@@ -224,15 +224,17 @@
   var RETRY_AFTER = [5000, 15000, 30000];
   function loadNumbers(appid) {
     var n = numberings[appid];
+    var retrying = null;  // the failed check this one tries again by itself
     if (n && n.status === "error") {
       if (n.paste === els.exportText.value && !n.retryNow) return n;
       if (n.paste !== els.exportText.value) numbersTries[appid] = 0;
+      else retrying = n;
     } else if (n) return n;
     if (numbersWanted !== appid) {
       numbersWanted = appid;
       clearTimeout(numbersTimer);
       numbersTimer = setTimeout(function () {
-        var loading = numberings[appid] = {status: "loading", steps: []};
+        var loading = numberings[appid] = {status: "loading", steps: [], retrying: retrying};
         // What the check is doing (starting ArchiSteamFarm, signing in…),
         // shown as it goes.
         var poll = setInterval(function () {
@@ -260,7 +262,7 @@
         });
       }, 1200);
     }
-    return {status: "loading"};
+    return {status: "loading", retrying: retrying};
   }
 
   function sameText(a, b) {
@@ -800,9 +802,17 @@
     return '<div class="empty-hint"><div class="glyph">' + glyph + "</div><p>" + escapeHtml(text) + "</p></div>";
   }
 
+  // Where Schedule's draft is kept. In the app only until it quits (a
+  // reload keeps it), so it opens empty; the website keeps it.
+  var desktop = document.documentElement.hasAttribute("data-desktop");
+  var draftStore = null;
+  try {
+    draftStore = desktop ? sessionStorage : localStorage;
+    if (desktop) localStorage.removeItem("unlock-scheduler-draft");  // kept there before
+  } catch (e) {}
   function saveDraft() {
     try {
-      localStorage.setItem("unlock-scheduler-draft", JSON.stringify({
+      draftStore.setItem("unlock-scheduler-draft", JSON.stringify({
         exportText: els.exportText.value,
         appid: els.appid.value,
         gameName: els.gameName.value,
@@ -818,7 +828,7 @@
 
   function loadDraft() {
     try {
-      var raw = localStorage.getItem("unlock-scheduler-draft");
+      var raw = draftStore.getItem("unlock-scheduler-draft");
       if (!raw) return;
       var d = JSON.parse(raw);
       if (d.exportText) els.exportText.value = d.exportText;
@@ -893,6 +903,9 @@
     var numberDangers = [], numberWarnings = [];
     if (local) {
       var numbering = loadNumbers(appidVal);
+      // Trying again by itself: what the last try gave stays up (its
+      // message says it tries again), rather than the timeline going.
+      if (numbering.status === "loading" && numbering.retrying) numbering = numbering.retrying;
       if (numbering.status === "loading") {
         latest = {errors: ["Checking the achievement numbers with ArchiSteamFarm\u2026"], pending: true,
                   steps: numbering.steps};
@@ -1119,6 +1132,12 @@
       var box = document.querySelector(".box");
       box.classList.toggle("has-paste", !!els.exportText.value.trim());
       box.classList.toggle("has-timeline", !!ok);
+      // Behind it all, as in Runs: a glow in the colour of the game the
+      // App ID names.
+      var schedAppid = parseInt(els.appid.value, 10);
+      tintFor(schedAppid > 0 ? {appid: schedAppid} : null, function (tint) {
+        setTint(document.querySelector('.view-pane[data-view="input"]'), tint);
+      }, "schedule");
       // A new App ID rebuilds the timeline (its numbers checked again), so
       // it's fixed while there are Timeline edits to lose.
       els.appid.readOnly = editCount() > 0;
@@ -1285,10 +1304,17 @@
     edits = {};
     breaks = {};
     armedUntil = {};
-    try { localStorage.removeItem("unlock-scheduler-draft"); } catch (e) {}
+    try { draftStore.removeItem("unlock-scheduler-draft"); } catch (e) {}
     recompute();
     setView("input");
   }
+  // The app's window closed while a game runs (STAR stays in the menu
+  // bar): Schedule is emptied, as when STAR quits. Called by the app.
+  window.starWindowClosed = function () {
+    var view = currentView;
+    resetAll();
+    if (view !== "input") setView(view);
+  };
 
   els.resetBtn.addEventListener("click", function () {
     if (editCount() && !confirmTwice("reset")) return;
@@ -1553,15 +1579,30 @@
   }
 
   function gameTitle(g) { return g.title || g.name; }
-  // A game's main colour ("r, g, b"), from its art: the most common
-  // colourful shade, so a dark or grey background doesn't win. Worked out
-  // once per game and remembered on this computer.
+  // The glow's colours on el (see tintFor), or none.
+  function setTint(el, tint) {
+    if (tint) {
+      el.style.setProperty("--run-tint", tint[0]);
+      el.style.setProperty("--run-tint-2", tint[1]);
+    } else {
+      el.style.removeProperty("--run-tint");
+      el.style.removeProperty("--run-tint-2");
+    }
+  }
+  // A game's two main colours (["r, g, b", "r, g, b"]), from its art: the
+  // most common colourful shade, so a dark or grey background doesn't win,
+  // and the next one that's clearly different (else the first again).
+  // Worked out once per game and remembered on this computer.
   var tints = {};
-  try { tints = JSON.parse(localStorage.getItem("game-tints") || "{}") || {}; } catch (e) {}
-  var tintWanted = null;
-  function tintFor(g, done) {
+  try {
+    tints = JSON.parse(localStorage.getItem("game-tints-2") || "{}") || {};
+    localStorage.removeItem("game-tints");  // one colour each, before
+  } catch (e) {}
+  var tintWanted = {};  // per place it shows (Runs, Schedule): the latest asked
+  function tintFor(g, done, place) {
+    place = place || "runs";
     var appid = g && g.appid > 0 ? g.appid : null;
-    tintWanted = appid;
+    tintWanted[place] = appid;
     if (!appid) return done(null);
     if (appid in tints) return done(tints[appid]);
     var img = new Image();
@@ -1584,17 +1625,35 @@
           k.n += w; k.r += r * w; k.g += gr * w; k.b += b * w;
           if (!best || k.n > best.n) best = k;
         }
-        if (best) tint = [best.r, best.g, best.b].map(function (c) { return Math.round(c / best.n); }).join(", ");
+        var rgb = function (k) { return [k.r / k.n, k.g / k.n, k.b / k.n]; };
+        var hue = function (c) {
+          var mx = Math.max.apply(null, c), mn = Math.min.apply(null, c), d = mx - mn || 1;
+          var h = mx === c[0] ? (c[1] - c[2]) / d : mx === c[1] ? 2 + (c[2] - c[0]) / d : 4 + (c[0] - c[1]) / d;
+          return (h * 60 + 360) % 360;
+        };
+        if (best) {
+          var first = rgb(best), second = first;
+          Object.keys(buckets).map(function (key) { return buckets[key]; })
+            .sort(function (a, b) { return b.n - a.n; })
+            .some(function (k) {
+              if (k.n < best.n * 0.15) return true;  // too little of it to count
+              var c = rgb(k), d = Math.abs(hue(c) - hue(first));
+              if (Math.min(d, 360 - d) > 40) { second = c; return true; }  // another hue, not a shade
+              return false;
+            });
+          var str = function (c) { return c.map(Math.round).join(", "); };
+          tint = [str(first), str(second)];
+        }
       } catch (e) {}
       tints[appid] = tint;
-      try { localStorage.setItem("game-tints", JSON.stringify(tints)); } catch (e) {}
-      if (tintWanted === appid) done(tint);
+      try { localStorage.setItem("game-tints-2", JSON.stringify(tints)); } catch (e) {}
+      if (tintWanted[place] === appid) done(tint);
     };
     // No library art: the next picture Steam has for the game.
     var tries = heroUrls(appid);
     img.onerror = function () {
       if (tries.length) img.src = tries.shift();
-      else if (tintWanted === appid) done(null);
+      else if (tintWanted[place] === appid) done(null);
     };
     img.src = tries.shift();
   }
@@ -1907,9 +1966,7 @@
     var shown = selectedGame();
     // Behind the selected game: a glow in its art's main colour.
     tintFor(runsError ? null : shown, function (tint) {
-      var runsLog = document.querySelector(".runs-log");
-      if (tint) runsLog.style.setProperty("--run-tint", tint);
-      else runsLog.style.removeProperty("--run-tint");
+      setTint(document.querySelector(".runs-log"), tint);
     });
     patchHtml(byId("run-summary"), runsError ? "" : summaryHtml(shown));
     patchHtml(byId("run-info"), runsError ? "" : infoHtml(shown));
@@ -3375,6 +3432,10 @@
   }
   function renderGamePage() {
     var page = byId("game-page"), open = gamePageFor !== null;
+    // Behind a game's page, as in Runs: a glow in its art's main colour.
+    tintFor(open ? {appid: gamePageFor} : null, function (tint) {
+      setTint(byId("unlocks-screen"), tint);
+    }, "library");
     page.hidden = !open;
     byId("games-index").hidden = open;
     byId("library-tabs").hidden = open;

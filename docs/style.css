@@ -930,23 +930,31 @@
   .runs-log { display: flex; flex-direction: column; min-height: 0; position: relative; isolation: isolate; }
   /* The selected game's colour (from its art), as a soft glow from the
      top over the whole panel; none until it's known. */
-  .runs-log::before {
+  body.local .view-pane[data-view="input"] { position: relative; isolation: isolate; }
+  .runs-log::before,
+  body.local .view-pane[data-view="input"]::before {
     content: "";
     position: absolute;
     inset: 0;
     z-index: -1;
     pointer-events: none;
-    background: radial-gradient(130% 90% at 50% 0%, rgba(var(--run-tint, 0, 0, 0), 0.34), rgba(var(--run-tint, 0, 0, 0), 0.08) 60%, transparent);
+    /* Its two colours (see tintFor), one from each top corner. */
+    background: radial-gradient(85% 90% at 15% 0%, rgba(var(--run-tint, 0, 0, 0), 0.3), rgba(var(--run-tint, 0, 0, 0), 0.06) 60%, transparent), radial-gradient(85% 90% at 85% 0%, rgba(var(--run-tint-2, var(--run-tint, 0, 0, 0)), 0.3), rgba(var(--run-tint-2, var(--run-tint, 0, 0, 0)), 0.06) 60%, transparent);
     opacity: 0;
     transition: opacity 0.3s ease;
   }
-  .runs-log[style*="--run-tint"]::before { opacity: 1; }
-  :root[data-theme="light"] .runs-log[style*="--run-tint"]::before { opacity: 0.45; }
+  /* Schedule's runs out over the space around it (its box's padding), to
+     the window's edges as Runs' does. */
+  body.local .view-pane[data-view="input"]::before { inset: -1rem -1.2rem; }
+  :is(.runs-log, body.local .view-pane[data-view="input"])[style*="--run-tint"]::before { opacity: 1; }
+  :root[data-theme="light"] :is(.runs-log, body.local .view-pane[data-view="input"])[style*="--run-tint"]::before { opacity: 0.45; }
   /* The table sits on the glow on its own background, like the bar over
      it; in light, both nearly white, so they stand out from the glow. */
-  .runs-log .table-wrap { background: var(--surface); }
+  .runs-log .table-wrap, body.local #csv-slot > :is(.table-wrap, .empty-hint) { background: var(--surface); }
   :root[data-theme="light"] .runs-log :is(.summary-bar, .table-wrap, pre.file-preview) { background: #fbfbfb; border-color: var(--border-strong); }
   :root[data-theme="light"] .runs-log table.csv-table th { background: #eeeeee; }
+  :root[data-theme="light"] body.local #csv-slot > :is(.table-wrap, .empty-hint) { background: #fbfbfb; }
+  :root[data-theme="light"] body.local #csv-slot table.csv-table th { background: #eeeeee; }
   /* Each game's card in the list: its art too, stronger towards the right
      (the name stays on a quieter part), brighter when selected. */
   .run-card { position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; justify-content: center; min-height: 5.2rem; }
@@ -1459,9 +1467,9 @@
     border-right: 1px solid var(--border);
   }
   :root[data-desktop] .runs-log { padding: 0.9rem 1.2rem 1rem; }
-  /* The list runs to the sidebar's edge, so its scrollbar sits on the
-     border line instead of beside the games. */
-  :root[data-desktop] .runs-list { gap: 2px; margin-right: -0.6rem; padding-right: 0.6rem; }
+  /* The list scrolls with no scrollbar, as Library does. */
+  :root[data-desktop] .runs-list { gap: 2px; scrollbar-width: none; }
+  :root[data-desktop] .runs-list::-webkit-scrollbar { display: none; }
   :root[data-desktop] .run-card {
     padding: 0.85rem 0.8rem;
     background: transparent;
@@ -1599,7 +1607,9 @@
   .bar-note { margin: 0.6rem 0 0; font-size: 0.74rem; line-height: 1.45; color: var(--text-dim); }
   .bar-stats { margin-left: auto; }
   .bar-stats .stats-strip { gap: 0.2rem 1.1rem; font-size: 0.76rem; }
-  .bar-help .hover-help { display: none; }
+  /* Nothing shows in it, so it takes no gap either: Reset all fields
+     ends where Full timeline does, below it. */
+  .bar-help { display: none; }
 
   body.local .view-pane[data-view="input"].active { grid-template-columns: minmax(0, 1fr) minmax(0, 2.4fr); }
   /* The how-to shows inside the empty paste box, like a placeholder, and
@@ -1620,7 +1630,7 @@
   }
   body.local .box.has-paste .view-pane[data-view="input"] .field .input-help { display: none; }
   .bar-from input { width: 9rem; }
-  .bar-reset #reset-btn { height: 28px; padding: 0 0.7rem; font-size: 0.76rem; white-space: nowrap; }
+  .bar-reset #reset-btn { box-sizing: border-box; height: 28px; min-width: 7rem; padding: 0 0.7rem; font-size: 0.76rem; white-space: nowrap; }
   /* One line at any window width: the name and Copied from give up room
      first, down to a usable width. */
   body.local .box:not([data-view="runs"]) .schedule-bar { flex-wrap: nowrap; }
@@ -1741,7 +1751,8 @@
   .paste-summary .stats-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); max-width: 56rem; gap: 0.2rem 1.2rem; font-size: 0.8rem; color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .paste-summary .stats-strip b { color: var(--text); font-weight: 600; }
   .paste-summary .stats-strip > span { overflow: hidden; text-overflow: ellipsis; }
-  .paste-summary #sched-full-btn { box-sizing: border-box; height: 1.7rem; min-width: 6.5rem; }
+  /* The same size as Reset all fields above it. */
+  .paste-summary #sched-full-btn { box-sizing: border-box; height: 28px; min-width: 7rem; }
   .paste-summary #sched-full-btn { justify-content: center; text-align: center; }
   .paste-summary .bar-btn[aria-pressed="true"] { color: var(--accent); background: var(--accent-tint); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
   body.local .view-pane[data-view="input"].active { grid-template-rows: auto minmax(0, 1fr); }
@@ -2245,4 +2256,12 @@
   /* It scrolls with no scrollbar: one coming and going (as a list grows
      past the window) would move the whole column sideways. */
   :root[data-desktop] body[data-screen="unlocks"] .unlocks { scrollbar-width: none; }
+  /* A game's page: the glow Runs has, in its colour (see .runs-log::before),
+     staying at the top as the page scrolls. */
+  :root[data-desktop] body[data-screen="unlocks"] .unlocks[style*="--run-tint"] {
+    background-image: radial-gradient(85% 90% at 15% 0%, rgba(var(--run-tint, 0, 0, 0), 0.3), rgba(var(--run-tint, 0, 0, 0), 0.06) 60%, transparent), radial-gradient(85% 90% at 85% 0%, rgba(var(--run-tint-2, var(--run-tint, 0, 0, 0)), 0.3), rgba(var(--run-tint-2, var(--run-tint, 0, 0, 0)), 0.06) 60%, transparent);
+  }
+  :root[data-desktop][data-theme="light"] body[data-screen="unlocks"] .unlocks[style*="--run-tint"] {
+    background-image: radial-gradient(85% 90% at 15% 0%, rgba(var(--run-tint, 0, 0, 0), 0.14), rgba(var(--run-tint, 0, 0, 0), 0.03) 60%, transparent), radial-gradient(85% 90% at 85% 0%, rgba(var(--run-tint-2, var(--run-tint, 0, 0, 0)), 0.14), rgba(var(--run-tint-2, var(--run-tint, 0, 0, 0)), 0.03) 60%, transparent);
+  }
   :root[data-desktop] body[data-screen="unlocks"] .unlocks::-webkit-scrollbar { display: none; }
