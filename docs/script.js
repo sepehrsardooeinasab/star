@@ -554,16 +554,21 @@
       }).join("") + "</tr></thead><tbody>";
     var shown = function (seconds) { return pretty ? exactDuration(seconds) : String(seconds); };
     function gap(ri, r) { return hooks.gapButton ? hooks.gapButton(ri, r) : ""; }
+    // Jump to achievement: with the game's appid (hooks.achLink), the name
+    // (only its text) opens it in Library.
+    function achCell(name) {
+      return hooks.achLink > 0 ? '<span class="ach-link" role="button" tabindex="0" data-lib-appid="' + hooks.achLink +
+        '" data-lib-ach="' + escapeHtml(name) + '" title="Show in Library">' + escapeHtml(name) + "</span>" : escapeHtml(name);
+    }
     function delayCell(r, ri) {
       var value = escapeHtml(shown(r[CSV_DELAY_COL + 1]));
       var e = hooks.edit && hooks.edit(ri);
       if (!e) return '<td class="delay-cell">' + value + "</td>";
       var edited = e.original !== undefined;
-      // In the app the undo goes before the time, so the times line up.
       var undo = edited ? '<button class="undo-edit" type="button" ' + e.undoAttr + ' title="Undo (was ' +
         escapeHtml(shown(e.original)) + ')">↺</button>' : "";
       return '<td class="delay-cell ' + e.cls + (edited ? " edited" : "") + '" ' + e.attr +
-        (e.title ? ' title="' + escapeHtml(e.title) + '"' : "") + ">" + (pretty ? undo + value : value + undo) + "</td>";
+        (e.title ? ' title="' + escapeHtml(e.title) + '"' : "") + ">" + value + undo + "</td>";
     }
     rows.slice(1).forEach(function (r, i) {
       var ri = i + 1;
@@ -577,7 +582,7 @@
         }
         var rc = hooks.rowClass ? hooks.rowClass(++achievement) : "";
         html += "<tr" + (rc ? ' class="' + rc + '"' : "") + '><td><span class="cell-line"><span class="row-num">' + escapeHtml(r[1]) + "</span>" +
-          gap(ri, r) + "</span></td><td>" + escapeHtml(r[2]) + "</td><td>" + escapeHtml(prettyTime(r[4])) + "</td>" +
+          gap(ri, r) + "</span></td><td>" + achCell(r[2]) + "</td><td>" + escapeHtml(prettyTime(r[4])) + "</td>" +
           delayCell(r, ri) + "</tr>";
         return;
       }
@@ -602,6 +607,7 @@
   function rowsToTable(rows, ui, achievementClass) {
     return timelineTable(rows, {
       rowClass: achievementClass,
+      achLink: ui && ui.achLink,  // Jump to achievement
       edit: function (ri) {
         var id = ui && ui.targets[ri];
         if (!id) return null;
@@ -1154,10 +1160,20 @@
     } else {
       slot.innerHTML = rowsToTable(latest.csvRows, {
         targets: latest.csvTargets, gapActions: latest.gapActions, edits: edits,
-        originals: latest.originals, breaks: breaks, autoBreaks: latest.autoBreaks
+        originals: latest.originals, breaks: breaks, autoBreaks: latest.autoBreaks,
+        achLink: local ? parseInt(els.appid.value, 10) : 0  // Jump to achievement
       }) + warningsHtml;
     }
+    // Back where it was scrolled: the table is redrawn on every change,
+    // and on coming back from another tab.
+    var wrap = slot.querySelector(".table-wrap");
+    if (wrap) wrap.scrollTop = schedScroll[schedScrollKey()] || 0;
   }
+  var schedScroll = {};  // the sessions overview and Full timeline apart
+  function schedScrollKey() { return schedFull ? "full" : "sessions"; }
+  els.csvSlot.addEventListener("scroll", function (e) {
+    if (e.target.classList.contains("table-wrap")) schedScroll[schedScrollKey()] = e.target.scrollTop;
+  }, true);
 
   byId("sched-full-btn").addEventListener("click", function () {
     schedFull = !schedFull;
@@ -1261,6 +1277,8 @@
     tipBox.style.left = left + "px";
     tipBox.style.top = top + "px";
   });
+
+  document.addEventListener("click", function () { if (tipBox) tipBox.hidden = true; });
 
   function resetAll() {
     els.exportText.value = "";
@@ -1825,7 +1843,12 @@
   // parts: session, this session's size, progress, and when it plays.
   function summaryHtml(g) {
     if (!g) return "";
-    var title = '<div class="run-summary-title">' + gameIconHtml(g) + "<span>" + escapeHtml(gameTitle(g)) + "</span></div>";
+    // In the app, the game's icon opens its page in Library (a books icon
+    // over it on hover), as a game's page there opens it here.
+    var icon = local && g.appid > 0 ? '<button class="game-run game-run-small" type="button" data-lib-game="' + g.appid +
+      '" data-tip="Open in Library" aria-label="Open in Library">' + gameIconHtml(g) + '<span class="game-run-play">' + LIBRARY_ICON + "</span></button>"
+      : gameIconHtml(g);
+    var title = '<div class="run-summary-title">' + icon + "<span>" + escapeHtml(gameTitle(g)) + "</span></div>";
     // A small arrow opens the schedule's info (App ID, where it came from)
     // under the summary.
     var more = '<button class="summary-more" type="button" data-run-info aria-expanded="' + !!runInfoOpen + '" title="' +
@@ -2119,6 +2142,7 @@
   function timelineHtml(rows, done, running, editable) {
     return timelineTable(rows, {
       rowClass: function (index) { return index < done ? "done-row" : index === done && running ? "next-row" : ""; },
+      achLink: runEdit ? 0 : runGame().appid,  // Jump to achievement, while locked
       edit: function (ri) {
         if (!editable || !editable[ri]) return null;
         return {cls: "run-editable", attr: 'data-row="' + ri + '"', undoAttr: 'data-run-undo="' + ri + '"',
@@ -2166,8 +2190,8 @@
     var lock = byId("timeline-lock");
     lock.setAttribute("aria-pressed", String(!!runEdit));
     lock.disabled = !!game.running && !runEdit;
-    lock.title = game.running ? "Stop the game to change its timeline"
-      : runEdit ? "Lock again (unsaved changes are dropped)" : "Unlock to change the delays and breaks still ahead";
+    lock.setAttribute("data-tip", game.running ? "Stop the game to change its timeline"
+      : runEdit ? "Lock again: changes you haven't saved are discarded" : "Unlock to change the delays and breaks still ahead");
     byId("timeline-lock-label").textContent = runEdit ? "Unlocked" : "Locked";
     byId("timeline-save").hidden = !runEdit;
     byId("timeline-save").disabled = !runEdit || JSON.stringify(runEdit.config) === JSON.stringify(runEdit.base);
@@ -2177,7 +2201,15 @@
       ? (runFull || runEdit ? timelineHtml(rows, done, game.running, runEdit && editableRows(rows, done))
         : sessionsHtml(rows, game.session))
       : emptyHtml("☰", "No timeline was saved with this game.");
+    // Back where it was scrolled: redrawing (after an edit) starts it at the top.
+    var wrap = byId("timeline-table").querySelector(".table-wrap");
+    if (wrap) wrap.scrollTop = timelineScroll[timelineScrollKey()] || 0;
   }
+  var timelineScroll = {};  // by game, its sessions overview and full timeline apart
+  function timelineScrollKey() { return selectedRun + (runFull || runEdit ? "|full" : ""); }
+  byId("timeline-table").addEventListener("scroll", function (e) {
+    if (e.target.classList.contains("table-wrap")) timelineScroll[timelineScrollKey()] = e.target.scrollTop;
+  }, true);
 
   // Editing works on a copy of the schedule (runEdit.config); the rows
   // are rebuilt from it after each change, with the names and player's
@@ -2208,6 +2240,7 @@
   function setRunDelay(ri, seconds) {
     runEdit.config.achievements[runEdit.rowAch[ri]].delay = seconds;
     rebuildEdit();
+    timelineShown = "";  // redrawn even when the time didn't change, closing its text box
     renderTimeline();
   }
 
@@ -2333,6 +2366,8 @@
   // The schedule's info, shown under the summary when its arrow is open.
   var runInfoOpen = false;
   byId("run-summary").addEventListener("click", function (e) {
+    var lib = e.target.closest("[data-lib-game]");
+    if (lib) return openAchInLibrary(Number(lib.getAttribute("data-lib-game")), null);
     var button = e.target.closest("[data-run-info]");
     if (!button) return;
     runInfoOpen = !runInfoOpen;
@@ -2754,7 +2789,7 @@
     });
     var lock = byId("run-settings-lock");
     lock.setAttribute("aria-pressed", String(editingSettings));
-    lock.title = editingSettings ? "Lock again (unsaved changes are dropped)" : "Unlock to change these";
+    lock.setAttribute("data-tip", editingSettings ? "Lock again: changes you haven't saved are discarded" : "Unlock to change these");
     byId("run-settings-lock-label").textContent = editingSettings ? "Unlocked" : "Locked";
     byId("run-settings-actions").hidden = !editingSettings;
     byId("run-settings-save").disabled = !changed;
@@ -3146,10 +3181,11 @@
         (on ? '<span class="chip-arrow">' + (order === "desc" ? "\u2193" : "\u2191") + "</span>" : "") + "</button>";
     }).join("") + "</div>";
   }
-  // The menu's button: the sort, and an arrow for its order.
+  // The menu's button: the sort's name centred, and its order's arrow at
+  // the right edge, where it stays whatever the name.
   function sortLabel(sorts, sort, order) {
     var name = sorts.filter(function (c) { return c[0] === sort; })[0][1];
-    return name + (order === "desc" ? " \u2193" : " \u2191");
+    return '<span class="sort-name">' + escapeHtml(name) + '</span><span class="sort-arrow">' + (order === "desc" ? "\u2193" : "\u2191") + "</span>";
   }
   // A chip picked: what changes. A new sort starts on its natural order;
   // the one already picked flips its order.
@@ -3274,6 +3310,15 @@
     });
   }
   // Marked finished (done with, for good) on its page.
+  // The game's pages elsewhere, as icon buttons: Steam's logo (from Simple
+  // Icons, CC0) and SteamHunters' own icon (steamhunters.png, its favicon).
+  var STEAM_ICON = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M11.979 0C5.678 0 .511 4.86.022 11.037l6.432 2.658c.545-.371 1.203-.59 1.912-.59.063 0 .125.004.188.006l2.861-4.142V8.91c0-2.495 2.028-4.524 4.524-4.524 2.494 0 4.524 2.031 4.524 4.527s-2.03 4.525-4.524 4.525h-.105l-4.076 2.911c0 .052.004.105.004.159 0 1.875-1.515 3.396-3.39 3.396-1.635 0-3.016-1.173-3.331-2.727L.436 15.27C1.862 20.307 6.486 24 11.979 24c6.627 0 11.999-5.373 11.999-12S18.605 0 11.979 0zM7.54 18.21l-1.473-.61c.262.543.714.999 1.314 1.25 1.297.539 2.793-.076 3.332-1.375.263-.63.264-1.319.005-1.949s-.75-1.121-1.377-1.383c-.624-.26-1.29-.249-1.878-.03l1.523.63c.956.4 1.409 1.5 1.009 2.455-.397.957-1.497 1.41-2.454 1.012H7.54zm11.415-9.303c0-1.662-1.353-3.015-3.015-3.015-1.665 0-3.015 1.353-3.015 3.015 0 1.665 1.35 3.015 3.015 3.015 1.663 0 3.015-1.35 3.015-3.015zm-5.273-.005c0-1.252 1.013-2.266 2.265-2.266 1.249 0 2.266 1.014 2.266 2.266 0 1.251-1.017 2.265-2.266 2.265-1.253 0-2.265-1.014-2.265-2.265z"/></svg>';
+  var STEAMHUNTERS_ICON = '<img src="steamhunters.png" alt="" aria-hidden="true">';
+  // Open in Library: shown over a game's icon in Runs on hover.
+  var LIBRARY_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M3.5 2.5v11M6.5 2.5v11M9.3 3.1l3.2 10.2"/></svg>';
+  // Open in Runs: shown over the game's icon on hover.
+  var RUNS_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M5 3.3v9.4l7.3-4.7z"/></svg>';
   var CHECK_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
     '<circle cx="8" cy="8" r="6.2"/><path d="M5.3 8.2l1.8 1.8 3.6-3.8"/></svg>';
   function finishedMark(g) {
@@ -3285,7 +3330,7 @@
   function playedText(g) { return g.played ? "Played " + fmtDay(g.played) : neverPlayed(g) ? "Never played" : ""; }
   function renderGames(d) {
     var games = sortGames(d && !unlocksError ? d.games_list || [] : []);
-    byId("games-sort-label").textContent = sortLabel(SORTS.games, gamesSort, gamesOrder);
+    byId("games-sort-label").innerHTML = sortLabel(SORTS.games, gamesSort, gamesOrder);
     byId("games-sort-pop").innerHTML = sortRowsHtml(SORTS.games, gamesSort, gamesOrder);
     renderFilterList("games-filter-list", libFilter);
     var off = FILTERS.filter(function (f) { return libFilter[f[0]] === "hide"; }).length;
@@ -3368,7 +3413,7 @@
       scrollLibraryTop();
     }
     api("/api/unlocks/game?appid=" + encodeURIComponent(appid)).then(function (p) {
-      if (gamePageFor === appid) { gamePage = p; renderGamePage(); changeSeen(p); }
+      if (gamePageFor === appid) { gamePage = p; renderGamePage(); changeSeen(p); showAchFocus(); }
     }).catch(function (e) {
       if (gamePageFor === appid && !quiet) { gamePage = {error: e}; renderGamePage(); }
     });
@@ -3377,6 +3422,7 @@
     gamePageFor = gamePage = null;
     resetAchEdit();
     renderGamePage();
+    backToAchievements();
   }
   // A hidden achievement's description (Steam's stats page leaves it out;
   // STAR fills it in): shown as Settings → Library says, hidden_descriptions:
@@ -3418,17 +3464,17 @@
     achEdit = false; achPicks = []; achDrops = {}; achError = null;
     delete armedUntil["ach-apply"];
   }
-  // What's marked, with Clear and Apply, in the sort's bar before the
+  // What's marked, with Apply, in the sort's bar before the
   // lock (so marking moves nothing); empty when nothing is.
   function achApplyHtml() {
     var n = achPicks.length, m = Object.keys(achDrops).length;
     if (achRunning()) return '<span class="ach-apply"><span>' + escapeHtml("Playing it, sending to Steam\u2026") + "</span></span>";
     if (!achEdit) return "";
     if (!n && !m) return "";
-    var what = [n ? "Unlock " + n : "", m ? "Lock " + m : ""].filter(Boolean).join(" \u00b7 ");
+    // Locking again drops the marks (as for a timeline), so there's no Clear.
+    var what = [n ? "Unlock " + n : "", m ? "Lock " + m : ""].filter(Boolean).map(function (t) { return "<span>" + t + "</span>"; }).join("");
     var armed = isArmed("ach-apply");
-    return '<span class="ach-apply"><span>' + escapeHtml(what) + "</span>" +
-      '<button class="btn-ghost" type="button" data-ach-cancel>Clear</button>' +
+    return '<span class="ach-apply"><span class="ach-what">' + what + "</span>" +
       '<button class="btn-ghost primary-ghost' + (armed ? " armed" : "") + '" type="button" data-ach-apply>' +
       (armed ? "Confirm" : "Apply") + "</button></span>";
   }
@@ -3450,7 +3496,8 @@
           '" aria-pressed="' + (pick !== -1 || drop) + '"';
       }
       return '<div class="unlock' + (kind === "locked" ? " locked" : "") + (achEdit ? " editable" : "") + (achEdit && drop ? " dropping" : "") +
-        (achEdit && kind === "locked" && pick !== -1 ? " picked" : "") + '"' + attrs + ">" + icon +
+        (achEdit && kind === "locked" && pick !== -1 ? " picked" : "") + '"' + attrs +
+        ' data-name="' + escapeHtml(a.name) + '">' + icon +  // data-name: Jump to achievement
         '<div class="unlock-text"><div class="unlock-name">' + escapeHtml(a.name) + "</div>" +
         achDescHtml(a, kind === "locked") + "</div>" + when + "</div>";
     }).join("");
@@ -3484,18 +3531,22 @@
     if (!p) { page.innerHTML = html + '<div class="unlocks-status">' + escapeHtml("Loading\u2026") + "</div>"; return; }
     if (p.error) { page.innerHTML = html + problemHtml("warn", (p.error.data || {}).title, p.error.message); return; }
     var done = p.total && p.unlocked >= p.total;
-    var links = '<a class="btn-ghost" target="_blank" rel="noopener" href="https://steamcommunity.com/stats/' + p.appid + '/achievements/">Steam</a>' +
-      // Yours on SteamHunters (by Steam ID, as for a custom URL), else the game's.
-      '<a class="btn-ghost" target="_blank" rel="noopener" href="https://steamhunters.com/' +
-        (p.steamid ? "profiles/" + encodeURIComponent(p.steamid) + "/" : "") + "apps/" + p.appid + '/achievements">SteamHunters</a>' +
-      (p.star ? '<button class="btn-ghost primary-ghost" type="button" data-game-run="' + escapeHtml(p.star) + '">Open in Runs</button>' : "") +
-      '<button class="btn-ghost game-finish' + (p.finished ? " on" : "") + '" type="button" data-game-finish aria-pressed="' + !!p.finished + '">' +
-        (p.finished ? CHECK_ICON + "Finished" : "Mark as finished") + "</button>";
-    // A banner: the game's art faded in from the right, under its name,
-    // progress and links.
+    // Yours on Steam and SteamHunters (by Steam ID, as for a custom URL), else the game's.
+    var mine = p.steamid ? "profiles/" + encodeURIComponent(p.steamid) + "/" : "";
+    var links = '<a class="btn-ghost game-site" target="_blank" rel="noopener" data-tip="Steam" aria-label="Steam" href="https://steamcommunity.com/' +
+        mine + "stats/" + p.appid + '/achievements/">' + STEAM_ICON + "</a>" +
+      '<a class="btn-ghost game-site" target="_blank" rel="noopener" data-tip="SteamHunters" aria-label="SteamHunters" href="https://steamhunters.com/' +
+        mine + "apps/" + p.appid + '/achievements">' + STEAMHUNTERS_ICON + "</a>" +
+      '<button class="btn-ghost game-site game-finish' + (p.finished ? " on" : "") + '" type="button" data-game-finish aria-pressed="' + !!p.finished +
+        '" data-tip="' + (p.finished ? "Finished (click to unmark)" : "Mark as finished") + '" aria-label="Finished">' + CHECK_ICON + "</button>";
+    // A banner: the game's art faded in from the right, under its name and
+    // progress, with its links as a column of icons at the right.
     html += '<div class="game-banner"' + (p.appid > 0 ? ' style="--card-hero: ' + escapeHtml(heroUrl(p)) + '"' : "") + ">" +
       '<div class="game-head' + (p.private ? " private-game" : "") + (done ? " complete" : "") + '">' +
-      iconHtml("lib-icon", p.icon, p.name) +
+      // With a run, the icon opens it in Runs (a ▶ over it on hover), so
+      // the banner is as tall with it as without.
+      (p.star ? '<button class="game-run" type="button" data-game-run="' + escapeHtml(p.star) + '" data-tip="Open in Runs" aria-label="Open in Runs">' +
+        iconHtml("lib-icon", p.icon, p.name) + '<span class="game-run-play">' + RUNS_ICON + "</span></button>" : iconHtml("lib-icon", p.icon, p.name)) +
       '<div class="lib-text"><div class="game-title"><span class="name-text">' + escapeHtml(p.name) + "</span>" + finishedMark(p) + markHtml(p) + counterMark(p) + "</div>" +
       (p.read ? '<div class="lib-progress">' + progressHtml(p.unlocked, p.total) + "</div>" : "") +
       '<div class="game-meta">' + escapeHtml([playedText(p), fmtPlaytime(p.playtime)].filter(Boolean).join(" \u00b7 ")) + "</div>" +
@@ -3514,7 +3565,8 @@
         '<button class="btn-ghost ach-group' + (achGroup === "status" ? " on" : "") + '" type="button" data-ach-group aria-pressed="' +
         (achGroup === "status") + '" data-tip="Show unlocked and locked achievements in separate lists">Split by status</button>' +
         '<span class="ach-right">' + achApplyHtml() +
-        '<button class="lock-toggle ach-lock" type="button" data-ach-lock aria-pressed="' + achEdit + '"' + (achRunning() ? " disabled" : "") + ">" + LOCK_ICON +
+        '<button class="lock-toggle ach-lock" type="button" data-ach-lock aria-pressed="' + achEdit + '"' + (achRunning() ? " disabled" : "") +
+        ' data-tip="' + (achEdit ? "Lock again: changes you haven't applied are discarded" : "Unlock to mark achievements to unlock or lock") + '">' + LOCK_ICON +
         "<span>" + (achEdit ? "Unlocked" : "Locked") + "</span></button></span></div>" +
         (achEdit && achError ? problemHtml("warn", (achError.data || {}).title, achError.message) : "");
       var tag = function (list, kind) { return list.map(function (a) { return Object.assign({kind: kind}, a); }); };
@@ -3568,7 +3620,6 @@
       renderGamePage();
       return;
     }
-    if (e.target.closest("[data-ach-cancel]")) { achPicks = []; achDrops = {}; achError = null; delete armedUntil["ach-apply"]; renderGamePage(); return; }
     if (e.target.closest("[data-ach-apply]") && gamePage) {
       if (!isArmed("ach-apply")) {
         armedUntil["ach-apply"] = Date.now() + ARM_MS;
@@ -3632,13 +3683,70 @@
     var b = e.target.closest("[data-tab]");
     if (b) showLibraryTab(b.getAttribute("data-tab"));
   });
-  // An unlock's game name opens that game's page, in Games.
+
+  // ---- Jump to achievement ----
+  // An unlock clicked in Achievements, or an achievement's name in a
+  // timeline, opens its game's page in Library scrolled to it, lit for a
+  // moment. (To remove: everything tagged "Jump to achievement" here, in
+  // style.css, and the data-name on a game page's rows.)
+  var achFocus = null, achReturn = null;
   byId("unlocks-list").addEventListener("click", function (e) {
-    var g = e.target.closest("[data-open-game]");
-    if (!g) return;
-    showLibraryTab("games");
-    openGamePage(Number(g.getAttribute("data-open-game")));
+    jumpToAch(e.target.closest("[data-jump-ach]"));
   });
+  function jumpToAch(row) {
+    if (!row) return;
+    var top = libraryScroller().scrollTop;
+    openAchInLibrary(Number(row.getAttribute("data-jump-appid")), row.getAttribute("data-jump-ach"), "Achievements", function () {
+      requestAnimationFrame(function () { libraryScroller().scrollTo({top: top}); });
+    });
+  }
+  // A game's page in Library, at one of its achievements. From
+  // Achievements, Back (named `from`) returns there via back(); from a
+  // timeline it's the usual Back to Games, and the Runs or Schedule tab
+  // returns to the timeline, where it was.
+  function openAchInLibrary(appid, name, from, back) {
+    if (document.body.getAttribute("data-screen") !== "unlocks") showUnlocks();
+    showLibraryTab("games");
+    openGamePage(appid);
+    achFocus = name;
+    achReturn = back ? function () { showLibraryTab("achievements"); back(); } : null;
+    byId("game-back").textContent = "\u2190 " + (from || "Games");
+  }
+  function openAchFromTimeline(link) {
+    openAchInLibrary(Number(link.getAttribute("data-lib-appid")), link.getAttribute("data-lib-ach"));
+  }
+  document.addEventListener("click", function (e) {
+    var link = e.target.closest("[data-lib-ach]");
+    if (link) openAchFromTimeline(link);
+  });
+  document.addEventListener("keydown", function (e) {
+    var link = e.target.closest && e.target.closest("[data-lib-ach]");
+    if (link && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openAchFromTimeline(link); }
+  });
+  byId("unlocks-list").addEventListener("keydown", function (e) {
+    var row = e.target.closest("[data-jump-ach]");
+    if (row && e.target === row && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); jumpToAch(row); }
+  });
+  function showAchFocus() {
+    if (achFocus === null) return;
+    // Loosely: a schedule's names come from a paste.
+    var loose = function (s) { return s.toLowerCase().replace(/\s+/g, " ").trim(); };
+    var row = [].filter.call(byId("game-page").querySelectorAll("[data-name]"), function (r) {
+      return loose(r.getAttribute("data-name")) === loose(achFocus);
+    })[0];
+    if (!row) return;
+    achFocus = null;
+    row.scrollIntoView({block: "center", behavior: "smooth"});
+    row.classList.add("ach-focus");
+  }
+  function backToAchievements() {
+    achFocus = null;
+    if (!achReturn) return;
+    var back = achReturn;
+    achReturn = null;
+    byId("game-back").textContent = "\u2190 Games";
+    back();
+  }
   // Back to top, once the list has been scrolled a long way. In the app
   // the Library scrolls on its own; on a page, the window does.
   function libraryScroller() {
@@ -3717,11 +3825,12 @@
           html += (lastDay ? "</div>" : "") + '<div class="unlocks-day">' + escapeHtml(day) + '</div><div class="unlocks-group">';
           lastDay = day;
         }
-        html += '<div class="unlock' + (u.private ? " private-game" : "") + '">' +
+        html += '<div class="unlock' + (u.private ? " private-game" : "") + '" role="button" tabindex="0" data-jump-appid="' + u.appid +
+          '" data-jump-ach="' + escapeHtml(u.name) + '">' +  // Jump to achievement
           iconHtml("unlock-icon", u.icon, "ach") +
           '<div class="unlock-text"><div class="unlock-name">' + escapeHtml(u.name) + "</div>" +
           achDescHtml(u, false) + "</div>" +
-          '<div class="unlock-meta"><div class="unlock-game" data-open-game="' + u.appid + '" role="button" tabindex="0">' + markHtml(u) + escapeHtml(u.game) + "</div>" +
+          '<div class="unlock-meta"><div class="unlock-game">' + markHtml(u) + escapeHtml(u.game) + "</div>" +
           '<div class="unlock-time">' + escapeHtml(fmtClock(at)) + "</div></div></div>";
       });
       list.innerHTML = html + (lastDay ? "</div>" : "");

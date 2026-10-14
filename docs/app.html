@@ -8,10 +8,11 @@
 <link rel="stylesheet" href="style.css">
 <script>
   // Apply the saved theme and accent (default dark / violet) before the page paints.
+  // With none saved here, the app's (window.starTheme, from settings.json).
   (function () {
     var theme = null, accent = null;
     try { theme = localStorage.getItem("unlock-scheduler-theme"); accent = localStorage.getItem("unlock-scheduler-accent"); } catch (e) {}
-    document.documentElement.setAttribute("data-theme", theme || "dark");
+    document.documentElement.setAttribute("data-theme", theme || window.starTheme || "dark");
     document.documentElement.setAttribute("data-accent", accent || "violet");
     // In the desktop app (it adds ?desktop=macos|linux), the top bar is
     // laid out as the window's title bar.
@@ -187,7 +188,7 @@
           <summary>Advanced run settings <span id="run-settings-summary"></span></summary>
           <div class="run-settings-top">
             <span class="step-text" id="run-settings-note">Runs started after saving use these. Saved in settings.json in the data folder.</span>
-            <button class="lock-toggle" id="run-settings-lock" type="button" aria-pressed="false" title="Unlock to change these">
+            <button class="lock-toggle" id="run-settings-lock" type="button" aria-pressed="false" data-tip="Unlock to change these">
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path class="lock-shackle" d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>
               <span id="run-settings-lock-label">Locked</span>
             </button>

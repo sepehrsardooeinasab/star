@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>STAR</title>
+<script>document.documentElement.setAttribute("data-theme", window.starTheme || "dark");</script>
 <style>
-  :root { color-scheme: dark; --bg: #0d0d0d; --text: #f5f5f5; --dim: #b0b0b0; --danger: #ff9a6e; --line: #333; --red: #e5484d; }
-  @media (prefers-color-scheme: light) {
-    :root { color-scheme: light; --bg: #e4e4e4; --text: #1d1d1d; --dim: #5c5c5c; --danger: #c2410c; --line: #c4c4c4; --red: #d93036; }
-  }
+  /* The app's theme (window.starTheme, from main.rs), not the system's. */
+  :root { color-scheme: dark; --bg: #1c1c1e; --text: #f5f5f5; --dim: #b0b0b0; --danger: #ff9a6e; --line: #3a3a3d; --red: #e5484d; }
+  :root[data-theme="light"] { color-scheme: light; --bg: #e4e4e4; --text: #1d1d1d; --dim: #5c5c5c; --danger: #c2410c; --line: #c4c4c4; --red: #d93036; }
   html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text);
     font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif; }
   body::before { content: ""; position: fixed; inset: 0 0 auto; height: 2px;
