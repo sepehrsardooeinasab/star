@@ -144,7 +144,7 @@ In the app, **Settings** has the keep-awake and update switches and **Advanced r
 | `bot_connect_timeout` | `60` | Seconds a command keeps retrying while ASF starts or the bot connects to Steam. |
 | `warm_settle_delay` | `10` | Seconds between `play` and the first unlock when the bot was already connected. |
 | `reconnect_settle_delay` | `60` | The same pause after a fresh (re)connect. Shorter values have produced offline-looking timestamps. |
-| `play_check_interval` | `900` | How often (seconds) a session checks whether the bot reconnected to Steam, which drops the game it was playing. It's also checked before every unlock; when it happened, `play` is sent again. |
+| `play_check_interval` | `30` | How often (seconds) a session checks whether the bot reconnected to Steam, which drops the game it was playing. Only ASF's log is read, so it can be often. It's also checked before every unlock; when it happened, `play` is sent again. |
 | `simultaneous_max_delay` | `1` | Unlocks this many seconds apart or less are sent together in a single `aset`. |
 | `asf_shutdown_delay` | `300` | Seconds after a session ends before ASF is shut down, if it's idle. |
 | `stop_other_asf` | `true` | Stops other ArchiSteamFarm installs on this machine when a session starts, since Steam allows only one login per account. Turn it off if they use other accounts (e.g. a card-farming install). Either way, they're listed before you confirm. |

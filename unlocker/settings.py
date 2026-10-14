@@ -23,9 +23,11 @@ DEFAULTS = {
     # — it still produced an epoch/offline-looking achievement timestamp once.
     "reconnect_settle_delay": 60,
     # During a session, how often (in seconds) to check ASF's log for a
-    # reconnect to Steam, which silently drops the game "play" started.
-    # It's also checked right before every unlock.
-    "play_check_interval": 900,
+    # reconnect to Steam, which silently drops the game "play" started (it's
+    # started again then). It's also checked right before every unlock. Only
+    # the log file is read, so it can be often: the game is back within
+    # this long, rather than shown as not playing until the next unlock.
+    "play_check_interval": 30,
     # Unlocks this close together in the source data count as simultaneous
     # (a 1s delay is usually the same event straddling a second boundary),
     # and are batched into a single aset.
