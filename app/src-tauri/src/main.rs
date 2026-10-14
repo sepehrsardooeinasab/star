@@ -79,6 +79,20 @@ fn python(home: &Path) -> String {
         .unwrap_or_else(|| "python3".to_string())
 }
 
+/// Whether the theme picked in the app's Appearance menu is light (it's kept
+/// in settings.json; dark by default). The window and the starting page open
+/// in it, rather than flashing the other one before the page paints.
+fn light_theme(home: &Path) -> bool {
+    std::fs::read_to_string(home.join("settings.json"))
+        .ok()
+        .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+        .is_some_and(|s| s.get("theme").and_then(|t| t.as_str()) == Some("light"))
+}
+
+/// The page's background in each theme (--bg in docs/style.css).
+const DARK_BG: tauri::window::Color = tauri::window::Color(0x1c, 0x1c, 0x1e, 0xff);
+const LIGHT_BG: tauri::window::Color = tauri::window::Color(0xe4, 0xe4, 0xe4, 0xff);
+
 /// Starts the server if it isn't running and returns its URL.
 fn start_server(code: Option<PathBuf>, home: &Path) -> Result<String, String> {
     let Some(code) = code else {
@@ -371,6 +385,7 @@ fn main() {
         })
         .setup(|app| {
             let home = home_dir();
+            let light = light_theme(&home);
             // Starts on the bundled "Starting…" page, then moves to the
             // server's page once it's up.
             let (handle, reinstall_home) = (app.handle().clone(), home.clone());
@@ -391,7 +406,13 @@ fn main() {
                 })
                 .title("STAR")
                 .inner_size(1180.0, 860.0)
-                .min_inner_size(960.0, 560.0);
+                .min_inner_size(960.0, 560.0)
+                // In the app's theme from the start: the window, the web
+                // view before a page paints (macOS draws it in the window's
+                // appearance), and the pages (window.starTheme).
+                .background_color(if light { LIGHT_BG } else { DARK_BG })
+                .theme(Some(if light { tauri::Theme::Light } else { tauri::Theme::Dark }))
+                .initialization_script(format!("window.starTheme = \"{}\";", if light { "light" } else { "dark" }));
             // macOS: no separate title bar. The page's top bar takes its
             // place, starting after the window buttons, which sit centred
             // in it (it's 52px tall).

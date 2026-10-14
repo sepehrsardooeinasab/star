@@ -8,10 +8,11 @@
 <link rel="stylesheet" href="style.css">
 <script>
   // Apply the saved theme and accent (default dark / violet) before the page paints.
+  // With none saved here, the app's (window.starTheme, from settings.json).
   (function () {
     var theme = null, accent = null;
     try { theme = localStorage.getItem("unlock-scheduler-theme"); accent = localStorage.getItem("unlock-scheduler-accent"); } catch (e) {}
-    document.documentElement.setAttribute("data-theme", theme || "dark");
+    document.documentElement.setAttribute("data-theme", theme || window.starTheme || "dark");
     document.documentElement.setAttribute("data-accent", accent || "violet");
     // In the desktop app (it adds ?desktop=macos|linux), the top bar is
     // laid out as the window's title bar.
