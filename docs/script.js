@@ -3129,9 +3129,8 @@
     return g.counters > 0 ? '<span class="mark-counters" data-tip="' + COUNTERS_TIP + '" aria-label="' + COUNTERS_TIP + '">' + COUNTER_ICON + "</span>" : "";
   }
   function markHtml(g) {
-    if (!g.private && !g.hidden) return "";
-    var label = g.private ? "Private" : "Hidden";
-    return '<span class="mark-off" data-tip="' + label + '" aria-label="' + label + '">' + EYE_OFF + "</span>";
+    if (!g.private) return "";
+    return '<span class="mark-off" data-tip="Private" aria-label="Private">' + EYE_OFF + "</span>";
   }
   // Search: games whose name has every word typed, in any order.
   var gamesQuery = "";
@@ -3156,11 +3155,10 @@
   // Games' Filters menu (for a while) and in Settings → Library (the
   // defaults).
   var FILTERS = [["active", "Active", "library_active"], ["finished", "Finished", "library_finished"],
-    ["private", "Private", "library_private"], ["hidden", "Hidden", "library_hidden"],
-    ["noAch", "No ach.", "library_no_achievements", "No achievements"]];
+    ["private", "Private", "library_private"], ["noAch", "No ach.", "library_no_achievements", "No achievements"]];
   function gameGroups(g) {
-    var groups = {finished: !!g.finished, private: !!g.private, hidden: !!g.hidden, noAch: !g.stats};
-    groups.active = !(groups.finished || groups.private || groups.hidden || groups.noAch);
+    var groups = {finished: !!g.finished, private: !!g.private, noAch: !g.stats};
+    groups.active = !(groups.finished || groups.private || groups.noAch);
     return groups;
   }
   function renderFilterList(id, values) {
@@ -3193,7 +3191,7 @@
     byId(id).addEventListener("click", function (e) { pick(e, e.altKey); });
     byId(id).addEventListener("contextmenu", function (e) { pick(e, true); });
   }
-  var libFilter = {active: "show", finished: "show", private: "show", hidden: "show", noAch: "show"};
+  var libFilter = {active: "show", finished: "show", private: "show", noAch: "show"};
   function filterGames(games) {
     return games.filter(function (g) {
       var groups = gameGroups(g);
@@ -3268,7 +3266,7 @@
       else if (!g.read) progress = '<span class="lib-dim">' + (neverPlayed(g) ? "Never played" : "Not read yet") + "</span>";
       else progress = progressHtml(g.unlocked, g.total, true);
       var done = g.total && g.unlocked >= g.total;
-      return '<div class="lib-game' + (g.hidden || g.private ? " hidden-game" : "") + (done ? " complete" : "") +
+      return '<div class="lib-game' + (g.private ? " private-game" : "") + (done ? " complete" : "") +
         '" data-appid="' + g.appid + '" role="button" tabindex="0">' +
         iconHtml("lib-icon", g.icon, g.name) +
         '<div class="lib-text"><div class="lib-name"><span class="name-text">' + escapeHtml(g.name) + "</span>" + finishedMark(g) + markHtml(g) + counterMark(g) + "</div>" +
@@ -3395,7 +3393,7 @@
     // A banner: the game's art faded in from the right, under its name,
     // progress and links.
     html += '<div class="game-banner"' + (p.appid > 0 ? ' style="--card-hero: ' + escapeHtml(heroUrl(p)) + '"' : "") + ">" +
-      '<div class="game-head' + (p.hidden || p.private ? " hidden-game" : "") + (done ? " complete" : "") + '">' +
+      '<div class="game-head' + (p.private ? " private-game" : "") + (done ? " complete" : "") + '">' +
       iconHtml("lib-icon", p.icon, p.name) +
       '<div class="lib-text"><div class="game-title"><span class="name-text">' + escapeHtml(p.name) + "</span>" + finishedMark(p) + markHtml(p) + counterMark(p) + "</div>" +
       (p.read ? '<div class="lib-progress">' + progressHtml(p.unlocked, p.total) + "</div>" : "") +
@@ -3602,7 +3600,7 @@
           html += (lastDay ? "</div>" : "") + '<div class="unlocks-day">' + escapeHtml(day) + '</div><div class="unlocks-group">';
           lastDay = day;
         }
-        html += '<div class="unlock' + (u.hidden || u.private ? " hidden-game" : "") + '">' +
+        html += '<div class="unlock' + (u.private ? " private-game" : "") + '">' +
           iconHtml("unlock-icon", u.icon, "ach") +
           '<div class="unlock-text"><div class="unlock-name">' + escapeHtml(u.name) + "</div>" +
           achDescHtml(u, false) + "</div>" +

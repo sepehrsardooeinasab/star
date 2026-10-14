@@ -2182,10 +2182,10 @@
   :is(.lib-game, .game-head).complete :is(.lib-count, .lib-of, .lib-state) { color: var(--warn); }
   .lib-dim { color: var(--placeholder); }
   /* Hidden in Steam: dimmed, and tagged. */
-  .hidden-game :is(.lib-icon, .unlock-icon) { opacity: 0.45; }
-  .hidden-game :is(.lib-name, .unlock-name, .lib-progress, .unlock-desc, .unlock-meta) { color: var(--placeholder); }
-  .hidden-game .lib-bar { opacity: 0.5; }
-  .hidden-game .unlock-game { color: var(--placeholder); }
+  .private-game :is(.lib-icon, .unlock-icon) { opacity: 0.45; }
+  .private-game :is(.lib-name, .unlock-name, .lib-progress, .unlock-desc, .unlock-meta) { color: var(--placeholder); }
+  .private-game .lib-bar { opacity: 0.5; }
+  .private-game .unlock-game { color: var(--placeholder); }
   /* A game's marks (Private, finished, counters): grey icons, named on hover. */
   :is(.mark-off, .mark-counters) { display: inline-flex; align-items: center; margin-left: 0.35rem; line-height: 1; color: var(--placeholder); vertical-align: middle; cursor: help; }
   :is(.mark-off, .mark-counters) svg { width: 14px; height: 14px; }

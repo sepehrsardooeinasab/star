@@ -73,12 +73,11 @@ DEFAULTS = {
     "achievement_order": "desc",
     "achievement_group": "status",
     # Which games the Library's Games list shows, by group, each "show" or
-    # "hide": those marked Private or hidden in Steam, those marked
-    # finished, those without achievements, and the rest ("active"). A
-    # game shows when any group it's in is shown.
+    # "hide": those marked Private in Steam, those marked finished, those
+    # without achievements, and the rest ("active"). A game shows when any
+    # group it's in is shown.
     "library_active": "show",
     "library_private": "show",
-    "library_hidden": "show",
     "library_no_achievements": "show",
     "library_finished": "show",
     # Which section the app's Library opens on: achievements or games.
@@ -121,7 +120,6 @@ _TYPES = {
     "achievement_group": (str,),
     "library_active": (str,),
     "library_private": (str,),
-    "library_hidden": (str,),
     "library_no_achievements": (str,),
     "library_finished": (str,),
     "library_tab": (str,),
@@ -152,7 +150,6 @@ APP_CHOICES = {"clock": ["system", "12h", "24h"], "theme": ["dark", "light"],
                "achievement_group": ["status", "none"],
                "library_active": ["show", "hide"],
                "library_private": ["show", "hide"],
-               "library_hidden": ["show", "hide"],
                "library_no_achievements": ["show", "hide"],
                "library_finished": ["show", "hide"],
                "library_tab": ["achievements", "games"],
@@ -161,7 +158,7 @@ APP_CHOICES = {"clock": ["system", "12h", "24h"], "theme": ["dark", "light"],
 
 # Settings older versions had, ignored (and dropped on the next save from
 # the app) rather than refused as unknown.
-RETIRED = {"notifications"}
+RETIRED = {"notifications", "library_hidden"}
 
 
 def problems(overrides):
