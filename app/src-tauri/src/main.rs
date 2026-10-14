@@ -14,7 +14,8 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::io::{Read, Write};
 use std::net::TcpStream;
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 use std::thread;
 use std::time::Duration;
@@ -103,6 +104,40 @@ fn start_server(code: Option<PathBuf>, home: &Path) -> Result<String, String> {
     }
 }
 
+/// Runs the install script again, as Check for Updates does, but from here
+/// rather than from the server: an update that breaks the Python or the page
+/// can still be undone, since this part and the starting page are built into
+/// the app. The script closes the app and opens the new one. Logs to the
+/// same file as Check for Updates, so a failure shows there next time.
+fn reinstall(home: &Path) -> bool {
+    static STARTED: AtomicBool = AtomicBool::new(false);
+    if STARTED.swap(true, Ordering::SeqCst) {
+        return true;
+    }
+    let script = r#"tmp=$(mktemp) && curl -fsSL "$0" -o "$tmp" && sh "$tmp" "$@"; status=$?; rm -f "$tmp"; exit $status"#;
+    let _ = std::fs::create_dir_all(home.join("jsons"));
+    let Ok(log) = std::fs::File::create(home.join("jsons/.update.log")) else { return false };
+    let Ok(log2) = log.try_clone() else { return false };
+    // Apps opened from the Dock get a minimal PATH; the script needs the
+    // Python the app uses.
+    let python = python(home);
+    let python_dir = Path::new(&python).parent().map(|d| d.display().to_string()).unwrap_or_default();
+    let path = format!("{python_dir}:{}", env::var("PATH").unwrap_or_else(|_| "/usr/bin:/bin".into()));
+    let mut command = Command::new("/bin/sh");
+    command.args(["-c", script, INSTALL_URL, "--reopen"])
+        .env("UNLOCKER_HOME", home)
+        .env("PATH", path)
+        .stdin(Stdio::null())
+        .stdout(log)
+        .stderr(log2);
+    // Its own process group, so it outlives the app it closes.
+    #[cfg(unix)]
+    std::os::unix::process::CommandExt::process_group(&mut command, 0);
+    let ok = command.spawn().is_ok();
+    STARTED.store(ok, Ordering::SeqCst);
+    ok
+}
+
 /// The server's URL once it's up, to stop it when the window closes.
 static SERVER_URL: OnceLock<String> = OnceLock::new();
 
@@ -172,6 +207,7 @@ fn menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     let item = |id: &str, text: &str, key: Option<&str>| MenuItem::with_id(app, id, text, true, key);
     let sep = || PredefinedMenuItem::separator(app);
     let check = item("check-updates", "Check for Updates…", None)?;
+    let reinstall = item("reinstall", "Reinstall STAR…", None)?;
     let settings = item("settings", "Settings…", Some("CmdOrCtrl+,"))?;
     let menu = Menu::new(app)?;
 
@@ -194,6 +230,7 @@ fn menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         menu.append(&Submenu::with_items(app, name, true, &[
             &PredefinedMenuItem::about(app, Some(&format!("About {name}")), Some(about))?,
             &check,
+            &reinstall,
             &settings,
             &sep()?,
             &PredefinedMenuItem::services(app, None)?,
@@ -209,6 +246,7 @@ fn menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     menu.append(&Submenu::with_items(app, "STAR", true, &[
         &settings,
         &check,
+        &reinstall,
         &sep()?,
         &PredefinedMenuItem::quit(app, None)?,
     ])?)?;
@@ -244,10 +282,18 @@ fn menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
 }
 
 const REPO: &str = "https://github.com/sepehrsardooeinasab/star";
+const INSTALL_URL: &str = "https://raw.githubusercontent.com/sepehrsardooeinasab/star/main/install.sh";
+/// The starting page's Reinstall button goes here; the window never does
+/// (see on_navigation in main), it starts the reinstall instead.
+const REINSTALL_LINK: &str = "https://star.invalid/reinstall";
+/// The starting page's address, for Reinstall STAR… to go back to it.
+static START_URL: OnceLock<tauri::Url> = OnceLock::new();
 
 /// The page does the work: it switches screens, or opens its Settings tab,
 /// there checking for an update when asked. (Before the page has loaded,
-/// nothing happens.) Help links open in the browser.
+/// nothing happens.) Help links open in the browser. Reinstall STAR… shows
+/// the starting page's reinstall panel, which works even when the page
+/// doesn't.
 fn on_menu(app: &AppHandle, event: MenuEvent) {
     #[cfg(target_os = "macos")]
     if background::on_menu(app, event.id().as_ref()) {
@@ -263,6 +309,14 @@ fn on_menu(app: &AppHandle, event: MenuEvent) {
         "help-guide" => return open_url("https://sepehrsardooeinasab.github.io/star/"),
         "help-github" => return open_url(REPO),
         "help-issue" => return open_url(&format!("{REPO}/issues/new")),
+        "reinstall" => {
+            if let (Some(window), Some(url)) = (app.get_webview_window("main"), START_URL.get()) {
+                let mut url = url.clone();
+                url.set_query(Some("reinstall"));
+                let _ = window.navigate(url);
+            }
+            return;
+        }
         _ => return,
     };
     if let Some(window) = app.get_webview_window("main") {
@@ -316,10 +370,25 @@ fn main() {
             let _ = event;
         })
         .setup(|app| {
+            let home = home_dir();
             // Starts on the bundled "Starting…" page, then moves to the
             // server's page once it's up.
+            let (handle, reinstall_home) = (app.handle().clone(), home.clone());
             let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                 .on_new_window(|url, _| on_new_window(url))
+                .on_navigation(move |url| {
+                    if url.as_str() != REINSTALL_LINK {
+                        return true;
+                    }
+                    let (handle, home) = (handle.clone(), reinstall_home.clone());
+                    thread::spawn(move || {
+                        let ok = reinstall(&home);
+                        if let Some(window) = handle.get_webview_window("main") {
+                            let _ = window.eval(&format!("showReinstalling({ok})"));
+                        }
+                    });
+                    false
+                })
                 .title("STAR")
                 .inner_size(1180.0, 860.0)
                 .min_inner_size(960.0, 560.0);
@@ -332,12 +401,14 @@ fn main() {
                 .hidden_title(true)
                 .traffic_light_position(tauri::LogicalPosition::new(WINDOW_BUTTONS.0, WINDOW_BUTTONS.1));
             let window = builder.build()?;
+            if let Ok(url) = window.url() {
+                let _ = START_URL.set(url);
+            }
             #[cfg(target_os = "macos")]
             {
                 background::start(app.handle())?;
                 background::guard_system_quit();
             }
-            let home = home_dir();
             let code = code_dir(app.path().resource_dir().ok(), &home);
             thread::spawn(move || match start_server(code, &home) {
                 Ok(url) => {

@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>STAR</title>
 <style>
-  :root { color-scheme: dark; --bg: #0d0d0d; --text: #f5f5f5; --dim: #b0b0b0; --danger: #ff9a6e; }
+  :root { color-scheme: dark; --bg: #0d0d0d; --text: #f5f5f5; --dim: #b0b0b0; --danger: #ff9a6e; --line: #333; --red: #e5484d; }
   @media (prefers-color-scheme: light) {
-    :root { color-scheme: light; --bg: #e4e4e4; --text: #1d1d1d; --dim: #5c5c5c; --danger: #c2410c; }
+    :root { color-scheme: light; --bg: #e4e4e4; --text: #1d1d1d; --dim: #5c5c5c; --danger: #c2410c; --line: #c4c4c4; --red: #d93036; }
   }
   html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text);
     font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif; }
@@ -21,6 +21,13 @@
   p { margin: 0; color: var(--dim); }
   pre { max-width: 40rem; margin: 0; white-space: pre-wrap; text-align: left; color: var(--danger);
     font: 13px/1.5 ui-monospace, Menlo, monospace; }
+  .repair { max-width: 40rem; display: flex; flex-direction: column; gap: 0.75rem; align-items: center; }
+  .row { display: flex; gap: 0.5rem; align-items: center; justify-content: center; flex-wrap: wrap; }
+  button { min-width: 6rem; height: 31px; padding: 0 0.9rem; border-radius: 8px; border: 1px solid var(--line);
+    background: transparent; color: var(--text); font: inherit; cursor: pointer; }
+  button.confirm { background: var(--red); border-color: var(--red); color: #fff; }
+  code { padding: 0.35rem 0.6rem; border: 1px solid var(--line); border-radius: 8px; user-select: all;
+    font: 12px/1.5 ui-monospace, Menlo, monospace; word-break: break-all; text-align: left; }
 </style>
 </head>
 <body>
@@ -31,11 +38,69 @@
   <p>Starting…</p>
 </main>
 <script>
+  // A broken update can't be undone from STAR's own page, so this page
+  // (built into the app) offers to reinstall. The button goes to
+  // REINSTALL_LINK, which the app catches and runs the install script
+  // (main.rs: reinstall).
+  var INSTALL_CMD = "curl -fsSL https://raw.githubusercontent.com/sepehrsardooeinasab/star/main/install.sh | sh";
+
+  function repairPanel(back) {
+    var div = document.createElement("div");
+    div.className = "repair";
+    div.innerHTML =
+      "<p>If an update broke STAR, reinstall the latest release. Your games, ArchiSteamFarm and settings are kept.</p>" +
+      "<div class='row'><button id='reinstall' type='button'>Reinstall</button>" +
+      (back ? "<button id='back' type='button'>Back</button>" : "") + "</div>" +
+      "<p>Or run this in Terminal:</p>" +
+      "<div class='row'><code></code><button id='copy' type='button'>Copy</button></div>";
+    div.querySelector("code").textContent = INSTALL_CMD;
+    var button = div.querySelector("#reinstall");
+    button.onclick = function () {
+      // Ask twice: the second click, a red Confirm, reinstalls.
+      if (!button.classList.contains("confirm")) {
+        button.classList.add("confirm");
+        button.textContent = "Confirm";
+        return;
+      }
+      button.disabled = true;
+      location.href = "https://star.invalid/reinstall";
+    };
+    if (back) div.querySelector("#back").onclick = function () { history.back(); };
+    var copy = div.querySelector("#copy");
+    copy.onclick = function () {
+      var done = function () { copy.textContent = "Copied"; };
+      if (navigator.clipboard) navigator.clipboard.writeText(INSTALL_CMD).then(done, fallback);
+      else fallback();
+      function fallback() {
+        getSelection().selectAllChildren(div.querySelector("code"));
+        if (document.execCommand("copy")) done();
+      }
+    };
+    return div;
+  }
+
   // Called by the app when the server can't be started.
   function showError(message) {
     var main = document.getElementById("main");
     main.innerHTML = "<p><b style='color:var(--text)'>Couldn't open STAR</b></p><pre></pre>";
     main.querySelector("pre").textContent = message;
+    main.appendChild(repairPanel(false));
+  }
+
+  // Called by the app once the reinstall started (or couldn't).
+  function showReinstalling(ok) {
+    var main = document.getElementById("main");
+    main.innerHTML = ok
+      ? "<div class='spinner'></div><p>Reinstalling… STAR closes and opens again when it's done.</p>"
+      : "<p><b style='color:var(--text)'>Couldn't start the reinstall</b></p><p>Run this in Terminal:</p><code></code>";
+    if (!ok) main.querySelector("code").textContent = INSTALL_CMD;
+  }
+
+  // STAR › Reinstall STAR… opens this page with ?reinstall.
+  if (location.search === "?reinstall") {
+    var main = document.getElementById("main");
+    main.innerHTML = "<p><b style='color:var(--text)'>Reinstall STAR</b></p>";
+    main.appendChild(repairPanel(true));
   }
 </script>
 </body>
