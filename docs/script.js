@@ -554,6 +554,12 @@
       }).join("") + "</tr></thead><tbody>";
     var shown = function (seconds) { return pretty ? exactDuration(seconds) : String(seconds); };
     function gap(ri, r) { return hooks.gapButton ? hooks.gapButton(ri, r) : ""; }
+    // Jump to achievement: with the game's appid (hooks.achLink), the name
+    // (only its text) opens it in Library.
+    function achCell(name) {
+      return hooks.achLink > 0 ? '<span class="ach-link" role="button" tabindex="0" data-lib-appid="' + hooks.achLink +
+        '" data-lib-ach="' + escapeHtml(name) + '" title="Show in Library">' + escapeHtml(name) + "</span>" : escapeHtml(name);
+    }
     function delayCell(r, ri) {
       var value = escapeHtml(shown(r[CSV_DELAY_COL + 1]));
       var e = hooks.edit && hooks.edit(ri);
@@ -576,7 +582,7 @@
         }
         var rc = hooks.rowClass ? hooks.rowClass(++achievement) : "";
         html += "<tr" + (rc ? ' class="' + rc + '"' : "") + '><td><span class="cell-line"><span class="row-num">' + escapeHtml(r[1]) + "</span>" +
-          gap(ri, r) + "</span></td><td>" + escapeHtml(r[2]) + "</td><td>" + escapeHtml(prettyTime(r[4])) + "</td>" +
+          gap(ri, r) + "</span></td><td>" + achCell(r[2]) + "</td><td>" + escapeHtml(prettyTime(r[4])) + "</td>" +
           delayCell(r, ri) + "</tr>";
         return;
       }
@@ -601,6 +607,7 @@
   function rowsToTable(rows, ui, achievementClass) {
     return timelineTable(rows, {
       rowClass: achievementClass,
+      achLink: ui && ui.achLink,  // Jump to achievement
       edit: function (ri) {
         var id = ui && ui.targets[ri];
         if (!id) return null;
@@ -1153,7 +1160,8 @@
     } else {
       slot.innerHTML = rowsToTable(latest.csvRows, {
         targets: latest.csvTargets, gapActions: latest.gapActions, edits: edits,
-        originals: latest.originals, breaks: breaks, autoBreaks: latest.autoBreaks
+        originals: latest.originals, breaks: breaks, autoBreaks: latest.autoBreaks,
+        achLink: local ? parseInt(els.appid.value, 10) : 0  // Jump to achievement
       }) + warningsHtml;
     }
     // Back where it was scrolled: the table is redrawn on every change,
@@ -2129,6 +2137,7 @@
   function timelineHtml(rows, done, running, editable) {
     return timelineTable(rows, {
       rowClass: function (index) { return index < done ? "done-row" : index === done && running ? "next-row" : ""; },
+      achLink: runEdit ? 0 : runGame().appid,  // Jump to achievement, while locked
       edit: function (ri) {
         if (!editable || !editable[ri]) return null;
         return {cls: "run-editable", attr: 'data-row="' + ri + '"', undoAttr: 'data-run-undo="' + ri + '"',
@@ -3394,7 +3403,7 @@
       scrollLibraryTop();
     }
     api("/api/unlocks/game?appid=" + encodeURIComponent(appid)).then(function (p) {
-      if (gamePageFor === appid) { gamePage = p; renderGamePage(); changeSeen(p); }
+      if (gamePageFor === appid) { gamePage = p; renderGamePage(); changeSeen(p); showAchFocus(); }
     }).catch(function (e) {
       if (gamePageFor === appid && !quiet) { gamePage = {error: e}; renderGamePage(); }
     });
@@ -3403,6 +3412,7 @@
     gamePageFor = gamePage = null;
     resetAchEdit();
     renderGamePage();
+    backToAchievements();
   }
   // A hidden achievement's description (Steam's stats page leaves it out;
   // STAR fills it in): shown as Settings → Library says, hidden_descriptions:
@@ -3476,7 +3486,8 @@
           '" aria-pressed="' + (pick !== -1 || drop) + '"';
       }
       return '<div class="unlock' + (kind === "locked" ? " locked" : "") + (achEdit ? " editable" : "") + (achEdit && drop ? " dropping" : "") +
-        (achEdit && kind === "locked" && pick !== -1 ? " picked" : "") + '"' + attrs + ">" + icon +
+        (achEdit && kind === "locked" && pick !== -1 ? " picked" : "") + '"' + attrs +
+        ' data-name="' + escapeHtml(a.name) + '">' + icon +  // data-name: Jump to achievement
         '<div class="unlock-text"><div class="unlock-name">' + escapeHtml(a.name) + "</div>" +
         achDescHtml(a, kind === "locked") + "</div>" + when + "</div>";
     }).join("");
@@ -3660,13 +3671,70 @@
     var b = e.target.closest("[data-tab]");
     if (b) showLibraryTab(b.getAttribute("data-tab"));
   });
-  // An unlock's game name opens that game's page, in Games.
+
+  // ---- Jump to achievement ----
+  // An unlock clicked in Achievements, or an achievement's name in a
+  // timeline, opens its game's page in Library scrolled to it, lit for a
+  // moment. (To remove: everything tagged "Jump to achievement" here, in
+  // style.css, and the data-name on a game page's rows.)
+  var achFocus = null, achReturn = null;
   byId("unlocks-list").addEventListener("click", function (e) {
-    var g = e.target.closest("[data-open-game]");
-    if (!g) return;
-    showLibraryTab("games");
-    openGamePage(Number(g.getAttribute("data-open-game")));
+    jumpToAch(e.target.closest("[data-jump-ach]"));
   });
+  function jumpToAch(row) {
+    if (!row) return;
+    var top = libraryScroller().scrollTop;
+    openAchInLibrary(Number(row.getAttribute("data-jump-appid")), row.getAttribute("data-jump-ach"), "Achievements", function () {
+      requestAnimationFrame(function () { libraryScroller().scrollTo({top: top}); });
+    });
+  }
+  // A game's page in Library, at one of its achievements. From
+  // Achievements, Back (named `from`) returns there via back(); from a
+  // timeline it's the usual Back to Games, and the Runs or Schedule tab
+  // returns to the timeline, where it was.
+  function openAchInLibrary(appid, name, from, back) {
+    if (document.body.getAttribute("data-screen") !== "unlocks") showUnlocks();
+    showLibraryTab("games");
+    openGamePage(appid);
+    achFocus = name;
+    achReturn = back ? function () { showLibraryTab("achievements"); back(); } : null;
+    byId("game-back").textContent = "\u2190 " + (from || "Games");
+  }
+  function openAchFromTimeline(link) {
+    openAchInLibrary(Number(link.getAttribute("data-lib-appid")), link.getAttribute("data-lib-ach"));
+  }
+  document.addEventListener("click", function (e) {
+    var link = e.target.closest("[data-lib-ach]");
+    if (link) openAchFromTimeline(link);
+  });
+  document.addEventListener("keydown", function (e) {
+    var link = e.target.closest && e.target.closest("[data-lib-ach]");
+    if (link && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openAchFromTimeline(link); }
+  });
+  byId("unlocks-list").addEventListener("keydown", function (e) {
+    var row = e.target.closest("[data-jump-ach]");
+    if (row && e.target === row && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); jumpToAch(row); }
+  });
+  function showAchFocus() {
+    if (achFocus === null) return;
+    // Loosely: a schedule's names come from a paste.
+    var loose = function (s) { return s.toLowerCase().replace(/\s+/g, " ").trim(); };
+    var row = [].filter.call(byId("game-page").querySelectorAll("[data-name]"), function (r) {
+      return loose(r.getAttribute("data-name")) === loose(achFocus);
+    })[0];
+    if (!row) return;
+    achFocus = null;
+    row.scrollIntoView({block: "center", behavior: "smooth"});
+    row.classList.add("ach-focus");
+  }
+  function backToAchievements() {
+    achFocus = null;
+    if (!achReturn) return;
+    var back = achReturn;
+    achReturn = null;
+    byId("game-back").textContent = "\u2190 Games";
+    back();
+  }
   // Back to top, once the list has been scrolled a long way. In the app
   // the Library scrolls on its own; on a page, the window does.
   function libraryScroller() {
@@ -3745,11 +3813,12 @@
           html += (lastDay ? "</div>" : "") + '<div class="unlocks-day">' + escapeHtml(day) + '</div><div class="unlocks-group">';
           lastDay = day;
         }
-        html += '<div class="unlock' + (u.private ? " private-game" : "") + '">' +
+        html += '<div class="unlock' + (u.private ? " private-game" : "") + '" role="button" tabindex="0" data-jump-appid="' + u.appid +
+          '" data-jump-ach="' + escapeHtml(u.name) + '">' +  // Jump to achievement
           iconHtml("unlock-icon", u.icon, "ach") +
           '<div class="unlock-text"><div class="unlock-name">' + escapeHtml(u.name) + "</div>" +
           achDescHtml(u, false) + "</div>" +
-          '<div class="unlock-meta"><div class="unlock-game" data-open-game="' + u.appid + '" role="button" tabindex="0">' + markHtml(u) + escapeHtml(u.game) + "</div>" +
+          '<div class="unlock-meta"><div class="unlock-game">' + markHtml(u) + escapeHtml(u.game) + "</div>" +
           '<div class="unlock-time">' + escapeHtml(fmtClock(at)) + "</div></div></div>";
       });
       list.innerHTML = html + (lastDay ? "</div>" : "");
