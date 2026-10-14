@@ -1124,6 +1124,14 @@
       var box = document.querySelector(".box");
       box.classList.toggle("has-paste", !!els.exportText.value.trim());
       box.classList.toggle("has-timeline", !!ok);
+      // Behind it all, as in Runs: a glow in the colour of the game the
+      // App ID names.
+      var schedAppid = parseInt(els.appid.value, 10);
+      tintFor(schedAppid > 0 ? {appid: schedAppid} : null, function (tint) {
+        var pane = document.querySelector('.view-pane[data-view="input"]');
+        if (tint) pane.style.setProperty("--run-tint", tint);
+        else pane.style.removeProperty("--run-tint");
+      }, "schedule");
       // A new App ID rebuilds the timeline (its numbers checked again), so
       // it's fixed while there are Timeline edits to lose.
       els.appid.readOnly = editCount() > 0;
@@ -1563,10 +1571,11 @@
   // once per game and remembered on this computer.
   var tints = {};
   try { tints = JSON.parse(localStorage.getItem("game-tints") || "{}") || {}; } catch (e) {}
-  var tintWanted = null;
-  function tintFor(g, done) {
+  var tintWanted = {};  // per place it shows (Runs, Schedule): the latest asked
+  function tintFor(g, done, place) {
+    place = place || "runs";
     var appid = g && g.appid > 0 ? g.appid : null;
-    tintWanted = appid;
+    tintWanted[place] = appid;
     if (!appid) return done(null);
     if (appid in tints) return done(tints[appid]);
     var img = new Image();
@@ -1593,13 +1602,13 @@
       } catch (e) {}
       tints[appid] = tint;
       try { localStorage.setItem("game-tints", JSON.stringify(tints)); } catch (e) {}
-      if (tintWanted === appid) done(tint);
+      if (tintWanted[place] === appid) done(tint);
     };
     // No library art: the next picture Steam has for the game.
     var tries = heroUrls(appid);
     img.onerror = function () {
       if (tries.length) img.src = tries.shift();
-      else if (tintWanted === appid) done(null);
+      else if (tintWanted[place] === appid) done(null);
     };
     img.src = tries.shift();
   }

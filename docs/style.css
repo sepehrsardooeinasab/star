@@ -930,7 +930,9 @@
   .runs-log { display: flex; flex-direction: column; min-height: 0; position: relative; isolation: isolate; }
   /* The selected game's colour (from its art), as a soft glow from the
      top over the whole panel; none until it's known. */
-  .runs-log::before {
+  body.local .view-pane[data-view="input"] { position: relative; isolation: isolate; }
+  .runs-log::before,
+  body.local .view-pane[data-view="input"]::before {
     content: "";
     position: absolute;
     inset: 0;
@@ -940,13 +942,18 @@
     opacity: 0;
     transition: opacity 0.3s ease;
   }
-  .runs-log[style*="--run-tint"]::before { opacity: 1; }
-  :root[data-theme="light"] .runs-log[style*="--run-tint"]::before { opacity: 0.45; }
+  /* Schedule's runs out over the space around it (its box's padding), to
+     the window's edges as Runs' does. */
+  body.local .view-pane[data-view="input"]::before { inset: -1rem -1.2rem; }
+  :is(.runs-log, body.local .view-pane[data-view="input"])[style*="--run-tint"]::before { opacity: 1; }
+  :root[data-theme="light"] :is(.runs-log, body.local .view-pane[data-view="input"])[style*="--run-tint"]::before { opacity: 0.45; }
   /* The table sits on the glow on its own background, like the bar over
      it; in light, both nearly white, so they stand out from the glow. */
-  .runs-log .table-wrap { background: var(--surface); }
+  .runs-log .table-wrap, body.local #csv-slot > :is(.table-wrap, .empty-hint) { background: var(--surface); }
   :root[data-theme="light"] .runs-log :is(.summary-bar, .table-wrap, pre.file-preview) { background: #fbfbfb; border-color: var(--border-strong); }
   :root[data-theme="light"] .runs-log table.csv-table th { background: #eeeeee; }
+  :root[data-theme="light"] body.local #csv-slot > :is(.table-wrap, .empty-hint) { background: #fbfbfb; }
+  :root[data-theme="light"] body.local #csv-slot table.csv-table th { background: #eeeeee; }
   /* Each game's card in the list: its art too, stronger towards the right
      (the name stays on a quieter part), brighter when selected. */
   .run-card { position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; justify-content: center; min-height: 5.2rem; }
