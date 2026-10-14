@@ -1081,7 +1081,9 @@
           : "<span>len <b>" + latest.stats.sessionLen + "</b></span>" +
             "<span>gap <b>" + latest.stats.gapRange + "</b></span>");
     } else if (combined) {
-      els.statsStrip.innerHTML = "";  // the app shows progress beside the paste instead
+      // Dashes until there's a timeline, so the line isn't empty.
+      els.statsStrip.innerHTML = "<span><b>—</b> achievements</span><span><b>—</b> sessions</span>" +
+        "<span>sessions <b>—</b></span><span>breaks <b>—</b></span>";
     } else {
       // Kept (with a hint) so the bar doesn't change height on paste.
       els.statsStrip.innerHTML = "<span>" + escapeHtml(latest && latest.pending ? latest.errors[0]
@@ -1123,13 +1125,16 @@
       if (els.appid.readOnly) els.appid.setAttribute("data-tip", "Discard the Timeline edits to change it");
       else els.appid.removeAttribute("data-tip");
       box.classList.toggle("sched-full", !!ok && schedFull);
+      byId("sched-full-btn").disabled = !ok;
       if (!latest || latest.errors.length) {
         // What's still missing (like the App ID) says so here; problems
         // with the paste itself already show under it.
+        // The timeline's frame is there already, with these under it as
+        // its warnings are.
         var missing = latest && !latest.inputNotice && els.exportText.value.trim() ? latest.errors : [];
-        slot.innerHTML = latest && latest.pending ? stepsHtml(latest.errors[0], latest.steps)
-          : missing.map(function (m) { return noticeHtml("info", m); }).join("") +
-            emptyHtml("☰", "The timeline shows up here once the paste reads cleanly.");
+        slot.innerHTML = emptyHtml("☰", "The timeline shows up here once the paste reads cleanly.") +
+          '<div class="notices-below">' + (latest && latest.pending ? stepsHtml(latest.errors[0], latest.steps)
+            : missing.map(function (m) { return noticeHtml("info", m); }).join("")) + "</div>";
         return;
       }
     }

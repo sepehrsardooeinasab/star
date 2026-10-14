@@ -1715,10 +1715,11 @@
   .bar-popover #reset-btn { height: 30px; padding: 0; font-size: 0.78rem; }
 
   /* Schedule after a clean paste: a line saying what it gave, then the
-     result, beside the paste. The line's room is kept before then too, so
+     result, beside the paste. The line is there before then too, so
      nothing moves down when it fills in. */
   .paste-summary { display: none; }
-  body.local .box:not(.has-timeline) .paste-summary > * { visibility: hidden; }
+  /* Before then: dashes, and the timeline's empty frame. */
+  body.local #csv-slot > .empty-hint { border: 1px solid var(--border); border-radius: 7px; }
   body.local .paste-summary {
     grid-column: 1 / -1;
     display: flex;
