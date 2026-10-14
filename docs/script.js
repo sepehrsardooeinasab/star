@@ -532,12 +532,18 @@
     return parts.join(" ") || "0s";
   }
 
-  // Clock times as Settings → Clock says: the computer's way, 12-hour
-  // ("2:30 PM") or 24-hour ("14:30").
-  var clockPref = "system";
+  // Clock times as Settings → Clock says: 12-hour ("2:30 PM") or 24-hour
+  // ("14:30"). Until one's picked, the usual one for the computer's
+  // language (the web view can't read the Mac's own 12/24-hour switch).
+  var CLOCK_GUESS = "12h";
+  try {
+    var hourCycle = new Intl.DateTimeFormat([], {hour: "numeric"}).resolvedOptions().hourCycle;
+    if (hourCycle === "h23" || hourCycle === "h24") CLOCK_GUESS = "24h";
+  } catch (e) {}
+  var clockPref = CLOCK_GUESS;
   function clockOpts(opts) {
     if (clockPref === "12h") { opts.hour = "numeric"; opts.hour12 = true; }
-    else { opts.hour = "2-digit"; if (clockPref === "24h") opts.hourCycle = "h23"; }
+    else { opts.hour = "2-digit"; opts.hourCycle = "h23"; }
     opts.minute = "2-digit";
     return opts;
   }
@@ -1074,6 +1080,13 @@
     var locked = editCount() > 0;
     els.exportText.readOnly = locked;
     els.exportText.classList.toggle("locked", locked);
+    // So are the options: they'd split the sessions differently.
+    var opts = byId("bar-options"), optsBtn = opts.querySelector("summary");
+    opts.classList.toggle("locked", locked);
+    if (locked) {
+      opts.open = false;
+      optsBtn.setAttribute("data-tip", "Discard the Timeline edits to change them");
+    } else optsBtn.removeAttribute("data-tip");
     els.resetBtn.textContent = locked && isArmed("reset") ? "Confirm" : "Reset all fields";
     els.resetBtn.classList.toggle("armed", locked && isArmed("reset"));
 
@@ -2485,6 +2498,10 @@
       pop.style.setProperty("--shift", shift + "px");
     }
     options.addEventListener("toggle", placeOptions);
+    // Locked while there are Timeline edits (see render).
+    options.querySelector("summary").addEventListener("click", function (e) {
+      if (options.classList.contains("locked")) e.preventDefault();
+    });
     // Again as the window is resized with it open.
     window.addEventListener("resize", placeOptions);
     document.addEventListener("mousedown", function (e) {
@@ -2626,7 +2643,8 @@
     reconnect_settle_delay: ["Wait before the first unlock, if Steam just reconnected", "seconds"],
     play_check_interval: ["Check the game is still playing every", "seconds", 1],
     bot_connect_timeout: ["Wait for Steam to connect up to", "seconds"],
-    asf_shutdown_delay: ["Close an idle ArchiSteamFarm after", "seconds"]
+    asf_shutdown_delay: ["Close an idle ArchiSteamFarm after", "seconds"],
+    run_logs_kept: ["Keep in each game's log its last", "runs", 1, 100]
   };
   var runSettings = null;  // [{key, value, default}] as saved
   var editingSettings = false;  // locked until Edit
@@ -2643,7 +2661,8 @@
   var RUN_SETTING_GROUPS = [
     ["Delays", ["jitter_enabled", "jitter_percent", "jitter_min_delay", "simultaneous_max_delay"]],
     ["ArchiSteamFarm", ["stop_other_asf", "warm_settle_delay", "reconnect_settle_delay",
-                        "play_check_interval", "bot_connect_timeout", "asf_shutdown_delay"]]
+                        "play_check_interval", "bot_connect_timeout", "asf_shutdown_delay"]],
+    ["Logs", ["run_logs_kept"]]
   ];
 
   function renderRunSettings() {
@@ -2707,8 +2726,7 @@
     lock.setAttribute("aria-pressed", String(editingSettings));
     lock.setAttribute("data-tip", editingSettings ? "Lock again: changes you haven't saved are discarded" : "Unlock to change these");
     byId("run-settings-lock-label").textContent = editingSettings ? "Unlocked" : "Locked";
-    byId("run-settings-actions").hidden = !editingSettings;
-    byId("run-settings-save").disabled = !changed;
+    byId("run-settings-save").hidden = !editingSettings || !changed;
   }
 
   function saveRunSettings(values) {
@@ -2716,7 +2734,7 @@
       runSettings = d.settings;
       editingSettings = false;
       renderRunSettings();
-      showToast("Saved. Runs started from now on use these.");
+      showToast("Applied. Runs started from now on use these.");
     }).catch(function (err) { showToast("Couldn't save: " + err.message); });
   }
   byId("run-settings").addEventListener("input", syncRunSettings);
@@ -2732,16 +2750,12 @@
     editingSettings = !editingSettings;
     if (editingSettings) syncRunSettings(); else renderRunSettings();
   });
-  // Defaults fill the form; Save keeps them.
+  // ↺ puts a default in the form; Apply keeps it.
   function setToDefault(s) {
     var el = byId("set-" + s.key);
     if (!el) return;
     if (el.type === "checkbox") el.checked = s.default; else el.value = s.default;
   }
-  byId("run-settings-reset").addEventListener("click", function () {
-    (runSettings || []).forEach(setToDefault);
-    syncRunSettings();
-  });
   byId("run-settings").addEventListener("click", function (e) {
     var button = e.target.closest("[data-reset]");
     if (!button) return;
@@ -2755,7 +2769,7 @@
   // settings.json, used by runs started after), and what this computer
   // is missing for them. Shown once setup is done.
   var extrasTools = {show_finished: true};
-  var TOGGLES = {keep_awake: "keep-awake-on", auto_update: "auto-update-on", show_finished: "show-done"};
+  var TOGGLES = {keep_awake: "keep-awake-on", show_finished: "show-done"};
   function syncToggles() {
     Object.keys(TOGGLES).forEach(function (key) {
       var box = byId(TOGGLES[key]);
@@ -2823,9 +2837,10 @@
       }
     }
     var clock = (runSettings || []).filter(function (x) { return x.key === "clock"; })[0];
-    if (clock && clock.value !== clockPref) {
-      clockPref = clock.value;
-      byId("clock-format").value = clockPref;
+    var wanted = clock && (clock.value === "system" ? CLOCK_GUESS : clock.value);  // "system": not picked yet
+    byId("clock-format").value = wanted || clockPref;
+    if (wanted && wanted !== clockPref) {
+      clockPref = wanted;
       renderRuns();
       if (unlocksData) renderUnlocks();
     }
@@ -2940,10 +2955,6 @@
       text = "STAR " + u.current + ". " + u.error;
     }
     byId("update-text").textContent = text;
-    // Only installs made by the install command can update themselves.
-    extrasTools.auto_update = !!u.can_update;
-    byId("auto-update-row").hidden = !u.can_update;
-    syncToggles();
     byId("update-now").hidden = !u.available || !u.can_update || u.updating;
     byId("update-check").hidden = u.updating;
   }
@@ -3830,7 +3841,7 @@
     var unknown = unlocksHasKey === null;
     var link = '<a href="https://steamcommunity.com/dev/apikey" target="_blank" rel="noopener">steamcommunity.com/dev/apikey</a>';
     byId("unlocks-key-text").innerHTML = unknown ? "" : unlocksHasKey
-      ? "Uses your Steam Web API key to cover every game you play and display its unlocked achievements."
+      ? "Your Steam Web API key adds every game you play."
       : "The Library covers the games in STAR. To include every game you play, add a Steam Web API key: get one free at " +
         link + " (any domain name works).";
     byId("unlocks-key-actions").hidden = unknown || !unlocksHasKey || unlocksKeyOpen;

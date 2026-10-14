@@ -15,7 +15,7 @@ curl -fsSL https://raw.githubusercontent.com/sepehrsardooeinasab/star/main/insta
 It installs the **STAR** app and ArchiSteamFarm with its achievement plugin (from their official releases, checked against their published checksums). Open STAR and sign in to Steam; it asks for the Steam Guard code if needed.
 
 - Python 3.8+ is the only requirement. On macOS, the installer offers to install it if it's missing. Nothing needs `sudo`.
-- STAR updates itself: when a new release is out, it installs it once no game is in a session, closing and reopening the app (turn this off with **Update automatically** in Settings). **Check for Updates…** or running the same command again does it right away. Your games and settings are kept.
+- STAR updates itself: when a new release is out, it installs it once no game is in a session, closing and reopening the app. **Check for Updates…** or running the same command again does it right away. Your games and settings are kept.
 - `... | sh -s -- --uninstall` removes the app and keeps your data.
 - Downloading the macOS app by hand from Releases instead means macOS asks you to allow it once in **System Settings → Privacy & Security**; the install command avoids that.
 
@@ -144,18 +144,18 @@ In the app, **Settings** has the keep-awake and update switches and **Advanced r
 | `bot_connect_timeout` | `60` | Seconds a command keeps retrying while ASF starts or the bot connects to Steam. |
 | `warm_settle_delay` | `10` | Seconds between `play` and the first unlock when the bot was already connected. |
 | `reconnect_settle_delay` | `60` | The same pause after a fresh (re)connect. Shorter values have produced offline-looking timestamps. |
-| `play_check_interval` | `900` | How often (seconds) a session checks whether the bot reconnected to Steam, which drops the game it was playing. It's also checked before every unlock; when it happened, `play` is sent again. |
+| `play_check_interval` | `30` | How often (seconds) a session checks whether the bot reconnected to Steam, which drops the game it was playing. Only ASF's log is read, so it can be often. It's also checked before every unlock; when it happened, `play` is sent again. |
 | `simultaneous_max_delay` | `1` | Unlocks this many seconds apart or less are sent together in a single `aset`. |
 | `asf_shutdown_delay` | `300` | Seconds after a session ends before ASF is shut down, if it's idle. |
+| `run_logs_kept` | `3` | How many of a game's runs its log keeps (Runs shows them, up to 1 MB). Each run starts with a "Started" line. |
 | `stop_other_asf` | `true` | Stops other ArchiSteamFarm installs on this machine when a session starts, since Steam allows only one login per account. Turn it off if they use other accounts (e.g. a card-farming install). Either way, they're listed before you confirm. |
 | `jitter_enabled` | `false` | Turns on randomness, so a run doesn't replay the source player's timings to the second. |
 | `jitter_min_delay` | `60` | Only delays longer than this many seconds get randomness. Shorter ones are kept exact. |
 | `jitter_percent` | `10` | How far a delay can move, in either direction, as a percentage of itself (0–100). With the defaults, a 10-minute delay becomes anywhere from 9 to 11 minutes. |
 | `keep_awake` | `true` | Keeps the computer from sleeping while a run waits or plays. |
-| `auto_update` | `true` | Installs a new STAR release by itself, once no game is in a session. |
 | `show_finished` | `false` | Lists finished games in the app's Runs (at the bottom). |
 | `steam_api_key` | `null` | A [Steam Web API key](https://steamcommunity.com/dev/apikey), so the app's **Library** covers every game you play, not just the games in STAR. Set it in Settings → Library. |
-| `clock` | `"system"` | How the app writes times: `"system"` (the computer's way), `"12h"` (2:30 PM) or `"24h"` (14:30). Set it in Settings → Clock. |
+| `clock` | `"system"` | How the app writes times: `"12h"` (2:30 PM) or `"24h"` (14:30). Until one's set (`"system"`), the usual one for the computer's language. Set it in Settings → Clock. |
 | `theme`, `accent` | `"dark"`, `"violet"` | The app's look, from its Appearance menu: `"dark"` or `"light"`; `"violet"`, `"wine"`, `"blue"`, `"teal"` or `"amber"`. |
 | `unlocks_range` | `"month"` | How far back the app's **Library** lists achievements: `"day"`, `"week"`, `"month"`, `"year"` or `"all"`. Set it in Settings → Library. |
 | `library_tab` | `"achievements"` | Which section **Library** opens on: `"achievements"` or `"games"`. |

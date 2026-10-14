@@ -155,17 +155,17 @@
         <details class="run-settings-box" id="run-settings-box">
           <summary>Advanced run settings <span id="run-settings-summary"></span></summary>
           <div class="run-settings-top">
-            <span class="step-text" id="run-settings-note">Runs started after saving use these. Saved in settings.json in the data folder.</span>
+            <span class="step-text" id="run-settings-note">Runs started after applying use these. Saved in settings.json in the data folder.</span>
+            <span class="run-settings-btns">
+            <!-- Apply by the lock, as for a game's achievements; shown once something changed. -->
+            <button class="btn-ghost primary-ghost" id="run-settings-save" type="button" hidden>Apply</button>
             <button class="lock-toggle" id="run-settings-lock" type="button" aria-pressed="false" data-tip="Unlock to change these">
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path class="lock-shackle" d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>
               <span id="run-settings-lock-label">Locked</span>
             </button>
+            </span>
           </div>
           <form class="run-settings" id="run-settings" autocomplete="off"></form>
-          <div class="step-actions" id="run-settings-actions" hidden>
-            <button class="btn-ghost primary-ghost" id="run-settings-save" type="button" disabled>Save</button>
-            <button class="btn-ghost" id="run-settings-reset" type="button">Set all to defaults</button>
-          </div>
         </details>
       </li>
       <li class="setup-step done" id="step-unlocks" hidden>
@@ -180,6 +180,8 @@
           <button class="btn-ghost" type="submit">Save</button>
         </form>
         <p class="step-text unlocks-key-error" id="unlocks-key-error" hidden></p>
+        <details class="run-settings-box lib-defaults-box" id="lib-defaults-box">
+          <summary>Display options</summary>
         <div class="lib-defaults">
           <div class="lib-default"><span>Achievements shown</span>
             <select id="default-range" aria-label="Achievements shown">
@@ -220,31 +222,31 @@
             </select>
           </div>
         </div>
+        </details>
       </li>
-      <li class="setup-step done" id="step-clock" hidden>
-        <div class="step-head"><span class="step-mark"></span><b>Clock</b></div>
-        <select id="clock-format" aria-label="How times are written">
-          <option value="system">Like this computer</option>
-          <option value="12h">12-hour (2:30 PM)</option>
-          <option value="24h">24-hour (14:30)</option>
-        </select>
-      </li>
-      <li class="setup-step done" id="step-data" hidden>
-        <div class="step-head"><span class="step-mark"></span><b>Data folder</b></div>
-        <code class="data-path" id="data-path"></code>
-        <div class="step-actions">
-          <button class="btn-ghost" id="open-folder" type="button">Show in Finder</button>
+      <!-- Other: the clock, the data folder, and STAR's version, a row each. -->
+      <li class="setup-step done" id="step-other">
+        <div class="step-head"><span class="step-mark"></span><b>Other</b></div>
+        <div class="lib-defaults other-rows">
+          <div class="lib-default" id="step-clock" hidden><span>Clock</span>
+            <select id="clock-format" aria-label="How times are written">
+              <option value="12h">12-hour (2:30 PM)</option>
+              <option value="24h">24-hour (14:30)</option>
+            </select>
+          </div>
+          <div class="lib-default" id="step-data" hidden><span>Data folder</span>
+            <code class="data-path" id="data-path"></code>
+            <button class="btn-ghost" id="open-folder" type="button">Show in Finder</button>
+          </div>
+          <div class="lib-default" id="step-about"><span>Version</span>
+            <div class="update-row" id="update-row">
+              <span id="update-text">STAR</span>
+              <a class="btn-ghost" id="repo-link" href="https://sepehrsardooeinasab.github.io/star/" target="_blank" rel="noopener">Website</a>
+              <button class="btn-ghost" id="update-check" type="button">Check for updates</button>
+              <button class="btn-ghost primary-ghost" id="update-now" type="button" hidden>Update now</button>
+            </div>
+          </div>
         </div>
-      </li>
-      <li class="setup-step done" id="step-about">
-        <div class="step-head"><span class="step-mark"></span><b>About STAR</b></div>
-        <div class="update-row" id="update-row">
-          <span id="update-text">STAR</span>
-          <a class="btn-ghost" id="repo-link" href="https://sepehrsardooeinasab.github.io/star/" target="_blank" rel="noopener">Website</a>
-          <button class="btn-ghost" id="update-check" type="button">Check for updates</button>
-          <button class="btn-ghost primary-ghost" id="update-now" type="button" hidden>Update now</button>
-        </div>
-        <label class="setting-check" id="auto-update-row"><input type="checkbox" id="auto-update-on" disabled> Update automatically</label>
       </li>
     </ol>
     <p class="setup-error" id="setup-error" hidden></p>
@@ -304,7 +306,6 @@
         <details class="bar-options" id="bar-options">
           <summary>Options</summary>
           <div class="bar-popover" data-slot="settings-form">
-            <p class="bar-note">A pause in the player's unlocks longer than "Session break after" starts a new session; between sessions the game is closed, as if the player stopped playing.</p>
           </div>
         </details>
         <div class="bar-stats" data-slot="stats-strip"></div>

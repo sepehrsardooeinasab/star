@@ -136,7 +136,11 @@
   th, td { padding: 0.55rem 0.8rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--border); }
   th { background: var(--surface-2); font-weight: 600; white-space: nowrap; }
   tr:last-child td { border-bottom: 0; }
-  td:first-child { white-space: nowrap; }
+  /* Keys and defaults wrap between their codes, never inside one, so a
+     row listing several doesn't squeeze the description. */
+  td code { white-space: nowrap; }
+  td:first-child { max-width: 15rem; }
+  td:nth-child(2):not(:last-child) { max-width: 9rem; }
 
   details { margin: 0.8rem 0; padding: 0.7rem 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
   details summary { cursor: pointer; font-weight: 600; }

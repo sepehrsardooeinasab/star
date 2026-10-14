@@ -23,9 +23,14 @@ DEFAULTS = {
     # — it still produced an epoch/offline-looking achievement timestamp once.
     "reconnect_settle_delay": 60,
     # During a session, how often (in seconds) to check ASF's log for a
-    # reconnect to Steam, which silently drops the game "play" started.
-    # It's also checked right before every unlock.
-    "play_check_interval": 900,
+    # reconnect to Steam, which silently drops the game "play" started (it's
+    # started again then). It's also checked right before every unlock. Only
+    # the log file is read, so it can be often: the game is back within
+    # this long, rather than shown as not playing until the next unlock.
+    "play_check_interval": 30,
+    # How many of a game's runs its log keeps (Runs shows them), newest
+    # last; older ones are dropped when a run starts.
+    "run_logs_kept": 3,
     # Unlocks this close together in the source data count as simultaneous
     # (a 1s delay is usually the same event straddling a second boundary),
     # and are batched into a single aset.
@@ -46,15 +51,14 @@ DEFAULTS = {
     "jitter_percent": 10,
     # Keep the computer from sleeping while a run waits or plays.
     "keep_awake": True,
-    # Install a new STAR release by itself, when no game is in a session.
-    "auto_update": True,
     # The app's Runs list: show finished games too (at the bottom).
     "show_finished": False,
     # A Steam Web API key (steamcommunity.com/dev/apikey), so the app's
     # Library covers every game played, not just the games in STAR.
     "steam_api_key": None,
-    # How the app writes clock times: "system" (the computer's way),
-    # "12h" (2:30 PM) or "24h" (14:30).
+    # How the app writes clock times: "12h" (2:30 PM) or "24h" (14:30);
+    # "system" until one's picked: the usual one for the computer's
+    # language.
     "clock": "system",
     # The app's look (its Appearance menu).
     "theme": "dark",
@@ -101,6 +105,7 @@ _TYPES = {
     "warm_settle_delay": (int,),
     "reconnect_settle_delay": (int,),
     "play_check_interval": (int,),
+    "run_logs_kept": (int,),
     "simultaneous_max_delay": (int,),
     "asf_shutdown_delay": (int,),
     "stop_other_asf": (bool,),
@@ -108,7 +113,6 @@ _TYPES = {
     "jitter_min_delay": (int,),
     "jitter_percent": (int, float),
     "keep_awake": (bool,),
-    "auto_update": (bool,),
     "show_finished": (bool,),
     "steam_api_key": (str, type(None)),
     "clock": (str,),
@@ -137,10 +141,10 @@ APP_EDITABLE = [
     "jitter_enabled", "jitter_percent", "jitter_min_delay",
     "stop_other_asf", "simultaneous_max_delay",
     "warm_settle_delay", "reconnect_settle_delay", "play_check_interval",
-    "bot_connect_timeout", "asf_shutdown_delay",
+    "bot_connect_timeout", "asf_shutdown_delay", "run_logs_kept",
 ]
 # On/off switches the app shows on their own, outside the run settings.
-APP_TOGGLES = ["keep_awake", "auto_update", "show_finished"]
+APP_TOGGLES = ["keep_awake", "show_finished"]
 # Choices the app shows on their own, with what each can be.
 APP_CHOICES = {"clock": ["system", "12h", "24h"], "theme": ["dark", "light"],
                "accent": ["violet", "wine", "blue", "teal", "amber"],
@@ -160,7 +164,7 @@ APP_CHOICES = {"clock": ["system", "12h", "24h"], "theme": ["dark", "light"],
 
 # Settings older versions had, ignored (and dropped on the next save from
 # the app) rather than refused as unknown.
-RETIRED = {"notifications", "library_hidden"}
+RETIRED = {"notifications", "library_hidden", "auto_update"}
 
 
 def problems(overrides):
@@ -184,6 +188,8 @@ def problems(overrides):
             found.append(f"{port!r} must be between 1 and 65535")
     if overrides.get("play_check_interval", 1) < 1:
         found.append("'play_check_interval' must be at least 1")
+    if overrides.get("run_logs_kept", 1) < 1:
+        found.append("'run_logs_kept' must be at least 1")
     if overrides.get("jitter_percent", 0) > 100:
         found.append("'jitter_percent' can't be more than 100")
     for key, choices in APP_CHOICES.items():
