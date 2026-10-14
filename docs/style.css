@@ -899,12 +899,15 @@
   .run-pop { display: flex; flex-direction: column; gap: 0.4rem; min-width: 19rem; }
   .run-pop .filter-list + .filter-list { margin: 0; padding: 0; border: 0; }
   .run-pop-label { margin-top: 0.2rem; font-size: 0.72rem; font-weight: 600; color: var(--text-dim); }
-  /* Other…'s box, in its place among the chips, their size. */
-  .run-pop input[type="text"] { width: 8rem; }
-  #run-delay-chips [data-value="custom"] { box-sizing: border-box; width: 8rem; text-align: center; }
+  /* All six chips one width (for When ready), and Other…'s box, in its
+     place among them, the same. */
+  .run-pop .filter-chip, .run-pop input[type="text"] { box-sizing: border-box; width: 6.1rem; text-align: center; }
+  /* Under Start while Other is picked: what its box takes. */
+  .run-pop-hint { font-size: 0.72rem; color: var(--text-dim); }
+  .run-pop-hint.invalid { color: var(--danger); }
   /* Under the title bar's coloured line, not across it. */
   :root[data-desktop] .topbar .run-pop { top: calc(100% + 20px); }
-  :root[data-desktop] .topbar .run-options .run-pop input[type="text"] { width: 8rem; height: 27px; border-radius: 7px; }
+  :root[data-desktop] .topbar .run-options .run-pop input[type="text"] { width: 6.1rem; height: 27px; border-radius: 7px; }
   .run-options :disabled { cursor: not-allowed; }
   /* Details tab: label / value rows. */
   .run-details { flex: 1; min-height: 0; overflow-y: auto; }

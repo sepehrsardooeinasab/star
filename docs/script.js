@@ -1777,6 +1777,9 @@
     var minutes = runDelayMinutes(), why = "", blocked = false;
     custom.hidden = delay.value !== "custom";
     custom.classList.toggle("invalid", !custom.hidden && custom.value.trim() !== "" && minutes === null);
+    // Other's hint, while it's picked (red while what's typed isn't a time).
+    byId("run-delay-hint").hidden = custom.hidden;
+    byId("run-delay-hint").classList.toggle("invalid", custom.classList.contains("invalid"));
     if (running) {
       var armed = isArmed("stop:" + g.name);
       button.textContent = armed ? "Confirm" : "Stop";
