@@ -2046,6 +2046,16 @@
   .library-tabs[hidden], .game-back[hidden] { display: none; }
   .game-head { flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.9rem; }
   .game-head .lib-icon { width: 56px; height: 56px; border-radius: 9px; font-size: 1.3rem; }
+  /* With a run, the icon is a button to it: a ▶ over it on hover. */
+  .game-run { position: relative; flex: none; display: block; padding: 0; border: 0; border-radius: 9px; background: none; cursor: pointer; }
+  .game-run-play { position: absolute; inset: 0; display: grid; place-items: center; border-radius: 9px;
+    color: #fff; background: rgba(0, 0, 0, 0.5); opacity: 0; transition: opacity 0.15s; }
+  .game-run-play svg { width: 22px; height: 22px; }
+  .game-run:hover .game-run-play, .game-run:focus-visible .game-run-play { opacity: 1; }
+  .game-run:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /* Runs' small icon, opening the game in Library. */
+  .game-run-small, .game-run-small .game-run-play { border-radius: 6px; }
+  .game-run-small .game-run-play svg { width: 15px; height: 15px; }
   .game-title { font-size: 1.15rem; font-weight: 600; color: var(--text); }
   .game-head .lib-bar { flex-basis: 16rem; }
   /* One game: the count and percentage together, after the bar, clear
