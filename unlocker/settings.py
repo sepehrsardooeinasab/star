@@ -86,7 +86,9 @@ DEFAULTS = {
     # unlocked, always ("all"), or never ("none").
     "hidden_descriptions": "unlocked",
     # How often the Library checks Steam for new games and achievements,
-    # in the background: 1h, 3h, 6h, 12h, 24h, or "manual" (on Refresh).
+    # in the background, at set times of day counted from midnight (6h:
+    # 12 AM, 6 AM, 12 PM, 6 PM): 1h, 3h, 6h, 12h, 24h, or "manual" (on
+    # Refresh).
     "library_check": "6h",
 }
 

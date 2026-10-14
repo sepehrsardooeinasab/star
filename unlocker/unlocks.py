@@ -17,17 +17,17 @@ Like SteamHunters and co., what's read is kept (STORE_PATH: each game's
 name, when it was last played and its unlocks), and a check reads again
 only what changed: library games played since they were last read (one
 GetOwnedGames call says which), games played in the last day, and STAR's
-games. A check runs every library_check (a setting; 6 hours unless
-changed), in the background or when the Library opens, and on Refresh.
+games. A check runs at the times of day library_check sets (a setting;
+every 6 hours from midnight unless changed), in the background or when
+the Library opens, and on Refresh.
 The first check reads every
 game, which can be hundreds of pages, so checks run in the background
 (SYNC says how far along) and the saved unlocks show meanwhile. Without
 internet, what's saved is shown.
 
-Games marked Private in the Steam client, or hidden (its "hidden"
-collection), are marked: Steam keeps those lists on the computer, not
-online, so they're read from the Steam client's own files when Steam is
-installed here.
+Games marked Private in the Steam client are marked: Steam keeps that
+list on the computer, so it's read from the Steam client's own files
+when Steam is installed here (and, with a key, asked of the Web API).
 """
 import json
 import re
@@ -51,9 +51,10 @@ STORE_PATH = JSONS_DIR / ".unlocks.json"
 # Library: a list of appids.
 FINISHED_PATH = JSONS_DIR / ".finished.json"
 SHOWN = 50000      # unlocks returned (all saved, in practice)
-# How often Steam is checked (settings' library_check), unless refreshed;
-# "manual": only on Refresh (and a first check).
-CHECK_EVERY = {"1h": 3600, "3h": 3 * 3600, "6h": 6 * 3600, "12h": 12 * 3600, "24h": 86400, "manual": None}
+# How often Steam is checked (settings' library_check), in hours, unless
+# refreshed: at set times of day counted from midnight (every 6 hours:
+# 12 AM, 6 AM, 12 PM, 6 PM); "manual": only on Refresh (and a first check).
+CHECK_EVERY = {"1h": 1, "3h": 3, "6h": 6, "12h": 12, "24h": 24, "manual": None}
 LIVE_FOR = 86400   # a game played this recently may still be unlocking…
 LIVE_EVERY = 1800  # …so it's read again this often (or on refresh)
 KEY_RE = re.compile(r"[0-9A-Fa-f]{32}")
@@ -116,8 +117,8 @@ def _key():
 
 
 def _check_every():
-    """Seconds between checks with Steam, from settings.json; None: only
-    on Refresh."""
+    """Hours between checks with Steam, from settings.json; None: only on
+    Refresh."""
     try:
         choice = settings_module.read_overrides().get("library_check")
     except ValueError:
@@ -125,9 +126,17 @@ def _check_every():
     return CHECK_EVERY.get(choice, CHECK_EVERY[settings_module.DEFAULTS["library_check"]])
 
 
+def _last_check_time(every, now=None):
+    """The latest of the day's check times (every `every` hours from
+    midnight, local time) at or before now."""
+    t = time.localtime(now)
+    return time.mktime((t.tm_year, t.tm_mon, t.tm_mday, t.tm_hour // every * every, 0, 0, 0, 0, -1))
+
+
 def _due(store):
+    """Never checked, or not since the latest of the day's check times."""
     every = _check_every()
-    return not store["checked"] or (every is not None and time.time() - store["checked"] >= every)
+    return not store["checked"] or (every is not None and store["checked"] < _last_check_time(every))
 
 
 def auto_check():

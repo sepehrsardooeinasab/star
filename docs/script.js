@@ -3541,15 +3541,21 @@
   window.addEventListener("scroll", syncToTop);
   byId("to-top").addEventListener("click", scrollLibraryTop);
 
-  // From Settings → Library → Check Steam (library_check).
+  // From Settings → Library → Check Steam (library_check): at set times
+  // of day counted from midnight (every 6 hours: 12 AM, 6 AM, 12 PM, 6 PM),
+  // or right away when the last check is older than the latest of them.
   var CHECK_HOURS = {"1h": 1, "3h": 3, "6h": 6, "12h": 12, "24h": 24};
   function nextCheckText(fetchedAt) {
     var pick = (runSettings || []).filter(function (x) { return x.key === "library_check"; })[0];
-    var choice = pick ? pick.value : "6h";
-    if (!CHECK_HOURS[choice]) return "Checks on Refresh";
-    var left = fetchedAt + CHECK_HOURS[choice] * 3600 - Date.now() / 1000;
-    var at = fmtAt(left);
-    return left <= 60 ? "Checking soon" : "Next check " + (/^\d/.test(at) ? "at " + at : at.replace(/^Tomorrow/, "tomorrow"));
+    var every = CHECK_HOURS[pick ? pick.value : "6h"];
+    if (!every) return "Checks on Refresh";
+    var last = new Date();
+    last.setHours(Math.floor(last.getHours() / every) * every, 0, 0, 0);
+    if (fetchedAt * 1000 < last.getTime()) return "Checking soon";
+    var next = new Date(last.getTime());
+    next.setHours(last.getHours() + every);
+    var at = fmtAt((next.getTime() - Date.now()) / 1000);
+    return "Next check " + (/^\d/.test(at) ? "at " + at : at.replace(/^Tomorrow/, "tomorrow"));
   }
   function renderUnlocks() {
     var d = unlocksData, list = byId("unlocks-list");
