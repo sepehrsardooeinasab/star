@@ -2178,7 +2178,15 @@
       ? (runFull || runEdit ? timelineHtml(rows, done, game.running, runEdit && editableRows(rows, done))
         : sessionsHtml(rows, game.session))
       : emptyHtml("☰", "No timeline was saved with this game.");
+    // Back where it was scrolled: redrawing (after an edit) starts it at the top.
+    var wrap = byId("timeline-table").querySelector(".table-wrap");
+    if (wrap) wrap.scrollTop = timelineScroll[timelineScrollKey()] || 0;
   }
+  var timelineScroll = {};  // by game, its sessions overview and full timeline apart
+  function timelineScrollKey() { return selectedRun + (runFull || runEdit ? "|full" : ""); }
+  byId("timeline-table").addEventListener("scroll", function (e) {
+    if (e.target.classList.contains("table-wrap")) timelineScroll[timelineScrollKey()] = e.target.scrollTop;
+  }, true);
 
   // Editing works on a copy of the schedule (runEdit.config); the rows
   // are rebuilt from it after each change, with the names and player's
@@ -2209,6 +2217,7 @@
   function setRunDelay(ri, seconds) {
     runEdit.config.achievements[runEdit.rowAch[ri]].delay = seconds;
     rebuildEdit();
+    timelineShown = "";  // redrawn even when the time didn't change, closing its text box
     renderTimeline();
   }
 
