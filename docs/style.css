@@ -1384,25 +1384,6 @@
   .btn-ghost { background: var(--surface); border-color: var(--border-strong); color: var(--text); }
   .btn-ghost:hover:not(:disabled) { border-color: var(--text-dim); background: var(--surface-2); }
 
-  .folder-status {
-    font-family: var(--mono);
-    font-size: 0.72rem;
-    color: var(--text-dim);
-    margin-left: auto;
-  }
-  .folder-status b { color: var(--accent); }
-  .forget-folder {
-    margin-left: 0.3rem;
-    padding: 0 0.25rem;
-    border: none;
-    background: transparent;
-    color: var(--text-dim);
-    font: inherit;
-    font-size: 0.9rem;
-    line-height: 1;
-    cursor: pointer;
-  }
-  .forget-folder:hover { color: var(--danger); }
 
   .hint { font-size: 0.82rem; color: var(--text-dim); }
   .hint ul { margin: 0.5rem 0 0; padding-left: 1.2rem; line-height: 1.5; }
@@ -1516,7 +1497,6 @@
     button.tab { padding: 0.42rem 0.55rem; }
     .box-content { padding: 1rem; }
     .box-footer { padding: 0.8rem 1rem; }
-    .folder-status { margin-left: 0; width: 100%; }
   }
   /* Phones: only the open tab keeps its label, so all four fit. */
   @media (max-width: 480px) {

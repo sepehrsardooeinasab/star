@@ -661,8 +661,6 @@
     minGap: document.getElementById("min-gap"),
     resetBtn: document.getElementById("reset-btn"),
     downloadBtn: document.getElementById("download-btn"),
-    folderBtn: document.getElementById("folder-btn"),
-    folderStatus: document.getElementById("folder-status"),
     boxTitle: document.getElementById("box-title"),
     statsStrip: document.getElementById("stats-strip"),
     toast: document.getElementById("toast"),
@@ -707,7 +705,6 @@
   // The "pasted text is locked" notice shows only after clicking the locked
   // text box, until the next click elsewhere.
   var showLockNotice = false;
-  var dirHandle = null;
 
   function showToast(msg) {
     els.toast.textContent = msg;
@@ -933,7 +930,7 @@
     var config = buildConfig(appidVal, split.sessions, split.gaps, copiedFrom, title);
 
     // Unlike the warnings below, a re-sorted paste makes every ach_id
-    // wrong, so it's surfaced loudly (red Download button, input-pane
+    // wrong, so it's surfaced loudly (red Save button, input-pane
     // notice) rather than only as a notice in the output tabs.
     var dangers = numberDangers.slice();
     if (parsed.sortedBy) dangers.push(sortedByMsg(parsed.sortedBy));
@@ -1088,8 +1085,8 @@
         : "Paste an export to see its achievements, sessions and gaps.") + "</span>";
     }
 
-    // Download always saves everything together, so it only depends on
-    // whether we have valid data at all — not on which tab is open.
+    // Save saves everything together, so it only depends on whether we
+    // have valid data at all — not on which tab is open.
     els.downloadBtn.disabled = !ok;
 
     var dangers = ok ? latest.dangers : [];
@@ -1101,9 +1098,7 @@
     els.downloadBtn.classList.toggle("btn-danger", dangers.length > 0);
     var replacing = local && isArmed("overwrite");
     els.downloadBtn.classList.toggle("armed", replacing);
-    els.downloadBtn.textContent = replacing ? "Confirm" : local
-      ? (dangers.length ? "Save anyway" : "Save")
-      : (dangers.length ? "Download anyway" : "Download All");
+    els.downloadBtn.textContent = replacing ? "Confirm" : dangers.length ? "Save anyway" : "Save";
     els.downloadBtn.title = dangers.join("\n");
 
     var fileKey = fileKeyForView(currentView);
@@ -1447,175 +1442,14 @@
   });
   syncThemeControls();
 
-  // ---------------------------------------------------------------
-  // Saving: File System Access API folder (silent, Chromium-only,
-  // won't work in a sandboxed iframe) > claude.ai downloads capability
-  // > plain Blob download, in that order.
-  // ---------------------------------------------------------------
-  function useClaudeDownloads() {
-    if (typeof claude === "undefined" || !claude.use) return Promise.resolve(null);
-    return claude.use("downloads");
-  }
-
-  function blobDownload(filename, mime, content) {
-    try {
-      var blob = new Blob([content], {type: mime});
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  // Walks/creates each folder in dirParts under dirHandle (never clearing
-  // or recreating a folder that already exists — getDirectoryHandle with
-  // create:true just opens it if present), then writes filename into it.
-  function saveIntoFolder(dirParts, filename, content) {
-    var p = Promise.resolve(dirHandle);
-    dirParts.forEach(function (part) {
-      p = p.then(function (dir) { return dir.getDirectoryHandle(part, {create: true}); });
-    });
-    return p
-      .then(function (dir) { return dir.getFileHandle(filename, {create: true}); })
-      .then(function (handle) { return handle.createWritable(); })
-      .then(function (writable) { return writable.write(content).then(function () { return writable.close(); }); });
-  }
-
-  function ensureFolderPermission(handle) {
-    if (!handle.queryPermission) return Promise.resolve(true);
-    var opts = {mode: "readwrite"};
-    return handle.queryPermission(opts).then(function (state) {
-      if (state === "granted") return true;
-      return handle.requestPermission(opts).then(function (s) { return s === "granted"; });
-    });
-  }
-
-  function setFolder(handle) {
-    dirHandle = handle;
-    els.folderStatus.innerHTML = handle
-      ? 'Saving to <b>' + escapeHtml(handle.name) + '/</b><button class="forget-folder" type="button" ' +
-        'title="Stop saving here (use normal downloads)" aria-label="Forget save folder">×</button>'
-      : "";
-  }
-
-  // The chosen folder survives reloads and new windows by keeping its
-  // handle in IndexedDB (handles can't go in localStorage). It's a separate
-  // store from the draft, so Reset never touches it.
-  var FOLDER_DB = "unlock-scheduler", FOLDER_STORE = "handles", FOLDER_KEY = "save-folder";
-
-  function openFolderDb() {
-    return new Promise(function (resolve, reject) {
-      var req = indexedDB.open(FOLDER_DB, 1);
-      req.onupgradeneeded = function () { req.result.createObjectStore(FOLDER_STORE); };
-      req.onsuccess = function () { resolve(req.result); };
-      req.onerror = function () { reject(req.error); };
-    });
-  }
-
-  function folderDbRequest(mode, fn) {
-    return openFolderDb().then(function (db) {
-      return new Promise(function (resolve, reject) {
-        var req = fn(db.transaction(FOLDER_STORE, mode).objectStore(FOLDER_STORE));
-        req.onsuccess = function () { db.close(); resolve(req.result); };
-        req.onerror = function () { db.close(); reject(req.error); };
-      });
-    });
-  }
-
-  function storeFolderHandle(handle) {
-    return folderDbRequest("readwrite", function (store) {
-      return handle ? store.put(handle, FOLDER_KEY) : store.delete(FOLDER_KEY);
-    }).catch(function () { /* storage blocked: folder just won't persist */ });
-  }
-
-  function loadFolderHandle() {
-    return folderDbRequest("readonly", function (store) { return store.get(FOLDER_KEY); })
-      .catch(function () { return null; });
-  }
-
-  function saveOneFallback(downloads, filename, mime, content) {
-    if (downloads) {
-      return downloads.save({filename: filename, data: content}).catch(function (err) {
-        if (err && err.code === "declined") throw err;
-        blobDownload(filename, mime, content);
-      });
-    }
-    blobDownload(filename, mime, content);
-    return Promise.resolve();
-  }
-
-  // Saves config.json + the CSV together in one action:
-  //   <folder>/jsons/config[_<name>].json
-  //   <folder>/csvs/<name>.csv
-  // Falls back to one browser/claude.ai save prompt per file (with a small
-  // stagger) when no folder has been chosen.
+  // Save: into the data folder's jsons/ and csvs/ (saveToProject); a
+  // second click (Confirm) replaces a game saved before.
   els.downloadBtn.addEventListener("click", function () {
     if (!latest || latest.errors.length) return;
-    if (local) {
-      var overwrite = isArmed("overwrite");
-      delete armedUntil["overwrite"];
-      saveToProject(overwrite);
-      return;
-    }
-
-    var files = [
-      {dirParts: ["jsons"], filename: latest.filenames.json, mime: "application/json", content: latest.jsonText},
-      {dirParts: ["csvs"], filename: latest.filenames.csv, mime: "text/csv", content: latest.csvText}
-    ];
-
-    if (dirHandle) {
-      // Must run straight from the click: requestPermission needs the
-      // user gesture, and a handle restored from IndexedDB starts at "prompt".
-      ensureFolderPermission(dirHandle)
-        .then(function (granted) {
-          if (!granted) throw new Error("permission to " + dirHandle.name + "/ was denied");
-          return Promise.all(files.map(function (f) { return saveIntoFolder(f.dirParts, f.filename, f.content); }));
-        })
-        .then(function () { resetAll(); showToast("Saved config.json + CSV to " + dirHandle.name + "/ — fields reset"); })
-        .catch(function (err) { showToast("Couldn't save: " + (err && err.message ? err.message : "unknown error")); });
-      return;
-    }
-
-    useClaudeDownloads().then(function (downloads) {
-      var chain = Promise.resolve();
-      files.forEach(function (f, i) {
-        chain = chain.then(function () {
-          return saveOneFallback(downloads, f.filename, f.mime, f.content)
-            .then(function () { return new Promise(function (r) { setTimeout(r, i < files.length - 1 ? 300 : 0); }); });
-        });
-      });
-      chain.then(function () { resetAll(); showToast("Saved config.json + CSV — fields reset"); }).catch(function () {});
-    }).catch(function () {
-      files.forEach(function (f) { blobDownload(f.filename, f.mime, f.content); });
-      resetAll();
-      showToast("Saved config.json + CSV — fields reset");
-    });
+    var overwrite = isArmed("overwrite");
+    delete armedUntil["overwrite"];
+    saveToProject(overwrite);
   });
-
-  if (typeof window.showDirectoryPicker === "function") {
-    els.folderBtn.style.display = "inline-block";
-    els.folderBtn.addEventListener("click", function () {
-      window.showDirectoryPicker({mode: "readwrite"}).then(function (handle) {
-        setFolder(handle);
-        storeFolderHandle(handle);
-        showToast("Folder selected — downloads will save there silently");
-      }).catch(function () { /* user cancelled, or blocked (e.g. inside a sandboxed iframe) */ });
-    });
-    els.folderStatus.addEventListener("click", function (e) {
-      if (!e.target.closest(".forget-folder")) return;
-      setFolder(null);
-      storeFolderHandle(null);
-      showToast("Save folder forgotten — downloads go to your browser's default");
-    });
-    loadFolderHandle().then(function (handle) { if (handle) setFolder(handle); });
-  }
 
   // ---------------------------------------------------------------
   // Local app (runsteamunlocker --ui): the same page, served from this
@@ -2532,10 +2366,6 @@
     local = true;
     byId("screen-switch").hidden = false;
     syncScreenSwitch();
-    els.folderBtn.style.display = "none";
-    els.folderStatus.style.display = "none";
-    byId("hero-note").textContent = "Games keep running when you close this window.";
-    byId("hero-install").hidden = true;
     document.body.classList.add("local");
     els.exportText.placeholder = "Paste the copied SteamHunters achievements page here, or a link to a player's achievements\u2026";
     // Schedule is one screen in the app: the game's fields and options in
