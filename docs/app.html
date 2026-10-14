@@ -18,6 +18,10 @@
     // laid out as the window's title bar.
     var params = new URLSearchParams(location.search), desktop = params.get("desktop");
     if (desktop) document.documentElement.setAttribute("data-desktop", desktop);
+    // Blank (the theme's background) until STAR's server answers and the
+    // first screen is picked (script.js: shown()); without the server (the
+    // website) it goes to the website instead.
+    document.documentElement.setAttribute("data-booting", "");
     // The website's fonts; the app uses the system's own and loads none.
     if (!desktop) {
       document.write('<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' +

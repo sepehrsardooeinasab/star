@@ -2521,6 +2521,11 @@
 
   document.addEventListener("visibilitychange", function () { if (!document.hidden) refreshRuns(); });
 
+  // The page shows once its first screen is picked (Setup on a first run,
+  // else Runs), or 3 seconds after STAR's server answered.
+  function shown() { if (local) document.documentElement.removeAttribute("data-booting"); }
+  if (document.documentElement.hasAttribute("data-booting")) setTimeout(shown, 3000);
+
   function enableLocal() {
     // The settings, for show_finished in the Runs list.
     if (!runSettings) loadRunSettings();
@@ -2619,7 +2624,7 @@
       setupData = d;
       renderSetup();
       if (d.busy) setupTimer = setTimeout(refreshSetup, 800);
-    }).catch(function () {});
+    }).catch(function () {}).then(shown);
   }
 
   function renderSetup() {
@@ -3991,9 +3996,18 @@
       .catch(function () { showToast("Select the line and copy it."); });
   });
 
-  if (/^https?:$/.test(location.protocol)) {
-    api("/api/ping").then(function (data) { if (data.app === "steam-unlocker") enableLocal(); }).catch(function () {});
+  // This page is STAR's own (the app, or runsteamunlocker --ui). Without
+  // STAR's server behind it (the website), it goes to the website; in the
+  // app, it asks again.
+  function ping() {
+    api("/api/ping").then(function (data) { if (data.app === "steam-unlocker") enableLocal(); else noServer(); }).catch(noServer);
   }
+  function noServer() {
+    if (document.documentElement.hasAttribute("data-desktop")) setTimeout(ping, 1000);
+    else location.replace("index.html");
+  }
+  if (/^https?:$/.test(location.protocol)) ping();
+  else noServer();
 
   // ---------------------------------------------------------------
   loadDraft();

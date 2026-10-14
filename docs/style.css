@@ -79,6 +79,7 @@
   }
 
   html, body { background: var(--bg); }
+  :root[data-booting] body > * { visibility: hidden; }
 
   body {
     margin: 0;
