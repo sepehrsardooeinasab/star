@@ -3844,7 +3844,7 @@
     var unknown = unlocksHasKey === null;
     var link = '<a href="https://steamcommunity.com/dev/apikey" target="_blank" rel="noopener">steamcommunity.com/dev/apikey</a>';
     byId("unlocks-key-text").innerHTML = unknown ? "" : unlocksHasKey
-      ? "Uses your Steam Web API key to cover every game you play and display its unlocked achievements."
+      ? "Your Steam Web API key adds every game you play."
       : "The Library covers the games in STAR. To include every game you play, add a Steam Web API key: get one free at " +
         link + " (any domain name works).";
     byId("unlocks-key-actions").hidden = unknown || !unlocksHasKey || unlocksKeyOpen;
