@@ -237,17 +237,23 @@ def numbers(appid):
         return result
 
 
+EDIT_PLAY = 30  # seconds the game plays before and after changes by hand
+
+
 def change(appid, unlock, lock):
     """Unlocks the achievements named in unlock, one at a time in that
     order (so their times follow it), and locks again those in lock, on
     the account ArchiSteamFarm runs, matching names to aset's numbers with
-    alist. Not while a game is in a session. Starts ArchiSteamFarm if
-    needed, and stops it again unless a session started meanwhile.
-    Returns {"unlocked": [names], "locked": [names]} as Steam took them."""
+    alist. The game plays from EDIT_PLAY seconds before the first change
+    to EDIT_PLAY after the last, so they look made while playing. Not
+    while a game is in a session. Starts ArchiSteamFarm if needed, and
+    stops it again unless a session started meanwhile. Returns
+    {"unlocked": [names], "locked": [names]} as Steam took them."""
     if lock_info(SESSION_LOCK):
         raise Problem("A game is playing", "Change achievements when no session is running.")
     with _lock:
         started = not asf_running()
+        playing = False
         try:
             ensure_asf_running()
             rows = _alist(appid)
@@ -267,6 +273,9 @@ def change(appid, unlock, lock):
 
             to_unlock = [(name, find(name)) for name in unlock]
             to_lock = [(name, find(name)) for name in lock]
+            send_command(f"play {appid}")
+            playing = True
+            time.sleep(EDIT_PLAY)
             done = {"unlocked": [], "locked": []}
             for i, (name, number) in enumerate(to_unlock):
                 if i:
@@ -281,8 +290,16 @@ def change(appid, unlock, lock):
                 if status not in ("success", "already_locked"):
                     raise Problem("Steam didn't lock them", "ArchiSteamFarm's answer wasn't a success.")
                 done["locked"] = [name for name, _ in to_lock]
+            time.sleep(EDIT_PLAY)
             return done
         finally:
+            # Stopped playing, unless a session started meanwhile (it plays
+            # its own game).
+            if playing and not lock_info(SESSION_LOCK):
+                try:
+                    send_command("resume")
+                except Exception:  # noqa: BLE001 - the changes are made; ASF stops it when idle
+                    pass
             _cache.pop(appid, None)  # the numbers' unlocked marks changed
             if started and not lock_info(SESSION_LOCK):
                 asf_setup._stop_idle_asf()
