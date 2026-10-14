@@ -66,8 +66,17 @@ def _steam_stats(kind, who, app):
     url = f"https://steamcommunity.com/{kind}/{who}/stats/{app}/{query}"
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (STAR)"})
-        with urllib.request.urlopen(req, timeout=20) as r:
-            final, body = r.geturl(), r.read()
+        try:
+            with urllib.request.urlopen(req, timeout=20) as r:
+                final, body = r.geturl(), r.read()
+        except urllib.error.HTTPError as e:
+            # Steam turns pages away for a moment when they're read often
+            # (a run's checks read them too): once more, a little later.
+            if e.code != 429 and e.code < 500:
+                raise
+            time.sleep(3)
+            with urllib.request.urlopen(req, timeout=20) as r:
+                final, body = r.geturl(), r.read()
         # Some games' stats move to their short name (stats/4000 to
         # stats/GarrysMod), and the redirect drops the query: ask again there.
         if "xml=1" not in final:
@@ -75,6 +84,10 @@ def _steam_stats(kind, who, app):
             with urllib.request.urlopen(req, timeout=20) as r:
                 body = r.read()
         root = ET.fromstring(body)
+    except urllib.error.HTTPError as e:
+        if e.code == 429 or e.code >= 500:
+            raise Problem("Steam is busy", "It's turning requests away for a moment. STAR tries again shortly.")
+        raise Problem("Couldn't reach Steam", "Check your connection and try again.")
     except (urllib.error.URLError, OSError, ET.ParseError):
         raise Problem("Couldn't reach Steam", "Check your connection and try again.")
     error = root.findtext("error")

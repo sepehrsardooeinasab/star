@@ -189,6 +189,10 @@
     return (gameSlug(title) || (title && appid > 0 ? "app" + appid : "")).slice(0, 60);
   }
 
+  // A failure that may pass by itself (Steam busy or out of reach, or
+  // STAR's own server), asked again after a few seconds.
+  function retryable(title) { return !title || title === "Couldn't reach Steam" || title === "Steam is busy"; }
+
   // A link's achievements, read once. If Steam couldn't be reached (a
   // passing hiccup), it's asked again every few seconds; Steam's own
   // answers (a private profile, no such player) stay.
@@ -204,7 +208,7 @@
         if (!els.copiedFrom.value && d.player) els.copiedFrom.value = d.player;
       }
     }).catch(function (err) {
-      var title = (err.data || {}).title, retry = !title || title === "Couldn't reach Steam";
+      var title = (err.data || {}).title, retry = retryable(title);
       linkSources[url] = {status: "error", message: err.message, title: title, retry: retry, at: Date.now()};
       if (retry) setTimeout(scheduleRecompute, 5000);
     }).then(scheduleRecompute);
@@ -213,7 +217,8 @@
 
   // Asked once the App ID has stayed the same for a moment, so typing one
   // doesn't check every partial number. A failed check is tried again on
-  // the next change, after a moment.
+  // the next change, after a moment, and by itself when the failure may
+  // pass (see retryable).
   var numbersTimer = null, numbersWanted = null;
   function loadNumbers(appid) {
     var n = numberings[appid];
@@ -236,7 +241,9 @@
         api("/api/achievements/numbers", {appid: appid}).then(function (d) {
           numberings[appid] = {status: "ok", data: d};
         }).catch(function (err) {
-          numberings[appid] = {status: "error", message: err.message, title: (err.data || {}).title, at: Date.now()};
+          var title = (err.data || {}).title;
+          numberings[appid] = {status: "error", message: err.message, title: title, at: Date.now()};
+          if (retryable(title)) setTimeout(scheduleRecompute, 5000);
         }).then(function () {
           if (numbersWanted === appid) numbersWanted = null;
           scheduleRecompute();
