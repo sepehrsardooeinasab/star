@@ -1620,7 +1620,11 @@
 
   // A card says just enough to pick a game: its session and when it can
   // play. The Details tab has the rest.
-  // Stopped partway through a session (the card's badge).
+  // The card's badge, as an icon (its word on hover): playing, waiting to
+  // start, stopped partway through a session.
+  var PLAY_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.3v9.4l7.3-4.7z" fill="currentColor"/></svg>';
+  var WAIT_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M4.5 2.5h7M4.5 13.5h7M5.5 2.5c0 3 5 3.5 5 5.5s-5 2.5-5 5.5M10.5 2.5c0 3-5 3.5-5 5.5s5 2.5 5 5.5"/></svg>';
   var STOP_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="4" width="8" height="8" rx="1.5" fill="currentColor"/></svg>';
   function runCardHtml(g) {
     // A game still in its break says when it can play, and looks it;
@@ -1630,8 +1634,8 @@
     // hover) and its bar.
     var cut = !g.running && g.state === "idle" && g.cut_short;
     var resting = !g.running && g.state === "idle" && wait > 0 && !cut;
-    var badge = g.state === "in_session" ? ["live", "Playing"]
-      : g.running ? ["wait", "Waiting"]
+    var badge = g.state === "in_session" ? ["live", PLAY_ICON, "Playing"]
+      : g.running ? ["wait", WAIT_ICON, "Waiting to start"]
       : g.state === "invalid" ? ["bad", "Problem"]
       : cut ? ["cut", STOP_ICON, "Stopped at " + cut.played + " of " + cut.of]
       : g.finished || g.state === "completed" ? ["", "Done"] : null;
@@ -1830,9 +1834,10 @@
   function patchHtml(el, html) {
     if (el._html === html) return;
     el._html = html;
-    var t = document.createElement("template");
-    t.innerHTML = html;
-    var next = [].slice.call(t.content.childNodes), now = [].slice.call(el.childNodes);
+    // Made in this document (not a template's), so pictures load as usual.
+    var box = document.createElement("div");
+    box.innerHTML = html;
+    var next = [].slice.call(box.childNodes), now = [].slice.call(el.childNodes);
     if (next.length !== now.length) { el.innerHTML = html; return; }
     next.forEach(function (node, i) { if (!now[i].isEqualNode(node)) el.replaceChild(node, now[i]); });
   }

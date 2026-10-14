@@ -822,18 +822,14 @@
     color: var(--text-dim);
   }
   .run-badge.live { --badge-bg: var(--accent-tint); color: var(--accent); }
-  .run-badge.live::before {
-    content: "";
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: currentColor;
-    animation: run-pulse 1.6s ease-in-out infinite;
-  }
+  /* Playing: its ▶ pulses. */
+  .run-badge.live svg { animation: run-pulse 1.6s ease-in-out infinite; }
   .run-badge.wait { --badge-bg: var(--info-bg); color: var(--info); }
   .run-badge.bad { --badge-bg: var(--danger-bg); color: var(--danger); }
-  .run-badge.cut { --badge-bg: var(--warn-bg); color: var(--warn); padding: 0.25rem; }
-  .run-badge.cut svg { width: 11px; height: 11px; }
+  .run-badge.cut { --badge-bg: var(--warn-bg); color: var(--warn); }
+  /* Playing, Waiting and Stopped: an icon in a round badge. */
+  .run-badge:is(.live, .wait, .cut) { padding: 0.25rem; }
+  .run-badge:is(.live, .wait, .cut) svg { width: 11px; height: 11px; }
   /* Stopped partway through a session: a warm edge and how far it got. */
   .run-card.cut { box-shadow: inset 3px 0 0 var(--warn); }
   .run-card.cut .run-progress span { background: var(--warn); }
