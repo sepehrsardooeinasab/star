@@ -20,6 +20,7 @@ from unlocker.api import (
     schedule_asf_kill,
     start_keep_awake,
     stop_keep_awake)
+from unlocker.paths import DATA_DIR
 from unlocker.settings import SETTINGS
 from unlocker.state import (
     DEFAULT_PROGRESS,
@@ -85,6 +86,10 @@ def _raise_signalled(signum, frame):
     raise _Signalled(signum)
 
 
+# When ArchiSteamFarm is next due to close (see _schedule_asf_shutdown).
+ASF_CLOSE_AT = DATA_DIR / ".asf-close-at"
+
+
 def _stop_playing():
     """Best-effort cleanup for a run stopped mid-session (Ctrl+C, terminal
     closed, -k, crash): tells the bot to stop "playing" the game and
@@ -104,7 +109,14 @@ def _schedule_asf_shutdown(delay_seconds=ASF_SHUTDOWN_DELAY):
     """Detached background timer: after delay_seconds, shuts ArchiSteamFarm
     down entirely — but only if it still looks idle by then, so it isn't
     killed out from under an interleaved session for another game that
-    might get started in the meantime."""
+    might get started in the meantime. Each call moves the time on (in
+    ASF_CLOSE_AT), so it's delay_seconds after the last use, not the first:
+    an earlier timer that wakes before then leaves it to the later one."""
+    close_at = time.time() + delay_seconds
+    try:
+        ASF_CLOSE_AT.write_text(str(close_at))
+    except OSError:
+        pass
     (status_argv, headers), (exit_argv, _) = api_request_args("status"), api_request_args("exit")
     # Headers (which may hold the IPC password) go through the environment,
     # not the -c code below, which is visible in `ps`.
@@ -130,6 +142,12 @@ def cmd(c, attempts=5, retry_delay=5):
             time.sleep(retry_delay)
 
 time.sleep({delay_seconds})
+try:
+    with open({str(ASF_CLOSE_AT)!r}) as f:
+        if float(f.read()) > {close_at!r}:
+            raise SystemExit  # used again since: a later timer closes it
+except (OSError, ValueError):
+    pass
 if "not farming anything" in cmd({status_argv!r}).lower():
     cmd({exit_argv!r})
 """

@@ -224,11 +224,20 @@ def _merge(rows, mine):
     return merged
 
 
+def keep_asf_open():
+    """ArchiSteamFarm closes 5 minutes after it was last used (a check,
+    a Save), so the next check or a Start doesn't wait for it to start up
+    again. A session closes it itself, after."""
+    if asf_running() and not lock_info(SESSION_LOCK):
+        from unlocker.runner import _schedule_asf_shutdown
+        _schedule_asf_shutdown()
+
+
 def numbers(appid):
     """{"appid", "achievements": [{number, name, description, apiname,
     unlocked, restricted}]} for a game, in alist's (aset's) numbering.
-    Starts ArchiSteamFarm if needed, and stops it again unless a session
-    started meanwhile."""
+    Starts ArchiSteamFarm if needed; it stays open a while after (see
+    keep_asf_open)."""
     with _lock:
         cached = _cache.get(appid)
         if cached and time.monotonic() - cached[0] < CACHE_FOR:
@@ -241,16 +250,13 @@ def numbers(appid):
             if listed and time.monotonic() - listed[0] < CACHE_FOR:
                 rows, steamid = listed[1], listed[2]
             else:
-                started = not asf_running()
                 try:
-                    _step(appid, "Starting ArchiSteamFarm" if started else "ArchiSteamFarm is running")
+                    _step(appid, "ArchiSteamFarm is running" if asf_running() else "Starting ArchiSteamFarm")
                     ensure_asf_running()
                     _step(appid, "Asking ArchiSteamFarm for the game's achievements")
                     rows, steamid = _alist(appid), _bot_steamid()
                 finally:
-                    if started and not lock_info(SESSION_LOCK):
-                        _step(appid, "Closing ArchiSteamFarm")
-                        asf_setup._stop_idle_asf()  # waits until it's gone
+                    keep_asf_open()
                 _listed[appid] = (time.monotonic(), rows, steamid)
             _step(appid, "Matching them with Steam's achievement details")
             mine = _steam_stats("profiles", steamid, appid)["achievements"]
@@ -270,13 +276,12 @@ def change(appid, unlock, lock):
     the account ArchiSteamFarm runs, matching names to aset's numbers with
     alist. The game plays from EDIT_PLAY seconds before the first change
     to EDIT_PLAY after the last, so they look made while playing. Not
-    while a game is in a session. Starts ArchiSteamFarm if needed, and
-    stops it again unless a session started meanwhile. Returns
+    while a game is in a session. Starts ArchiSteamFarm if needed (it stays
+    open a while after, see keep_asf_open). Returns
     {"unlocked": [names], "locked": [names]} as Steam took them."""
     if lock_info(SESSION_LOCK):
         raise Problem("A game is playing", "Change achievements when no session is running.")
     with _lock:
-        started = not asf_running()
         playing = False
         try:
             ensure_asf_running()
@@ -325,8 +330,7 @@ def change(appid, unlock, lock):
                 except Exception:  # noqa: BLE001 - the changes are made; ASF stops it when idle
                     pass
             _cache.pop(appid, None)  # the numbers' unlocked marks changed
-            if started and not lock_info(SESSION_LOCK):
-                asf_setup._stop_idle_asf()
+            keep_asf_open()
 
 
 def find_appid(name):

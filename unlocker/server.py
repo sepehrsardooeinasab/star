@@ -274,6 +274,7 @@ def save_game(name, config, csv_text, overwrite=False):
     CSVS_DIR.mkdir(parents=True, exist_ok=True)
     config_path.write_text(json.dumps(config, indent=2) + "\n")
     (CSVS_DIR / f"{name}.csv").write_text(csv_text)
+    achievements.keep_asf_open()  # a Start often follows
     return {"saved": name}
 
 
