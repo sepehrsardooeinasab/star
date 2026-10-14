@@ -364,14 +364,14 @@ def _to_read(store, star, owned, refresh):
         if not g["stats"] or not g["played"]:
             continue  # no achievements, or never played: nothing unlocked
         saved = games.get(str(g["appid"]))
-        if saved is None or g["played"] != saved.get("played") or not _current(saved) or live(g["played"], saved) or unmarked(saved):
+        if saved is None or g["played"] != saved.get("played") or not _current(saved) or saved.get("stale") or live(g["played"], saved) or unmarked(saved):
             want[g["appid"]] = g["played"]
     owned_ids = {g["appid"] for g in owned or []}
     for appid, changed in star.items():
         saved = games.get(str(appid))
         if appid in want or (appid in owned_ids and saved is not None and _current(saved)):
             continue  # Steam's own last-played time decides, above
-        if saved is None or not _current(saved) or changed > saved["read"] or live(changed, saved):
+        if saved is None or not _current(saved) or saved.get("stale") or changed > saved["read"] or live(changed, saved):
             want[appid] = saved.get("played") if saved else None
     order = sorted(want, key=lambda appid: want[appid] or 0, reverse=True)
     return [a for a in order if a in star] + [a for a in order if a not in star], want
@@ -449,6 +449,49 @@ def _result(store):
             "fetched_at": int(store["checked"]),
             "offline": SYNC["notice"] or (f"{SYNC['error'][0]}: showing what was saved." if SYNC["error"] else None),
             "syncing": {"done": SYNC["done"], "total": SYNC["total"]} if SYNC["running"] else None}
+
+
+def change_achievements(appid, unlock, lock):
+    """Unlocks (in order) and locks a game's achievements on Steam (see
+    achievements.change), then updates what's saved for it, the times
+    being now; it's read from Steam again on the next check."""
+    try:
+        appid = int(appid)
+    except (TypeError, ValueError):
+        raise Problem("No such game", "Pick a game from the list.")
+    unlock = [str(n) for n in unlock or [] if n]
+    lock = [str(n) for n in lock or [] if n]
+    if not unlock and not lock:
+        raise Problem("Nothing to change", "Tick or untick achievements first.")
+    try:
+        done = achievements.change(appid, unlock, lock)
+    except achievements.Problem as e:
+        raise Problem(e.title, str(e))
+    sid = steamid()
+    if sid:
+        with _lock:
+            store = _load_store(sid)
+            saved = store["games"].get(str(appid))
+            if saved and "total" in saved:
+                now = int(time.time())
+                rows = {a["name"]: a for kind in ("unlocks", "untimed", "locked") for a in saved.get(kind) or []}
+                for i, name in enumerate(done["unlocked"]):
+                    if name in rows:
+                        rows[name] = {**rows[name], "time": now + i, "_state": "unlocks"}
+                for name in done["locked"]:
+                    if name in rows:
+                        rows[name] = {**rows[name], "_state": "locked"}
+                for kind in ("unlocks", "untimed", "locked"):
+                    for a in saved.get(kind) or []:
+                        rows[a["name"]].setdefault("_state", kind)
+                item = lambda a: {k: v for k, v in a.items() if k not in ("_state", "time")}
+                saved["unlocks"] = [{**item(a), "time": a["time"]} for a in rows.values() if a["_state"] == "unlocks"]
+                saved["untimed"] = [item(a) for a in rows.values() if a["_state"] == "untimed"]
+                saved["locked"] = [item(a) for a in rows.values() if a["_state"] == "locked"]
+                saved["unlocked"] = len(saved["unlocks"]) + len(saved["untimed"])
+                saved["stale"] = True  # read again from Steam on the next check
+                _save_store(store)
+    return {**done, "game": game_page(appid)}
 
 
 def game_page(appid):
@@ -545,7 +588,7 @@ def _sync(sid, refresh):
                     continue  # keeps what was saved; read again next check
                 saved = store["games"].setdefault(str(appid), {"game": "", "unlocks": []})
                 saved.update(read=time.time(), played=played[appid], unreadable=got in (None, PRIVATE),
-                             private=got == PRIVATE, v=READ_VERSION)
+                             private=got == PRIVATE, v=READ_VERSION, stale=False)
                 if isinstance(got, dict):
                     saved.update(got)
                 if done % 10 == 0:

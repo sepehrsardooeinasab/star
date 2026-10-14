@@ -527,6 +527,13 @@ def recent_unlocks(refresh):
         raise AppError(str(e), 409, title=e.title, has_key=bool(unlocks._key()))
 
 
+def change_achievements(appid, unlock, lock):
+    try:
+        return unlocks.change_achievements(appid, unlock, lock)
+    except unlocks.Problem as e:
+        raise AppError(str(e), 409, title=e.title)
+
+
 def mark_finished(appid, finished):
     try:
         return unlocks.set_finished(appid, finished)
@@ -778,6 +785,7 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/setup/code": lambda: setup_code(body.get("code")),
             "/api/unlocks/key": lambda: save_unlocks_key(body.get("key")),
             "/api/unlocks/finished": lambda: mark_finished(body.get("appid"), bool(body.get("finished"))),
+            "/api/unlocks/achievements": lambda: change_achievements(body.get("appid"), body.get("unlock"), body.get("lock")),
             "/api/update": app_update,
             "/api/quit": quit_server,
         }

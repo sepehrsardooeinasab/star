@@ -3222,6 +3222,7 @@
     if (!quiet) {
       gamePageFor = appid;
       gamePage = null;
+      resetAchEdit();
       renderGamePage();
       scrollLibraryTop();
     }
@@ -3233,6 +3234,7 @@
   }
   function closeGamePage() {
     gamePageFor = gamePage = null;
+    resetAchEdit();
     renderGamePage();
   }
   // A hidden achievement's description (Steam's stats page leaves it out;
@@ -3244,6 +3246,28 @@
       return '<div class="unlock-desc lib-dim">Hidden achievement</div>';
     return a.description ? '<div class="unlock-desc">' + escapeHtml(a.description) + "</div>" : "";
   }
+  // Unlocking and locking by hand, on a game's page: behind a lock like
+  // the timeline's; ticked locked ones are unlocked in the order picked,
+  // unticked unlocked ones locked again, on Apply (clicked twice).
+  var achEdit = false, achPicks = [], achDrops = {}, achBusy = false, achError = null;
+  var TICK = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.8 8.3l2.7 2.7 5.7-6"/></svg>';
+  var LOCK_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path class="lock-shackle" d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>';
+  function resetAchEdit() {
+    achEdit = false; achPicks = []; achDrops = {}; achError = null;
+    delete armedUntil["ach-apply"];
+  }
+  function achBarHtml() {
+    var n = achPicks.length, m = Object.keys(achDrops).length;
+    if (!achEdit) return "";
+    if (achBusy) return '<div class="ach-apply"><span>' + escapeHtml("Sending to Steam\u2026") + "</span></div>";
+    var what = [n ? "Unlock " + n : "", m ? "Lock " + m : ""].filter(Boolean).join(" \u00b7 ");
+    var armed = isArmed("ach-apply");
+    return (achError ? problemHtml("warn", (achError.data || {}).title, achError.message) : "") +
+      '<div class="ach-apply"><span>' + escapeHtml(what || "Tick locked achievements to unlock them, in order; untick unlocked ones to lock them.") + "</span>" +
+      (n || m ? '<button class="btn-ghost" type="button" data-ach-cancel>Clear</button>' +
+        '<button class="btn-ghost primary-ghost' + (armed ? " armed" : "") + '" type="button" data-ach-apply>' +
+        (armed ? "Click again to send to Steam" : "Apply") + "</button>" : "") + "</div>";
+  }
   function achRowsHtml(list, groupKind) {
     return list.map(function (a) {
       var when = "", kind = groupKind || a.kind;
@@ -3251,7 +3275,18 @@
         var at = new Date(a.time * 1000);
         when = '<div class="unlock-meta"><div>' + escapeHtml(fmtDay(a.time)) + "</div><div>" + escapeHtml(fmtClock(at)) + "</div></div>";
       }
-      return '<div class="unlock' + (kind === "locked" ? " locked" : "") + '">' + iconHtml("unlock-icon", a.icon, "ach") +
+      var box = "";
+      if (achEdit) {
+        // Locked: ticked to unlock, with its place in the order; unlocked:
+        // ticked, unticked to lock it again.
+        var pick = achPicks.indexOf(a.name), drop = !!achDrops[a.name];
+        var on = kind === "locked" ? pick !== -1 : !drop;
+        box = '<button class="ach-check' + (on ? " on" : "") + (kind === "locked" ? " to-unlock" : "") + '" type="button" data-ach="' +
+          escapeHtml(a.name) + '" data-ach-kind="' + (kind === "locked" ? "locked" : "unlocked") + '" aria-pressed="' + on + '" aria-label="' +
+          escapeHtml(a.name) + '">' + (kind === "locked" && pick !== -1 ? String(pick + 1) : on ? TICK : "") + "</button>";
+      }
+      return '<div class="unlock' + (kind === "locked" ? " locked" : "") + (achEdit && achDrops[a.name] ? " dropping" : "") +
+        (achEdit && kind === "locked" && achPicks.indexOf(a.name) !== -1 ? " picked" : "") + '">' + box + iconHtml("unlock-icon", a.icon, "ach") +
         '<div class="unlock-text"><div class="unlock-name">' + escapeHtml(a.name) + "</div>" +
         achDescHtml(a, kind === "locked") + "</div>" + when + "</div>";
     }).join("");
@@ -3306,7 +3341,9 @@
         '<option value="date">Date unlocked</option><option value="name">Name</option></select>' +
         '<button class="btn-ghost" id="ach-order" type="button">' + orderName(achSort, achOrder) + "</button>" +
         '<select id="ach-group" aria-label="Group achievements by"><option value="status">Group: Unlocked / Locked</option>' +
-        '<option value="none">Group: None</option></select></div>';
+        '<option value="none">Group: None</option></select>' +
+        '<button class="lock-toggle ach-lock" type="button" data-ach-lock aria-pressed="' + achEdit + '">' + LOCK_ICON +
+        "<span>" + (achEdit ? "Unlocked" : "Locked") + "</span></button></div>" + achBarHtml();
       var tag = function (list, kind) { return list.map(function (a) { return Object.assign({kind: kind}, a); }); };
       if (achGroup === "none") {
         var all = sortAch(tag(p.unlocks, "unlocked"), true).concat(tag(p.untimed, "untimed"), tag(p.locked, "locked"));
@@ -3335,6 +3372,54 @@
     var run = e.target.closest("[data-game-run]");
     if (run) { selectedRun = run.getAttribute("data-game-run"); showScreen("work"); setView("runs"); }
     if (e.target.closest("#ach-order")) { achOrder = achOrder === "desc" ? "asc" : "desc"; renderGamePage(); }
+    if (e.target.closest("[data-ach-lock]") && !achBusy) {
+      var on = !achEdit;
+      resetAchEdit();
+      achEdit = on;
+      renderGamePage();
+      return;
+    }
+    var box = e.target.closest("[data-ach]");
+    if (box && achEdit && !achBusy) {
+      var name = box.getAttribute("data-ach");
+      if (box.getAttribute("data-ach-kind") === "locked") {
+        var at = achPicks.indexOf(name);
+        if (at === -1) achPicks.push(name); else achPicks.splice(at, 1);
+      } else if (achDrops[name]) delete achDrops[name];
+      else achDrops[name] = true;
+      delete armedUntil["ach-apply"];
+      achError = null;
+      renderGamePage();
+      return;
+    }
+    if (e.target.closest("[data-ach-cancel]")) { achPicks = []; achDrops = {}; achError = null; delete armedUntil["ach-apply"]; renderGamePage(); return; }
+    if (e.target.closest("[data-ach-apply]") && gamePage) {
+      if (!isArmed("ach-apply")) {
+        armedUntil["ach-apply"] = Date.now() + ARM_MS;
+        setTimeout(function () { if (gamePage) renderGamePage(); }, ARM_MS + 50);
+        renderGamePage();
+        return;
+      }
+      delete armedUntil["ach-apply"];
+      var appid = gamePage.appid;
+      achBusy = true;
+      achError = null;
+      renderGamePage();
+      api("/api/unlocks/achievements", {appid: appid, unlock: achPicks, lock: Object.keys(achDrops)}).then(function (r) {
+        achBusy = false;
+        if (gamePageFor !== appid) return;
+        achPicks = []; achDrops = {};
+        gamePage = r.game;
+        renderGamePage();
+        showToast([r.unlocked.length ? "Unlocked " + r.unlocked.length : "", r.locked.length ? "locked " + r.locked.length : ""].filter(Boolean).join(", "));
+        loadUnlocks(false);
+      }).catch(function (err) {
+        achBusy = false;
+        achError = err;
+        renderGamePage();
+      });
+      return;
+    }
     var fin = e.target.closest("[data-game-finish]");
     if (fin && gamePage) {
       fin.disabled = true;

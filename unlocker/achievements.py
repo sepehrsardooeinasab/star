@@ -24,7 +24,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 
 from unlocker import asf_setup
-from unlocker.api import asf_running, ensure_asf_running, send_command
+from unlocker.api import asf_running, ensure_asf_running, send_aset, send_areset, send_command
 from unlocker.state import JSONS_DIR, SESSION_LOCK, lock_info
 
 # A player's achievements for a game, from a SteamHunters or Steam link.
@@ -235,6 +235,57 @@ def numbers(appid):
             PROGRESS.pop(appid, None)
         _cache[appid] = (time.monotonic(), result)
         return result
+
+
+def change(appid, unlock, lock):
+    """Unlocks the achievements named in unlock, one at a time in that
+    order (so their times follow it), and locks again those in lock, on
+    the account ArchiSteamFarm runs, matching names to aset's numbers with
+    alist. Not while a game is in a session. Starts ArchiSteamFarm if
+    needed, and stops it again unless a session started meanwhile.
+    Returns {"unlocked": [names], "locked": [names]} as Steam took them."""
+    if lock_info(SESSION_LOCK):
+        raise Problem("A game is playing", "Change achievements when no session is running.")
+    with _lock:
+        started = not asf_running()
+        try:
+            ensure_asf_running()
+            rows = _alist(appid)
+            by_name = {}
+            for row in rows:
+                by_name.setdefault(row["name"].casefold(), []).append(row)
+
+            def find(name):
+                found = by_name.get(_clean(name).casefold()) or []
+                if len(found) != 1:
+                    raise Problem("Couldn't match an achievement",
+                                  f"\u201c{name}\u201d isn't in ArchiSteamFarm's list for this game once. Nothing was changed.")
+                if found[0]["restricted"]:
+                    raise Problem("Steam protects this achievement",
+                                  f"\u201c{name}\u201d can only be unlocked by the game itself. Nothing was changed.")
+                return found[0]["number"]
+
+            to_unlock = [(name, find(name)) for name in unlock]
+            to_lock = [(name, find(name)) for name in lock]
+            done = {"unlocked": [], "locked": []}
+            for i, (name, number) in enumerate(to_unlock):
+                if i:
+                    time.sleep(1.5)  # Steam keeps unlock times to the second
+                status, _ = send_aset(appid, number)
+                if status not in ("success", "already_unlocked"):
+                    raise Problem("Steam didn't take an unlock",
+                                  f"Stopped at \u201c{name}\u201d; those before it were unlocked.")
+                done["unlocked"].append(name)
+            if to_lock:
+                status, _ = send_areset(appid, [number for _, number in to_lock])
+                if status not in ("success", "already_locked"):
+                    raise Problem("Steam didn't lock them", "ArchiSteamFarm's answer wasn't a success.")
+                done["locked"] = [name for name, _ in to_lock]
+            return done
+        finally:
+            _cache.pop(appid, None)  # the numbers' unlocked marks changed
+            if started and not lock_info(SESSION_LOCK):
+                asf_setup._stop_idle_asf()
 
 
 def find_appid(name):
