@@ -3404,6 +3404,12 @@
   }
   function renderGamePage() {
     var page = byId("game-page"), open = gamePageFor !== null;
+    // Behind a game's page, as in Runs: a glow in its art's main colour.
+    tintFor(open ? {appid: gamePageFor} : null, function (tint) {
+      var screen = byId("unlocks-screen");
+      if (tint) screen.style.setProperty("--run-tint", tint);
+      else screen.style.removeProperty("--run-tint");
+    }, "library");
     page.hidden = !open;
     byId("games-index").hidden = open;
     byId("library-tabs").hidden = open;

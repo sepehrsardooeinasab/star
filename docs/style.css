@@ -2255,4 +2255,12 @@
   /* It scrolls with no scrollbar: one coming and going (as a list grows
      past the window) would move the whole column sideways. */
   :root[data-desktop] body[data-screen="unlocks"] .unlocks { scrollbar-width: none; }
+  /* A game's page: the glow Runs has, in its colour (see .runs-log::before),
+     staying at the top as the page scrolls. */
+  :root[data-desktop] body[data-screen="unlocks"] .unlocks[style*="--run-tint"] {
+    background-image: radial-gradient(130% 90% at 50% 0%, rgba(var(--run-tint), 0.34), rgba(var(--run-tint), 0.08) 60%, transparent);
+  }
+  :root[data-desktop][data-theme="light"] body[data-screen="unlocks"] .unlocks[style*="--run-tint"] {
+    background-image: radial-gradient(130% 90% at 50% 0%, rgba(var(--run-tint), 0.15), rgba(var(--run-tint), 0.04) 60%, transparent);
+  }
   :root[data-desktop] body[data-screen="unlocks"] .unlocks::-webkit-scrollbar { display: none; }
