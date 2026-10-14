@@ -432,10 +432,11 @@ def app_icon(appid):
 # From Steam's list of a game's achievements: its counters, achievements
 # that track progress in a stat (kill 200 enemies, find 26 radios), whose
 # counter an unlock doesn't move (a game with any is flagged, as its
-# unlocks won't look earned); and its hidden achievements' descriptions,
-# which the stats page leaves out. Saved per game as {"counters": n,
-# "hidden": {name: description}} (just n, from an older STAR, is looked
-# up again for the descriptions).
+# unlocks won't look earned); its hidden achievements' descriptions,
+# which the stats page leaves out; and their names in Steam's own order
+# (alist's too). Saved per game as {"counters": n, "hidden": {name:
+# description}, "order": [name, ...]} (one from an older STAR, without
+# them, is looked up again).
 COUNTERS_PATH = JSONS_DIR / ".counters.json"
 _counters_lock = threading.Lock()
 _counters_pending = set()
@@ -460,7 +461,8 @@ def _fetch_counters():
             # A target of 1 is a yes/no stat, not a counter.
             info = {"counters": sum(1 for a in found if int(a.get("max_progress_int") or 0) > 1),
                     "hidden": {a["localized_name"]: a.get("localized_desc") or "" for a in found
-                               if a.get("hidden") and a.get("localized_name")}}
+                               if a.get("hidden") and a.get("localized_name")},
+                    "order": [a["localized_name"] for a in found if a.get("localized_name")]}
         except (urllib.error.URLError, OSError, ValueError, TypeError, AttributeError):
             pass
         with _counters_lock:
@@ -511,6 +513,18 @@ def app_hidden(appid):
     info = _saved_info().get(str(appid))
     if isinstance(info, dict):
         return info.get("hidden") or {}
+    _look_up(appid)
+    return None
+
+
+def app_order(appid):
+    """The game's achievements' names in Steam's own order (alist's too);
+    looked up as app_counters, so None until known."""
+    if not isinstance(appid, int) or appid <= 0:
+        return None
+    info = _saved_info().get(str(appid))
+    if isinstance(info, dict) and "order" in info:
+        return info["order"]
     _look_up(appid)
     return None
 

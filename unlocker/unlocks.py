@@ -524,7 +524,7 @@ def game_page(appid):
         "read": "total" in saved, "full": _current(saved), "unreadable": bool(saved.get("unreadable")),
         "hidden": appid in hidden, "private": appid in private or bool(saved.get("private")), "star": star,
         "counters": achievements.app_counters(appid), "stats": owned.get("stats", True),
-        "finished": appid in finished_games(),
+        "finished": appid in finished_games(), "order": achievements.app_order(appid),
         "unlocks": sorted((icon(u) for u in saved.get("unlocks") or []), key=lambda u: u["time"], reverse=True),
         "untimed": [icon(u) for u in saved.get("untimed") or []],
         "locked": [icon(u) for u in saved.get("locked") or []],
