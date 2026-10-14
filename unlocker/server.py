@@ -529,7 +529,7 @@ def recent_unlocks(refresh):
 
 def change_achievements(appid, unlock, lock):
     try:
-        return unlocks.change_achievements(appid, unlock, lock)
+        return unlocks.start_change(appid, unlock, lock)
     except unlocks.Problem as e:
         raise AppError(str(e), 409, title=e.title)
 

@@ -3374,7 +3374,7 @@
       scrollLibraryTop();
     }
     api("/api/unlocks/game?appid=" + encodeURIComponent(appid)).then(function (p) {
-      if (gamePageFor === appid) { gamePage = p; renderGamePage(); }
+      if (gamePageFor === appid) { gamePage = p; renderGamePage(); changeSeen(p); }
     }).catch(function (e) {
       if (gamePageFor === appid && !quiet) { gamePage = {error: e}; renderGamePage(); }
     });
@@ -3397,7 +3397,26 @@
   // the timeline's. A locked achievement clicked gets a tick on its icon
   // (and its place in the order), to unlock; an unlocked one an X, to
   // lock again; on Apply (clicked twice).
-  var achEdit = false, achPicks = [], achDrops = {}, achBusy = false, achError = null;
+  var achEdit = false, achPicks = [], achDrops = {}, achError = null;
+  // Changes started here, until seen done (then said in a toast).
+  var achWatch = {}, achPoll = null;
+  function achRunning() { return !!(gamePage && gamePage.change && gamePage.change.running); }
+  // A game's page as read: while a change runs, read again in a moment;
+  // once one started here is done, say how it went.
+  function changeSeen(p) {
+    var ch = p.change;
+    clearTimeout(achPoll);
+    if (ch && ch.running) {
+      achPoll = setTimeout(function () { if (gamePageFor === p.appid) openGamePage(p.appid, true); }, 3000);
+      return;
+    }
+    if (!ch || !achWatch[p.appid]) return;
+    delete achWatch[p.appid];
+    if (ch.error) { showToast(ch.error[0] + ". " + ch.error[1]); return; }
+    showToast([ch.unlocked.length ? "Unlocked " + ch.unlocked.length : "", ch.locked.length ? "locked " + ch.locked.length : ""].filter(Boolean).join(", "));
+    loadUnlocks(false);
+    expectCheck();
+  }
   var TICK = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.8 8.3l2.7 2.7 5.7-6"/></svg>';
   var CROSS = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg>';
   var LOCK_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path class="lock-shackle" d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>';
@@ -3409,8 +3428,8 @@
   // lock (so marking moves nothing); empty when nothing is.
   function achApplyHtml() {
     var n = achPicks.length, m = Object.keys(achDrops).length;
+    if (achRunning()) return '<span class="ach-apply"><span>' + escapeHtml("Playing it, sending to Steam\u2026") + "</span></span>";
     if (!achEdit) return "";
-    if (achBusy) return '<span class="ach-apply"><span>' + escapeHtml("Playing it, sending to Steam\u2026") + "</span></span>";
     if (!n && !m) return "";
     var what = [n ? "Unlock " + n : "", m ? "Lock " + m : ""].filter(Boolean).join(" \u00b7 ");
     var armed = isArmed("ach-apply");
@@ -3501,7 +3520,7 @@
         '<button class="btn-ghost ach-group' + (achGroup === "status" ? " on" : "") + '" type="button" data-ach-group aria-pressed="' +
         (achGroup === "status") + '" data-tip="Unlocked and locked apart">Group</button>' +
         '<span class="ach-right">' + achApplyHtml() +
-        '<button class="lock-toggle ach-lock" type="button" data-ach-lock aria-pressed="' + achEdit + '">' + LOCK_ICON +
+        '<button class="lock-toggle ach-lock" type="button" data-ach-lock aria-pressed="' + achEdit + '"' + (achRunning() ? " disabled" : "") + ">" + LOCK_ICON +
         "<span>" + (achEdit ? "Unlocked" : "Locked") + "</span></button></span></div>" +
         (achEdit && achError ? problemHtml("warn", (achError.data || {}).title, achError.message) : "");
       var tag = function (list, kind) { return list.map(function (a) { return Object.assign({kind: kind}, a); }); };
@@ -3535,7 +3554,7 @@
       renderGamePage();
       return;
     }
-    if (e.target.closest("[data-ach-lock]") && !achBusy) {
+    if (e.target.closest("[data-ach-lock]") && !achRunning()) {
       var on = !achEdit;
       resetAchEdit();
       achEdit = on;
@@ -3543,7 +3562,7 @@
       return;
     }
     var box = e.target.closest("[data-ach]");
-    if (box && achEdit && !achBusy) {
+    if (box && achEdit && !achRunning()) {
       var name = box.getAttribute("data-ach");
       if (box.getAttribute("data-ach-kind") === "locked") {
         var at = achPicks.indexOf(name);
@@ -3565,20 +3584,16 @@
       }
       delete armedUntil["ach-apply"];
       var appid = gamePage.appid;
-      achBusy = true;
-      achError = null;
-      renderGamePage();
-      api("/api/unlocks/achievements", {appid: appid, unlock: achPicks, lock: Object.keys(achDrops)}).then(function (r) {
-        achBusy = false;
+      // Started on the server, which takes a minute or so (the game plays
+      // around the changes); the page follows it, left or not.
+      api("/api/unlocks/achievements", {appid: appid, unlock: achPicks, lock: Object.keys(achDrops)}).then(function () {
+        achWatch[appid] = true;
         if (gamePageFor !== appid) return;
-        achPicks = []; achDrops = {};
-        gamePage = r.game;
+        resetAchEdit();
+        gamePage.change = {running: true};
         renderGamePage();
-        showToast([r.unlocked.length ? "Unlocked " + r.unlocked.length : "", r.locked.length ? "locked " + r.locked.length : ""].filter(Boolean).join(", "));
-        loadUnlocks(false);
-        expectCheck();
+        changeSeen(gamePage);
       }).catch(function (err) {
-        achBusy = false;
         achError = err;
         renderGamePage();
       });

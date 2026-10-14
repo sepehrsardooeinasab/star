@@ -487,6 +487,38 @@ def _result(store):
             "syncing": {"done": SYNC["done"], "total": SYNC["total"]} if SYNC["running"] else None}
 
 
+# Changes by hand run in the background (the game plays for a minute
+# around them), and a game's page follows them: {appid: {"running",
+# "unlocked", "locked" (names), "error": [title, message]}}.
+CHANGES = {}
+
+
+def start_change(appid, unlock, lock):
+    """Starts change_achievements in the background, one at a time; the
+    game's page says how it went (game_page's "change")."""
+    try:
+        appid = int(appid)
+    except (TypeError, ValueError):
+        raise Problem("No such game", "Pick a game from the list.")
+    if not [n for n in (unlock or []) + (lock or []) if n]:
+        raise Problem("Nothing to change", "Mark achievements first.")
+    with _lock:
+        if any(c.get("running") for c in CHANGES.values()):
+            raise Problem("Already changing achievements", "Wait for the change under way to finish.")
+        CHANGES[appid] = {"running": True}
+
+    def work():
+        try:
+            done = change_achievements(appid, unlock, lock)
+            CHANGES[appid] = {"running": False, "unlocked": done["unlocked"], "locked": done["locked"]}
+        except Problem as e:
+            CHANGES[appid] = {"running": False, "error": [e.title, str(e)]}
+        except Exception as e:  # noqa: BLE001 - said on the page, not lost in a thread
+            CHANGES[appid] = {"running": False, "error": ["Couldn't change them", str(e)]}
+    threading.Thread(target=work, daemon=True).start()
+    return {"started": True}
+
+
 def change_achievements(appid, unlock, lock):
     """Unlocks (in order) and locks a game's achievements on Steam (see
     achievements.change), then updates what's saved for it, the times
@@ -562,6 +594,7 @@ def game_page(appid):
         "private": appid in private or bool(saved.get("private")), "star": star,
         "counters": achievements.app_counters(appid), "stats": owned.get("stats", True),
         "finished": appid in finished_games(), "order": achievements.app_order(appid),
+        "change": CHANGES.get(appid),
         "unlocks": sorted((icon(u) for u in saved.get("unlocks") or []), key=lambda u: u["time"], reverse=True),
         "untimed": [icon(u) for u in saved.get("untimed") or []],
         "locked": [icon(u) for u in saved.get("locked") or []],
