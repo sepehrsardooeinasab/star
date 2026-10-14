@@ -214,32 +214,17 @@
               <option value="all">All</option>
             </select>
           </div>
-          <div class="lib-default"><span>Games sorted by</span>
-            <select id="default-sort" aria-label="Games sorted by">
-              <option value="name">Name</option>
-              <option value="progress">Progress</option>
-              <option value="achievement">Last achievement</option>
-              <option value="played">Last played</option>
-              <option value="playtime">Play time</option>
-            </select>
-            <select id="default-order" aria-label="Order"></select>
+          <div class="lib-default lib-filters"><span>Games sorted by</span>
+            <div class="chip-rows" id="lib-sort"></div>
           </div>
           <div class="lib-default lib-filters"><span>Games shown</span>
-            <div><div class="filter-list" id="lib-filters" data-scope="settings"></div>
-              <p class="filters-hint">Right-click a group to show only it.</p></div>
+            <div class="filter-list" id="lib-filters" data-scope="settings"></div>
           </div>
-          <div class="lib-default"><span>Achievements sorted by</span>
-            <select id="default-ach-sort" aria-label="A game's achievements sorted by">
-              <option value="date">Date unlocked</option>
-              <option value="name">Name</option>
-            </select>
-            <select id="default-ach-order" aria-label="Order"></select>
+          <div class="lib-default lib-filters"><span>Achievements sorted by</span>
+            <div class="chip-rows" id="lib-ach-sort"></div>
           </div>
-          <div class="lib-default"><span>Achievements grouped</span>
-            <select id="default-ach-group" aria-label="A game's achievements grouped">
-              <option value="status">Unlocked / Locked</option>
-              <option value="none">None</option>
-            </select>
+          <div class="lib-default lib-filters"><span>Achievements grouped</span>
+            <div class="chip-rows" id="lib-ach-group"></div>
           </div>
           <div class="lib-default"><span>Check Steam</span>
             <select id="library-check" aria-label="How often to check Steam">
@@ -516,14 +501,10 @@
     <div class="unlocks-bar">
       <input class="games-search" id="games-search" type="search" placeholder="Search games" aria-label="Search games" autocomplete="off" spellcheck="false">
       <div class="games-sort">
-        <select id="games-sort" aria-label="Sort by">
-          <option value="name">Name</option>
-          <option value="progress">Progress</option>
-          <option value="achievement">Last achievement</option>
-          <option value="played">Last played</option>
-          <option value="playtime">Play time</option>
-        </select>
-        <button class="btn-ghost" id="games-order" type="button"></button>
+        <details class="filters-menu sort-menu" id="games-sort-menu">
+          <summary class="btn-ghost" id="games-sort-label">Sort</summary>
+          <div class="filters-pop" id="games-sort-pop"></div>
+        </details>
         <!-- Which games show, for a while (the defaults are in Settings). -->
         <details class="filters-menu" id="games-filters">
           <summary class="btn-ghost" id="games-filters-label">Filters</summary>

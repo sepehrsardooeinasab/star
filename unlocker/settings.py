@@ -65,8 +65,9 @@ DEFAULTS = {
     # achievement, name or progress; descending (newest, Z–A, most) or not.
     "library_sort": "played",
     "library_order": "desc",
-    # How a game's achievements are listed on its page: by date unlocked
-    # or name, descending (newest, Z–A) or not; grouped into unlocked and
+    # How a game's achievements are listed on its page: in Steam's own
+    # order ("default"), by date unlocked or name, descending (reversed,
+    # newest, Z–A) or not; grouped into unlocked and
     # locked ("status") or all in one list ("none").
     "achievement_sort": "date",
     "achievement_order": "desc",
@@ -146,7 +147,7 @@ APP_CHOICES = {"clock": ["system", "12h", "24h"], "theme": ["dark", "light"],
                "unlocks_range": ["day", "week", "month", "year", "all"],
                "library_sort": ["played", "achievement", "name", "progress", "playtime"],
                "library_order": ["desc", "asc"],
-               "achievement_sort": ["date", "name"],
+               "achievement_sort": ["default", "date", "name"],
                "achievement_order": ["desc", "asc"],
                "achievement_group": ["status", "none"],
                "library_active": ["show", "hide"],

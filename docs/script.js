@@ -2768,8 +2768,7 @@
       if (lib.unlocks_range !== appliedLib.range) { appliedLib.range = unlocksRange = lib.unlocks_range; if (unlocksData) renderUnlocks(); }
     }
     if (lib.library_sort && lib.library_order) {
-      byId("default-sort").value = lib.library_sort;
-      syncOrderOptions(byId("default-order"), lib.library_sort, lib.library_order);
+      byId("lib-sort").innerHTML = sortRowsHtml(SORTS.games, lib.library_sort, lib.library_order);
       var sortKey = lib.library_sort + " " + lib.library_order;
       if (sortKey !== appliedLib.sort) {
         appliedLib.sort = sortKey;
@@ -2779,9 +2778,8 @@
       }
     }
     if (lib.achievement_sort && lib.achievement_order && lib.achievement_group) {
-      byId("default-ach-sort").value = lib.achievement_sort;
-      syncOrderOptions(byId("default-ach-order"), lib.achievement_sort, lib.achievement_order);
-      byId("default-ach-group").value = lib.achievement_group;
+      byId("lib-ach-sort").innerHTML = sortRowsHtml(SORTS.ach, lib.achievement_sort, lib.achievement_order);
+      byId("lib-ach-group").innerHTML = chipRow("group", GROUPS, lib.achievement_group);
       var achKey = [lib.achievement_sort, lib.achievement_order, lib.achievement_group].join(" ");
       if (achKey !== appliedLib.ach) {
         appliedLib.ach = achKey;
@@ -3054,13 +3052,42 @@
   var gamesSort = "played", gamesOrder = "desc", appliedLib = {};
   var ORDER_NAMES = {played: ["Newest first", "Oldest first"], achievement: ["Newest first", "Oldest first"],
     name: ["Z \u2192 A", "A \u2192 Z"], progress: ["Most first", "Least first"], playtime: ["Most first", "Least first"],
-    date: ["Newest first", "Oldest first"]};
+    date: ["Newest first", "Oldest first"], default: ["Reversed", "In order"]};
   function orderName(sort, order) { return ORDER_NAMES[sort][order === "desc" ? 0 : 1]; }
-  function syncOrderOptions(select, sort, order) {
-    select.innerHTML = ["desc", "asc"].map(function (o) {
-      return '<option value="' + o + '">' + orderName(sort, o) + "</option>";
-    }).join("");
-    select.value = order;
+  // Sorting, as chips like the filters: a row of sorts, then its orders
+  // (and for achievements, how they're grouped), one picked in each. In
+  // a menu in Games and on a game's page, and in Settings → Library.
+  var SORTS = {games: [["played", "Last played"], ["achievement", "Last achievement"], ["name", "Name"],
+    ["progress", "Progress"], ["playtime", "Play time"]], ach: [["default", "Default"], ["date", "Date unlocked"], ["name", "Name"]]};
+  var GROUPS = [["status", "Unlocked / Locked"], ["none", "One list"]];
+  // A–Z, Steam's own order, or newest / most first.
+  function naturalOrder(sort) { return sort === "name" || sort === "default" ? "asc" : "desc"; }
+  function chipRow(key, choices, value) {
+    return '<div class="filter-list" data-choice="' + key + '">' + choices.map(function (c) {
+      var on = c[0] === value;
+      return '<button class="filter-chip' + (on ? " on" : "") + '" type="button" data-value="' + c[0] + '" aria-pressed="' + on + '">' + c[1] + "</button>";
+    }).join("") + "</div>";
+  }
+  function sortRowsHtml(sorts, sort, order, group) {
+    var orders = naturalOrder(sort) === "asc" ? ["asc", "desc"] : ["desc", "asc"];
+    return chipRow("sort", sorts, sort) + chipRow("order", orders.map(function (o) { return [o, orderName(sort, o)]; }), order) +
+      (group ? chipRow("group", GROUPS, group) : "");
+  }
+  // The menu's button: the sort, and an arrow for its order.
+  function sortLabel(sorts, sort, order) {
+    var name = sorts.filter(function (c) { return c[0] === sort; })[0][1];
+    return name + (order === "desc" ? " \u2193" : " \u2191");
+  }
+  // A chip picked: what changes. A new sort starts on its natural order.
+  function onChoice(el, then) {
+    el.addEventListener("click", function (e) {
+      var chip = e.target.closest("[data-value]"), row = chip && chip.closest("[data-choice]");
+      if (!row) return;
+      var change = {}, key = row.getAttribute("data-choice"), value = chip.getAttribute("data-value");
+      change[key] = value;
+      if (key === "sort") change.order = naturalOrder(value);
+      then(change);
+    });
   }
   function sortGames(games) {
     function key(g) {
@@ -3185,13 +3212,13 @@
   function playedText(g) { return g.played ? "Played " + fmtDay(g.played) : neverPlayed(g) ? "Never played" : ""; }
   function renderGames(d) {
     var games = sortGames(d && !unlocksError ? d.games_list || [] : []);
-    byId("games-sort").value = gamesSort;
+    byId("games-sort-label").textContent = sortLabel(SORTS.games, gamesSort, gamesOrder);
+    byId("games-sort-pop").innerHTML = sortRowsHtml(SORTS.games, gamesSort, gamesOrder);
     renderFilterList("games-filter-list", libFilter);
     var off = FILTERS.filter(function (f) { return libFilter[f[0]] === "hide"; }).length;
     byId("games-filters-label").textContent = off ? "Filters \u00b7 " + off : "Filters";
     byId("games-filters-label").classList.toggle("on", !!off);
     byId("games-filters-all").hidden = !off;
-    byId("games-order").textContent = orderName(gamesSort, gamesOrder);
     var withAch = games.filter(function (g) { return g.stats; });
     var complete = games.filter(function (g) { return g.total && g.unlocked >= g.total; }).length;
     var hiddenCount = games.filter(function (g) { return g.hidden; }).length;
@@ -3333,11 +3360,17 @@
   // list, by date unlocked (those without a time, and locked ones, after,
   // in Steam's order) or by name; picked here, kept until the app closes
   // (the defaults are in Settings → Library).
-  var achSort = "date", achOrder = "desc", achGroup = "status";
+  var achSort = "date", achOrder = "desc", achGroup = "status", achSortOpen = false;
   function sortAch(list, timed) {
     var out = list.slice();
     if (achSort === "name") out.sort(function (a, b) { return a.name.localeCompare(b.name); });
-    else if (timed) out.sort(function (a, b) { return a.time - b.time; });
+    else if (achSort === "default") {
+      // Steam's own order (alist's), once known; until then as read.
+      var at = {};
+      ((gamePage && gamePage.order) || []).forEach(function (n, i) { if (!(n in at)) at[n] = i; });
+      var pos = function (a) { return a.name in at ? at[a.name] : 1e9; };
+      out.sort(function (a, b) { return pos(a) - pos(b); });
+    } else if (timed) out.sort(function (a, b) { return a.time - b.time; });
     else return out;
     return achOrder === "desc" ? out.reverse() : out;
   }
@@ -3375,17 +3408,16 @@
     else if (!p.read) html += noticeHtml("info", "Not read from Steam yet. It's read on a coming check.");
     else {
       if (!p.full) html += noticeHtml("info", "Its locked achievements show after its next read from Steam.");
-      html += '<div class="unlocks-bar ach-sort games-sort"><select id="ach-sort" aria-label="Sort achievements by">' +
-        '<option value="date">Date unlocked</option><option value="name">Name</option></select>' +
-        '<button class="btn-ghost" id="ach-order" type="button">' + orderName(achSort, achOrder) + "</button>" +
-        '<select id="ach-group" aria-label="Group achievements by"><option value="status">Group: Unlocked / Locked</option>' +
-        '<option value="none">Group: None</option></select>' +
+      html += '<div class="unlocks-bar ach-sort games-sort">' +
+        '<details class="filters-menu sort-menu" id="ach-sort-menu"' + (achSortOpen ? " open" : "") + ">" +
+        '<summary class="btn-ghost">' + sortLabel(SORTS.ach, achSort, achOrder) + "</summary>" +
+        '<div class="filters-pop">' + sortRowsHtml(SORTS.ach, achSort, achOrder, achGroup) + "</div></details>" +
         '<button class="lock-toggle ach-lock" type="button" data-ach-lock aria-pressed="' + achEdit + '">' + LOCK_ICON +
         "<span>" + (achEdit ? "Unlocked" : "Locked") + "</span></button></div>" + achBarHtml();
       var tag = function (list, kind) { return list.map(function (a) { return Object.assign({kind: kind}, a); }); };
       if (achGroup === "none") {
         var all = sortAch(tag(p.unlocks, "unlocked"), true).concat(tag(p.untimed, "untimed"), tag(p.locked, "locked"));
-        if (achSort === "name") all = sortAch(all);
+        if (achSort !== "date") all = sortAch(all);
         html += '<div class="unlocks-day">All \u00b7 ' + all.length + '</div><div class="unlocks-group">' + achRowsHtml(all) + "</div>";
       } else {
         var groups = [["Unlocked", sortAch(p.unlocks, true), "unlocked"], ["Unlocked, no time kept by Steam", sortAch(p.untimed), "untimed"], ["Locked", sortAch(p.locked), "locked"]];
@@ -3396,7 +3428,6 @@
       }
     }
     page.innerHTML = html;
-    if (byId("ach-sort")) { byId("ach-sort").value = achSort; byId("ach-group").value = achGroup; }
   }
   byId("games-list").addEventListener("click", function (e) {
     var row = e.target.closest("[data-appid]");
@@ -3409,7 +3440,6 @@
   byId("game-page").addEventListener("click", function (e) {
     var run = e.target.closest("[data-game-run]");
     if (run) { selectedRun = run.getAttribute("data-game-run"); showScreen("work"); setView("runs"); }
-    if (e.target.closest("#ach-order")) { achOrder = achOrder === "desc" ? "asc" : "desc"; renderGamePage(); }
     if (e.target.closest("[data-ach-lock]") && !achBusy) {
       var on = !achEdit;
       resetAchEdit();
@@ -3470,13 +3500,16 @@
     }
   });
   byId("game-back").addEventListener("click", closeGamePage);
-  byId("game-page").addEventListener("change", function (e) {
-    if (e.target.id === "ach-group") { achGroup = e.target.value; renderGamePage(); return; }
-    if (e.target.id !== "ach-sort") return;
-    achSort = e.target.value;
-    achOrder = achSort === "name" ? "asc" : "desc";  // A–Z, or newest first
+  // The sort menu stays open while its chips redraw the page.
+  onChoice(byId("game-page"), function (c) {
+    if (c.sort) achSort = c.sort;
+    if (c.order) achOrder = c.order;
+    if (c.group) achGroup = c.group;
     renderGamePage();
   });
+  byId("game-page").addEventListener("toggle", function (e) {
+    if (e.target.id === "ach-sort-menu") achSortOpen = e.target.open;
+  }, true);
 
   function showLibraryTab(tab) {
     if (tab === libraryTab) return;
@@ -3599,13 +3632,12 @@
     unlocksRange = b.getAttribute("data-range");
     renderUnlocks();
   });
-  byId("games-sort").addEventListener("change", function () {
-    gamesSort = this.value;
-    gamesOrder = gamesSort === "name" ? "asc" : "desc";  // A–Z, or newest / most first
+  onChoice(byId("games-sort-pop"), function (c) {
+    if (c.sort) gamesSort = c.sort;
+    gamesOrder = c.order;
     renderUnlocks();
   });
-  // Filters, here for a while (the defaults are in Settings → Library);
-  // the menu closes on a click outside it.
+  // Filters, here for a while (the defaults are in Settings → Library).
   onFilterList("games-filter-list", function (key, only) {
     libFilter = nextFilters(libFilter, key, only);
     renderGames(unlocksData);
@@ -3614,19 +3646,18 @@
     FILTERS.forEach(function (f) { libFilter[f[0]] = "show"; });
     renderGames(unlocksData);
   });
+  // A menu (Filters, a sort) closes on a click outside it. (composedPath:
+  // a click on a chip redraws it, leaving the clicked chip, or on a game's
+  // page the whole menu, out of the page by now; so it's matched by id.)
   document.addEventListener("click", function (e) {
-    var menu = byId("games-filters");
-    // (composedPath: a click on an option redraws the list, leaving the
-    // clicked button out of the page by now.)
-    if (menu.open && e.composedPath().indexOf(menu) === -1) menu.open = false;
+    var inside = e.composedPath().filter(function (n) { return n.classList && n.classList.contains("filters-menu"); })[0];
+    document.querySelectorAll(".filters-menu[open]").forEach(function (menu) {
+      if (!inside || inside.id !== menu.id) menu.open = false;
+    });
   });
   byId("games-search").addEventListener("input", function () {
     gamesQuery = this.value;
     renderGames(unlocksData);
-  });
-  byId("games-order").addEventListener("click", function () {
-    gamesOrder = gamesOrder === "desc" ? "asc" : "desc";
-    renderUnlocks();
   });
   // Settings → Library: the defaults, saved in settings.json.
   function saveSetting(values) {
@@ -3644,19 +3675,17 @@
   });
   byId("library-check").addEventListener("change", function () { saveSetting({library_check: this.value}); });
   byId("hidden-descriptions").addEventListener("change", function () { saveSetting({hidden_descriptions: this.value}); });
-  byId("default-sort").addEventListener("change", function () {
-    var order = this.value === "name" ? "asc" : "desc";
-    syncOrderOptions(byId("default-order"), this.value, order);
-    saveSetting({library_sort: this.value, library_order: order});
+  onChoice(byId("lib-sort"), function (c) {
+    var change = {library_order: c.order};
+    if (c.sort) change.library_sort = c.sort;
+    saveSetting(change);
   });
-  byId("default-order").addEventListener("change", function () { saveSetting({library_order: this.value}); });
-  byId("default-ach-sort").addEventListener("change", function () {
-    var order = this.value === "name" ? "asc" : "desc";
-    syncOrderOptions(byId("default-ach-order"), this.value, order);
-    saveSetting({achievement_sort: this.value, achievement_order: order});
+  onChoice(byId("lib-ach-sort"), function (c) {
+    var change = {achievement_order: c.order};
+    if (c.sort) change.achievement_sort = c.sort;
+    saveSetting(change);
   });
-  byId("default-ach-order").addEventListener("change", function () { saveSetting({achievement_order: this.value}); });
-  byId("default-ach-group").addEventListener("change", function () { saveSetting({achievement_group: this.value}); });
+  onChoice(byId("lib-ach-group"), function (c) { saveSetting({achievement_group: c.group}); });
   // Settings → Library: the Steam Web API key, so the Library covers the
   // whole library.
   function renderUnlocksKey() {

@@ -2080,21 +2080,27 @@
   .ach-apply span { flex: 1; min-width: 12rem; }
   .ach-apply .btn-ghost { height: 2rem; padding: 0 0.9rem; font-size: 0.8rem; }
   .unlock.locked :is(.unlock-name, .unlock-desc) { color: var(--placeholder); }
+  /* Drawn by the app, not as WebKit's search field (taller than its
+     height, with its own padding). */
   .games-search {
+    -webkit-appearance: none;
+    appearance: none;
     flex: 1 1 10rem;
     min-width: 0;
     max-width: 18rem;
-    height: 2.2rem;
+    height: 1.95rem;
     box-sizing: border-box;
     padding: 0 0.7rem;
     font: inherit;
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     color: var(--text);
-    background: var(--surface);
+    /* See-through with a border, like the range's buttons on Achievements. */
+    background: transparent;
     border: 1px solid var(--border-strong);
     border-radius: 8px;
   }
   .games-search::placeholder { color: var(--placeholder); }
+  .games-search::-webkit-search-decoration { -webkit-appearance: none; }
   .games-search:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .games-sort { display: flex; align-items: center; gap: 0.5rem; }
   /* Which games show: a chip per group, filled when it's shown. */
@@ -2106,31 +2112,38 @@
   .filter-chip:hover { color: var(--text); border-color: color-mix(in srgb, var(--accent) 50%, var(--border-strong)); }
   .filter-chip.on { color: #fff; background: var(--accent); border-color: var(--accent); }
   .filter-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .filters-hint { margin: 0.5rem 0 0; font-size: 0.72rem; color: var(--placeholder); }
+  .filters-hint { font-size: 0.72rem; color: var(--placeholder); }
+  /* A sort menu's rows (sort, order, group), parted by a line. */
+  .filters-pop .filter-list + .filter-list { margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--border); }
+  .chip-rows { display: flex; flex-direction: column; gap: 0.45rem; }
+  /* One width for every sort's name, so changing it moves nothing. */
+  .games-sort .filters-menu.sort-menu summary.btn-ghost { width: 9.6rem; justify-content: center; }
+  .ach-sort .sort-menu .filters-pop { right: auto; left: 0; }
   .filters-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-top: 0.55rem; font-size: 0.74rem; }
-  .filters-foot .filters-hint { margin: 0; }
   .lib-default.lib-filters { align-items: flex-start; }
   .lib-default.lib-filters > span { padding-top: 0.3rem; }
   /* Games: the list in a menu by the sort. */
   .filters-menu { position: relative; }
   .filters-menu summary { list-style: none; display: inline-flex; align-items: center; height: 2.2rem; padding: 0 0.8rem; font-size: 0.8rem; font-weight: 500; border: 1px solid var(--border-strong); border-radius: 8px; cursor: pointer; }
   .filters-menu summary::-webkit-details-marker { display: none; }
-  .games-sort .filters-menu summary.btn-ghost { width: auto; }
+  /* As tall as the range's buttons beside them on Achievements. */
+  .games-sort .filters-menu summary.btn-ghost { width: auto; height: 1.95rem; padding: 0 0.75rem; font-size: 0.78rem; }
   .filters-menu summary.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); background: var(--accent-tint); }
   .filters-pop {
     position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; width: max-content; padding: 0.7rem 0.75rem 0.6rem;
     background: var(--surface); border: 1px solid var(--border-strong); border-radius: 10px; box-shadow: 0 8px 24px var(--shadow);
   }
-  :is(.games-sort, .lib-default) select { margin-top: 0 !important; display: inline-block !important; }
-  /* One width for every order's name, so changing the sort moves nothing. */
+  .lib-default select { margin-top: 0 !important; display: inline-block !important; }
   .games-sort .btn-ghost { box-sizing: border-box; width: 7.2rem; height: 2.2rem; padding: 0 0.8rem; font-size: 0.8rem; text-align: center; }
   .lib-defaults { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.9rem; padding-top: 0.8rem; border-top: 1px solid var(--border); }
   .lib-default { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; font-size: 0.8rem; color: var(--text-dim); }
   .lib-default > span { min-width: 12rem; }
-  /* Its choices change with the sort; one width, so nothing moves. */
-  :is(#default-order, #default-ach-order) { box-sizing: border-box; width: 8.4rem; }
   /* Games: icon, name, progress bar; when it was played on the right. */
-  .library-games { margin-top: 0.6rem; }
+  /* What's counted, in Today's place on Achievements: just above the
+     list, in its small bold. */
+  #games-status { min-height: 0; margin: 1.1rem 0 0.45rem; font-size: 0.75rem; font-weight: 600; line-height: normal; }
+  #games-status:empty { margin: 0; }
+  #games-status .link-btn { font-weight: 600; }
   .library-games[hidden] { display: none; }
   .lib-game { display: flex; align-items: center; gap: 0.8rem; padding: 0.6rem 0.8rem; box-sizing: border-box; height: 3.75rem; cursor: pointer; }
   .lib-game + .lib-game { border-top: 1px solid var(--border); }
@@ -2208,7 +2221,7 @@
   /* Like the Runs options' dropdowns. */
   /* Not macOS's own pop-up look (its own corners and arrows): drawn like
      the buttons beside them, with a chevron. */
-  :is(#step-clock, #step-unlocks, .games-sort) select {
+  :is(#step-clock, #step-unlocks, .lib-default) select {
     -webkit-appearance: none;
     appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%238a8a8a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5'/%3E%3C/svg%3E") !important;
@@ -2226,7 +2239,7 @@
     border: 1px solid var(--border-strong);
     border-radius: 8px;
   }
-  :is(#step-clock, #step-unlocks, .games-sort) select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  :is(#step-clock, #step-unlocks, .lib-default) select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .unlocks-day { margin: 1.1rem 0 0.45rem; font-size: 0.75rem; font-weight: 600; color: var(--text-dim); }
   .unlocks-group { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
   /* Every row one height, in both tabs: one line each for the name and
