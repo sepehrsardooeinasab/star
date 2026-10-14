@@ -30,7 +30,7 @@ Paste into **Schedule** either:
 - **A link** to a player's achievements for the game, from SteamHunters (`steamhunters.com/id/<player>/apps/<appid>/achievements`) or Steam (`steamcommunity.com/id/<player>/stats/<appid>/achievements`). The exact unlock times come straight from Steam, so the player's profile must be public.
 - **The page itself**: on SteamHunters, open the player's achievements for the game, select the whole page (⌘A / Ctrl+A), copy and paste. Turn on **Show hidden achievements** in SteamHunters' settings first, or hidden ones come without a name. Any sort or grouping works.
 
-The game's name and App ID fill themselves in where they can. The sessions table beside the paste shows each session's achievements, length and the break before it; **Full timeline** shows every achievement, where breaks can be added or removed and delays changed. **Options** holds the session rules. Then **Save schedule**.
+The game's name and App ID fill themselves in where they can. The sessions table beside the paste shows each session's achievements, length and the break before it; **Full timeline** shows every achievement, where breaks can be added or removed and delays changed. **Options** holds the session rules. Then **Save**.
 
 To unlock an achievement, the plugin needs its number in the game (`aset <appid> <number>`). The app asks ArchiSteamFarm for the game's list and matches each achievement by name. Where a game reuses a name (Bongo Cat has four "Item Collector"s), it tells them apart by description; it warns when names repeat, and stops rather than guess when ArchiSteamFarm and Steam disagree.
 

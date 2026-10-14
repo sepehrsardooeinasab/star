@@ -84,10 +84,11 @@
       <span class="folder-status" id="folder-status"></span>
     </div>
     <div class="pa pa-runs">
-      <!-- Run opens a menu: when it starts and how much it plays, then Run.
-           Stop and Dismiss act at once; while a game runs, All sessions
-           switches how much that run plays. The two selects hold the
-           choices the menu's chips show. -->
+      <!-- Run opens a menu: when it starts and how much it plays; Run,
+           then Confirm while it's open, starts it. Stop and Dismiss act
+           at once; while a game runs, All sessions switches how much that
+           run plays. The two selects hold the choices the menu's chips
+           show; Other… becomes the box for a time. -->
       <div class="run-options" id="run-options">
         <button class="btn-ghost run-every" id="run-every" type="button" aria-pressed="false" hidden>All sessions</button>
         <details class="filters-menu run-menu" id="run-menu">
@@ -95,19 +96,15 @@
           <div class="filters-pop run-pop">
             <div class="run-pop-label">Start</div>
             <div class="filter-list" id="run-delay-chips"></div>
-            <input type="text" id="run-delay-custom" placeholder="1h30m or 23:30" aria-label="Start in or at" spellcheck="false" hidden>
+            <div id="run-pop-hold" hidden><input type="text" id="run-delay-custom" placeholder="1h30m or 23:30" aria-label="Start in or at" spellcheck="false" hidden></div>
             <div class="run-pop-label">Play</div>
             <div class="filter-list" id="run-mode-chips"></div>
-            <div class="run-pop-foot"><span class="filters-hint" id="run-why"></span>
-              <button class="btn-hero primary run-go" id="run-go" type="button">Run</button></div>
           </div>
         </details>
         <select id="run-delay" aria-label="Start" hidden>
           <option value="0">When ready</option>
           <option value="30">In 30 min</option>
           <option value="60">In 1 hour</option>
-          <option value="120">In 2 hours</option>
-          <option value="240">In 4 hours</option>
           <option value="custom">Other…</option>
         </select>
         <select id="run-mode" aria-label="How much to play" hidden>

@@ -1097,7 +1097,7 @@
     els.inputAlertSlot.innerHTML = dangerHtml + inputHtml + editsBannerHtml();
     els.downloadBtn.classList.toggle("btn-danger", dangers.length > 0);
     els.downloadBtn.textContent = local
-      ? (dangers.length ? "Save anyway" : "Save schedule")
+      ? (dangers.length ? "Save anyway" : "Save")
       : (dangers.length ? "Download anyway" : "Download All");
     els.downloadBtn.title = dangers.join("\n");
 
@@ -1907,12 +1907,27 @@
     byId("run-mode").disabled = !!disabled;
   }
 
-  // The Run menu's chips, from the two selects' choices.
+  // The Run menu's chips, from the two selects' choices; Other…, picked,
+  // is the box for a time in its place. Drawn again only when a choice
+  // changes, so the box keeps its focus while typing.
+  var runChipsDrawn = "";
   function runChips(select) {
     return [].map.call(select.options, function (o) {
       var on = o.value === select.value;
+      if (on && o.value === "custom") return '<span data-custom-slot></span>';
       return '<button class="filter-chip' + (on ? " on" : "") + '" type="button" data-value="' + o.value + '" aria-pressed="' + on + '">' + o.text + "</button>";
     }).join("");
+  }
+  function drawRunChips() {
+    var delay = byId("run-delay"), mode = byId("run-mode"), key = delay.value + " " + mode.value;
+    if (key === runChipsDrawn) return;
+    runChipsDrawn = key;
+    var custom = byId("run-delay-custom");
+    byId("run-pop-hold").appendChild(custom);  // out of the way while the chips redraw
+    byId("run-delay-chips").innerHTML = runChips(delay);
+    var slot = byId("run-delay-chips").querySelector("[data-custom-slot]");
+    if (slot) slot.replaceWith(custom);
+    byId("run-mode-chips").innerHTML = runChips(mode);
   }
   function renderRunBar(games) {
     var g = selectedGame();
@@ -1939,21 +1954,21 @@
       else if (g.config_changed) why = "The achievement order changed. Run it once from the terminal to confirm.";
       else if (other) why = "Only one game runs at a time. Stop " + gameTitle(other) + " first.";
       blocked = !!why;  // the menu doesn't open
-      if (!why && minutes === null) why = "Enter a time like 45m, 1h30m or 23:30.";
-      button.textContent = byId("run-go").textContent = g && g.done ? "Continue" : "Run";
-      button.className = "btn-hero primary run-start";
+      if (blocked) byId("run-menu").open = false;
+      // Open, it confirms what the menu says (not while the time is unclear).
+      var open = byId("run-menu").open;
+      button.textContent = open ? "Confirm" : g && g.done ? "Continue" : "Run";
+      button.className = "btn-hero run-start" + (open ? " btn-danger" : " primary");
+      if (open && minutes === null) blocked = true;
       mode = runOpts.every;
     }
     button.classList.toggle("is-disabled", blocked);
     button.setAttribute("aria-disabled", blocked);
     button.title = blocked ? why : "";
-    if (running || done || blocked) byId("run-menu").open = false;
-    byId("run-go").disabled = !!why;
-    byId("run-why").textContent = blocked ? "" : why;
+    if (running || done) byId("run-menu").open = false;
     delay.disabled = custom.disabled = running || done;
     setRunMode(mode, done || (running && !g.auto));
-    byId("run-delay-chips").innerHTML = runChips(delay);
-    byId("run-mode-chips").innerHTML = runChips(byId("run-mode"));
+    drawRunChips();
     // While it runs: one session more, or every one left.
     var every = byId("run-every");
     every.hidden = !running;
@@ -2400,17 +2415,21 @@
     }
   });
 
-  // Run opens its menu; Stop and Dismiss act at once.
+  // Run opens its menu, and then (Confirm) starts it; Stop and Dismiss
+  // act at once.
   byId("run-start").addEventListener("click", function (e) {
-    var g = selectedGame();
-    if (!g || g.running || g.finished || this.classList.contains("is-disabled")) e.preventDefault();
-    if (g && (g.running || g.finished)) runAction(g.running ? "stop" : "dismiss", g.name);
+    var g = selectedGame(), menu = byId("run-menu");
+    if (!g || this.classList.contains("is-disabled")) { e.preventDefault(); return; }
+    if (g.running || g.finished) { e.preventDefault(); runAction(g.running ? "stop" : "dismiss", g.name); return; }
+    if (menu.open) {
+      e.preventDefault();
+      menu.open = false;
+      runAction("run", g.name);
+    }
   });
-  byId("run-go").addEventListener("click", function () {
-    var g = selectedGame();
-    if (!g) return;
-    byId("run-menu").open = false;
-    runAction("run", g.name);
+  byId("run-menu").addEventListener("toggle", function () { renderRunBar(runsData ? runsData.games : []); });
+  byId("run-delay-custom").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); byId("run-start").click(); }
   });
   // A chip picks in its select, as if picked there.
   [["run-delay-chips", "run-delay"], ["run-mode-chips", "run-mode"]].forEach(function (pair) {

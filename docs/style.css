@@ -986,13 +986,13 @@
   .run-pop { display: flex; flex-direction: column; gap: 0.4rem; min-width: 19rem; }
   .run-pop .filter-list + .filter-list { margin: 0; padding: 0; border: 0; }
   .run-pop-label { margin-top: 0.2rem; font-size: 0.72rem; font-weight: 600; color: var(--text-dim); }
-  .run-pop input[type="text"] { width: 100%; }
-  .run-pop-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; margin-top: 0.5rem; }
-  .run-pop .run-go { height: 28px; padding: 0 1.2rem; }
-  .run-pop .run-go:disabled { opacity: 0.4; cursor: not-allowed; }
+  /* Other…'s box, in its place among the chips, their size. */
+  .run-pop input[type="text"] { width: 8rem; }
+  /* Under the title bar's coloured line, not across it. */
+  :root[data-desktop] .topbar .run-pop { top: calc(100% + 20px); }
   .run-every.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); background: var(--accent-tint); }
   .run-every:disabled { opacity: 0.5; cursor: not-allowed; }
-  :root[data-desktop] .topbar .run-pop input[type="text"] { width: 100%; }
+  :root[data-desktop] .topbar .run-pop input[type="text"] { width: 8rem; height: 27px; border-radius: 7px; }
   :root[data-desktop] .topbar .run-every { height: 28px; padding: 0 0.75rem; font-size: 0.78rem; border-radius: 7px; }
   .run-options :disabled { cursor: not-allowed; }
   /* Details tab: label / value rows. */
@@ -1530,6 +1530,8 @@
   :root[data-desktop] .topbar .page-actions { min-height: 0; }
   :root[data-desktop] .topbar .pa { gap: 0.5rem; }
   :root[data-desktop] .topbar :is(.run-options select, .run-start, .page-action) { height: 28px; font-size: 0.78rem; border-radius: 7px; }
+  /* Save, Run and Refresh: one size, whichever screen is open. */
+  :root[data-desktop] .topbar :is(.run-start, .page-action) { box-sizing: border-box; width: 6.6rem; padding: 0 0.5rem; justify-content: center; }
   :root[data-desktop] .topbar .run-options { gap: 0.5rem; flex-wrap: nowrap; }
   :root[data-desktop] .topbar .run-options input[type="text"] { height: 28px; width: 7.5rem; font-size: 0.78rem; }
   :root[data-desktop] .topbar .btn-hero {
