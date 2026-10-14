@@ -1533,7 +1533,6 @@
   #step-other .lib-default[hidden] { display: none; }
   #step-data .data-path { flex: 1; min-width: 0; margin: 0; }
   #step-other .lib-default :is(button, a.btn-ghost) { padding: 0.3rem 0.7rem; font-size: 0.78rem; border-radius: 7px; }
-  #auto-update-row .setting-check { margin: 0; }
   /* ArchiSteamFarm, Steam account and Library: the buttons on the right
      of the title and its text; what opens under them (sign-in, the key,
      Library's rows) is full width. */

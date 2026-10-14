@@ -2766,7 +2766,7 @@
   // settings.json, used by runs started after), and what this computer
   // is missing for them. Shown once setup is done.
   var extrasTools = {show_finished: true};
-  var TOGGLES = {keep_awake: "keep-awake-on", auto_update: "auto-update-on", show_finished: "show-done"};
+  var TOGGLES = {keep_awake: "keep-awake-on", show_finished: "show-done"};
   function syncToggles() {
     Object.keys(TOGGLES).forEach(function (key) {
       var box = byId(TOGGLES[key]);
@@ -2951,10 +2951,6 @@
       text = "STAR " + u.current + ". " + u.error;
     }
     byId("update-text").textContent = text;
-    // Only installs made by the install command can update themselves.
-    extrasTools.auto_update = !!u.can_update;
-    byId("auto-update-row").hidden = !u.can_update;
-    syncToggles();
     byId("update-now").hidden = !u.available || !u.can_update || u.updating;
     byId("update-check").hidden = u.updating;
   }

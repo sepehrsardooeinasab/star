@@ -15,7 +15,7 @@ curl -fsSL https://raw.githubusercontent.com/sepehrsardooeinasab/star/main/insta
 It installs the **STAR** app and ArchiSteamFarm with its achievement plugin (from their official releases, checked against their published checksums). Open STAR and sign in to Steam; it asks for the Steam Guard code if needed.
 
 - Python 3.8+ is the only requirement. On macOS, the installer offers to install it if it's missing. Nothing needs `sudo`.
-- STAR updates itself: when a new release is out, it installs it once no game is in a session, closing and reopening the app (turn this off with **Update automatically** in Settings). **Check for Updates…** or running the same command again does it right away. Your games and settings are kept.
+- STAR updates itself: when a new release is out, it installs it once no game is in a session, closing and reopening the app. **Check for Updates…** or running the same command again does it right away. Your games and settings are kept.
 - `... | sh -s -- --uninstall` removes the app and keeps your data.
 - Downloading the macOS app by hand from Releases instead means macOS asks you to allow it once in **System Settings → Privacy & Security**; the install command avoids that.
 
@@ -152,7 +152,6 @@ In the app, **Settings** has the keep-awake and update switches and **Advanced r
 | `jitter_min_delay` | `60` | Only delays longer than this many seconds get randomness. Shorter ones are kept exact. |
 | `jitter_percent` | `10` | How far a delay can move, in either direction, as a percentage of itself (0–100). With the defaults, a 10-minute delay becomes anywhere from 9 to 11 minutes. |
 | `keep_awake` | `true` | Keeps the computer from sleeping while a run waits or plays. |
-| `auto_update` | `true` | Installs a new STAR release by itself, once no game is in a session. |
 | `show_finished` | `false` | Lists finished games in the app's Runs (at the bottom). |
 | `steam_api_key` | `null` | A [Steam Web API key](https://steamcommunity.com/dev/apikey), so the app's **Library** covers every game you play, not just the games in STAR. Set it in Settings → Library. |
 | `clock` | `"system"` | How the app writes times: `"system"` (the computer's way), `"12h"` (2:30 PM) or `"24h"` (14:30). Set it in Settings → Clock. |

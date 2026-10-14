@@ -608,20 +608,14 @@ def app_update():
 
 
 def _auto_update():
-    """With auto_update on, installs a newer release by itself, the way
-    Update now does, once no game is in a session and setup isn't busy.
-    Each release is tried once per server; a failed one waits for Update
-    now. (The server's SETTINGS are read at start, so the setting is read
-    from settings.json each time.)"""
+    """Installs a newer release by itself, the way Update now does, once
+    no game is in a session and setup isn't busy. Each release is tried
+    once per server; a failed one waits for Update now."""
     tried = set()
     time.sleep(90)  # let the app settle first
     while True:
-        try:
-            on = settings_module.read_overrides().get("auto_update", True)
-        except ValueError:
-            on = False
         state = updates.update_state()  # asks GitHub at most every few hours
-        if (on and state["available"] and state["can_update"] and not state["updating"]
+        if (state["available"] and state["can_update"] and not state["updating"]
                 and state["latest"] not in tried and not lock_info(SESSION_LOCK)
                 and not _setup["busy"]):
             tried.add(state["latest"])

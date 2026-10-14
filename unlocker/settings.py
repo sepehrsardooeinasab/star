@@ -48,8 +48,6 @@ DEFAULTS = {
     "jitter_percent": 10,
     # Keep the computer from sleeping while a run waits or plays.
     "keep_awake": True,
-    # Install a new STAR release by itself, when no game is in a session.
-    "auto_update": True,
     # The app's Runs list: show finished games too (at the bottom).
     "show_finished": False,
     # A Steam Web API key (steamcommunity.com/dev/apikey), so the app's
@@ -110,7 +108,6 @@ _TYPES = {
     "jitter_min_delay": (int,),
     "jitter_percent": (int, float),
     "keep_awake": (bool,),
-    "auto_update": (bool,),
     "show_finished": (bool,),
     "steam_api_key": (str, type(None)),
     "clock": (str,),
@@ -142,7 +139,7 @@ APP_EDITABLE = [
     "bot_connect_timeout", "asf_shutdown_delay",
 ]
 # On/off switches the app shows on their own, outside the run settings.
-APP_TOGGLES = ["keep_awake", "auto_update", "show_finished"]
+APP_TOGGLES = ["keep_awake", "show_finished"]
 # Choices the app shows on their own, with what each can be.
 APP_CHOICES = {"clock": ["system", "12h", "24h"], "theme": ["dark", "light"],
                "accent": ["violet", "wine", "blue", "teal", "amber"],
@@ -162,7 +159,7 @@ APP_CHOICES = {"clock": ["system", "12h", "24h"], "theme": ["dark", "light"],
 
 # Settings older versions had, ignored (and dropped on the next save from
 # the app) rather than refused as unknown.
-RETIRED = {"notifications", "library_hidden"}
+RETIRED = {"notifications", "library_hidden", "auto_update"}
 
 
 def problems(overrides):
