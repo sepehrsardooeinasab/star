@@ -1819,6 +1819,20 @@
     drawRunChips();
   }
 
+  // Runs is redrawn every few seconds while it's open. This changes only
+  // the parts whose HTML changed (a card, the summary's line), so what's
+  // the same, like the game art and icons, isn't rebuilt (and doesn't
+  // blink).
+  function patchHtml(el, html) {
+    if (el._html === html) return;
+    el._html = html;
+    var t = document.createElement("template");
+    t.innerHTML = html;
+    var next = [].slice.call(t.content.childNodes), now = [].slice.call(el.childNodes);
+    if (next.length !== now.length) { el.innerHTML = html; return; }
+    next.forEach(function (node, i) { if (!now[i].isEqualNode(node)) el.replaceChild(node, now[i]); });
+  }
+
   var runsDone = null;  // achievements the runs have unlocked, all told
   function renderRuns() {
     var games = runsData ? runsData.games : [];
@@ -1843,12 +1857,12 @@
     byId("runs-list-head").textContent = head.join(" · ");
 
     if (runsError) {
-      els.runsList.innerHTML = noticeHtml("danger", "Can't reach the app: " + runsError +
-        ". Start it again with runsteamunlocker --ui.");
+      patchHtml(els.runsList, noticeHtml("danger", "Can't reach the app: " + runsError +
+        ". Start it again with runsteamunlocker --ui."));
     } else if (!runsData) {
-      els.runsList.innerHTML = "";
+      patchHtml(els.runsList, "");
     } else if (!games.length) {
-      els.runsList.innerHTML = emptyHtml("▶", "No games yet. Make one under Schedule, then save it.");
+      patchHtml(els.runsList, emptyHtml("▶", "No games yet. Make one under Schedule, then save it."));
     } else {
       // The running game is pinned to the top until it stops; finished
       // games go to the bottom, or out of the list (Settings → Runs).
@@ -1859,8 +1873,8 @@
       if (listed.length && !listed.some(function (g) { return g.name === selectedRun; })) {
         selectedRun = listed[0].name;
       }
-      els.runsList.innerHTML = listed.length ? listed.map(runCardHtml).join("")
-        : emptyHtml("▶", "Every game is finished. Turn on Show finished games in Settings to see them.");
+      patchHtml(els.runsList, listed.length ? listed.map(runCardHtml).join("")
+        : emptyHtml("▶", "Every game is finished. Turn on Show finished games in Settings to see them."));
     }
     var shown = selectedGame();
     // Behind the selected game: a glow in its art's main colour.
@@ -1869,8 +1883,8 @@
       if (tint) runsLog.style.setProperty("--run-tint", tint);
       else runsLog.style.removeProperty("--run-tint");
     });
-    byId("run-summary").innerHTML = runsError ? "" : summaryHtml(shown);
-    byId("run-info").innerHTML = runsError ? "" : infoHtml(shown);
+    patchHtml(byId("run-summary"), runsError ? "" : summaryHtml(shown));
+    patchHtml(byId("run-info"), runsError ? "" : infoHtml(shown));
     byId("run-info").hidden = !runInfoOpen || !shown;
     renderTimeline();
   }
