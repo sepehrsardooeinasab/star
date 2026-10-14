@@ -1117,10 +1117,10 @@
       var box = document.querySelector(".box");
       box.classList.toggle("has-paste", !!els.exportText.value.trim());
       box.classList.toggle("has-timeline", !!ok);
-      // The App ID goes with the paste: fixed over its timeline, free
-      // again once the paste is cleared.
-      els.appid.readOnly = !!ok;
-      if (els.appid.readOnly) els.appid.setAttribute("data-tip", "Clear the paste to change it");
+      // A new App ID rebuilds the timeline (its numbers checked again), so
+      // it's fixed while there are Timeline edits to lose.
+      els.appid.readOnly = editCount() > 0;
+      if (els.appid.readOnly) els.appid.setAttribute("data-tip", "Discard the Timeline edits to change it");
       else els.appid.removeAttribute("data-tip");
       box.classList.toggle("sched-full", !!ok && schedFull);
       if (!latest || latest.errors.length) {
