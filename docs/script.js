@@ -3146,10 +3146,11 @@
         (on ? '<span class="chip-arrow">' + (order === "desc" ? "\u2193" : "\u2191") + "</span>" : "") + "</button>";
     }).join("") + "</div>";
   }
-  // The menu's button: the sort, and an arrow for its order.
+  // The menu's button: the sort's name centred, and its order's arrow at
+  // the right edge, where it stays whatever the name.
   function sortLabel(sorts, sort, order) {
     var name = sorts.filter(function (c) { return c[0] === sort; })[0][1];
-    return name + (order === "desc" ? " \u2193" : " \u2191");
+    return '<span class="sort-name">' + escapeHtml(name) + '</span><span class="sort-arrow">' + (order === "desc" ? "\u2193" : "\u2191") + "</span>";
   }
   // A chip picked: what changes. A new sort starts on its natural order;
   // the one already picked flips its order.
@@ -3285,7 +3286,7 @@
   function playedText(g) { return g.played ? "Played " + fmtDay(g.played) : neverPlayed(g) ? "Never played" : ""; }
   function renderGames(d) {
     var games = sortGames(d && !unlocksError ? d.games_list || [] : []);
-    byId("games-sort-label").textContent = sortLabel(SORTS.games, gamesSort, gamesOrder);
+    byId("games-sort-label").innerHTML = sortLabel(SORTS.games, gamesSort, gamesOrder);
     byId("games-sort-pop").innerHTML = sortRowsHtml(SORTS.games, gamesSort, gamesOrder);
     renderFilterList("games-filter-list", libFilter);
     var off = FILTERS.filter(function (f) { return libFilter[f[0]] === "hide"; }).length;

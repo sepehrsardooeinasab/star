@@ -2146,6 +2146,12 @@
   .chip-arrow { margin-left: 0.5rem; padding-left: 0.45rem; border-left: 1px solid color-mix(in srgb, currentColor 40%, transparent); }
   /* One width for every sort's name, so changing it moves nothing. */
   .games-sort .filters-menu.sort-menu summary.btn-ghost { width: 9.6rem; justify-content: center; }
+  /* A game's sorts are shorter (Date unlocked at most); Split by status
+     beside it is as wide. */
+  .ach-sort.games-sort .filters-menu.sort-menu summary.btn-ghost,
+  .ach-sort.games-sort .btn-ghost.ach-group { width: 8.5rem; justify-content: center; }
+  .sort-menu summary .sort-name { flex: 1; text-align: center; }
+  .sort-menu summary .sort-arrow { flex: none; margin-left: 0.4rem; }
   .ach-sort .sort-menu .filters-pop { right: auto; left: 0; }
   /* On a game's page, beside its sort: on when grouped. */
   .games-sort .btn-ghost.ach-group { width: auto; height: 1.95rem; padding: 0 0.75rem; font-size: 0.78rem; font-weight: 500; }
