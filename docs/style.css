@@ -1941,7 +1941,9 @@
   :is(.lib-game, .unlocks-group .unlock):hover { background: color-mix(in srgb, var(--accent-tint) 60%, var(--surface-2)); }
   .lib-game:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
   /* A game's own page. */
-  .game-back { height: 2.2rem; padding: 0 0.9rem; font-size: 0.8rem; }
+  /* ← Games takes the tabs' place: one height, so nothing moves. */
+  .game-back, .library-tabs { box-sizing: border-box; height: 2.2rem; }
+  .game-back { padding: 0 0.9rem; font-size: 0.8rem; }
   .library-tabs[hidden], .game-back[hidden] { display: none; }
   .game-head { flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.9rem; }
   .game-head .lib-icon { width: 56px; height: 56px; border-radius: 9px; font-size: 1.3rem; }
