@@ -1074,6 +1074,13 @@
     var locked = editCount() > 0;
     els.exportText.readOnly = locked;
     els.exportText.classList.toggle("locked", locked);
+    // So are the options: they'd split the sessions differently.
+    var opts = byId("bar-options"), optsBtn = opts.querySelector("summary");
+    opts.classList.toggle("locked", locked);
+    if (locked) {
+      opts.open = false;
+      optsBtn.setAttribute("data-tip", "Discard the Timeline edits to change them");
+    } else optsBtn.removeAttribute("data-tip");
     els.resetBtn.textContent = locked && isArmed("reset") ? "Confirm" : "Reset all fields";
     els.resetBtn.classList.toggle("armed", locked && isArmed("reset"));
 
@@ -2485,6 +2492,10 @@
       pop.style.setProperty("--shift", shift + "px");
     }
     options.addEventListener("toggle", placeOptions);
+    // Locked while there are Timeline edits (see render).
+    options.querySelector("summary").addEventListener("click", function (e) {
+      if (options.classList.contains("locked")) e.preventDefault();
+    });
     // Again as the window is resized with it open.
     window.addEventListener("resize", placeOptions);
     document.addEventListener("mousedown", function (e) {

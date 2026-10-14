@@ -1585,6 +1585,7 @@
   }
   .bar-options summary::-webkit-details-marker { display: none; }
   .bar-options[open] summary, .bar-options summary:hover { color: var(--text); }
+  .bar-options.locked summary { opacity: 0.45; cursor: not-allowed; color: var(--text-dim); }
   .bar-popover {
     position: absolute;
     top: calc(100% + 10px);
