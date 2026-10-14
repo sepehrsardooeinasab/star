@@ -559,11 +559,10 @@
       var e = hooks.edit && hooks.edit(ri);
       if (!e) return '<td class="delay-cell">' + value + "</td>";
       var edited = e.original !== undefined;
-      // In the app the undo goes before the time, so the times line up.
       var undo = edited ? '<button class="undo-edit" type="button" ' + e.undoAttr + ' title="Undo (was ' +
         escapeHtml(shown(e.original)) + ')">↺</button>' : "";
       return '<td class="delay-cell ' + e.cls + (edited ? " edited" : "") + '" ' + e.attr +
-        (e.title ? ' title="' + escapeHtml(e.title) + '"' : "") + ">" + (pretty ? undo + value : value + undo) + "</td>";
+        (e.title ? ' title="' + escapeHtml(e.title) + '"' : "") + ">" + value + undo + "</td>";
     }
     rows.slice(1).forEach(function (r, i) {
       var ri = i + 1;
