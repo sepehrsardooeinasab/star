@@ -1470,9 +1470,7 @@
     border-right: 1px solid var(--border);
   }
   :root[data-desktop] .runs-log { padding: 0.9rem 1.2rem 1rem; }
-  /* The list scrolls with no scrollbar, as Library does. */
-  :root[data-desktop] .runs-list { gap: 2px; scrollbar-width: none; }
-  :root[data-desktop] .runs-list::-webkit-scrollbar { display: none; }
+  :root[data-desktop] .runs-list { gap: 2px; }
   :root[data-desktop] .run-card {
     padding: 0.85rem 0.8rem;
     background: transparent;
@@ -1702,9 +1700,6 @@
   :is(table.sessions-summary, table.csv-table.pretty) th:nth-child(2) { width: 44%; }
   :is(table.sessions-summary, table.csv-table.pretty) th:nth-child(3) { width: 24%; }
   :is(table.sessions-summary, table.csv-table.pretty) th:nth-child(4) { width: 20%; }
-  /* The app's tables scroll without a scrollbar strip, so rows always
-     reach the right edge (trackpad and wheel still scroll them). */
-  :root[data-desktop] .table-wrap::-webkit-scrollbar { display: none; }
   table.sessions-summary tr.next-row td { color: var(--accent); font-weight: 600; }
   .run-activity { flex: 1; min-height: 6rem; display: flex; margin-top: 0.7rem; }
   .run-activity #runs-log { flex: 1; margin: 0; }
@@ -1868,30 +1863,19 @@
     :root[data-desktop] .view-pane[data-view="runs"].active { grid-template-columns: 13.5rem minmax(0, 1fr); }
   }
 
-  /* The app's scrollbars: a faint thin line, only while the pointer is
-     over what scrolls, in a narrow space of its own beside it. */
-  :root[data-desktop] ::-webkit-scrollbar { width: 7px; height: 7px; background: transparent; }
-  :root[data-desktop] ::-webkit-scrollbar-corner { background: transparent; }
-  :root[data-desktop] ::-webkit-scrollbar-track { background: transparent; }
-  :root[data-desktop] ::-webkit-scrollbar-thumb {
-    background-color: transparent;
-    background-clip: padding-box;
-    border: 2px solid transparent;
-    border-radius: 4px;
-  }
-  :root[data-desktop] :hover::-webkit-scrollbar-thumb { background-color: color-mix(in srgb, var(--text) 16%, transparent); }
-  :root[data-desktop] ::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--text) 32%, transparent); }
+  /* The app has no scrollbars: everything still scrolls (trackpad,
+     wheel, keys), but nothing appears, or moves sideways, when a page
+     grows past the window. */
+  :root[data-desktop] * { scrollbar-width: none; }
+  :root[data-desktop] ::-webkit-scrollbar { display: none; }
 
-  /* A table that scrolls inside its box: the strip its scrollbar takes
-     beside the header gets the header's color, so the header row reaches
-     the edge, and the scrollbar starts under the header. The header has a
-     set height for that. */
+  /* A table that scrolls inside its box: its header's color runs to the
+     box's edge. The header has a set height for that. */
   :root[data-desktop] table.csv-table th { line-height: 1.2rem; }
   :root[data-desktop] .table-wrap {
     --th-h: calc(2.2rem + 1px);
     background: linear-gradient(var(--surface-3) 0 calc(var(--th-h) - 1px), var(--border-strong) 0 var(--th-h), transparent 0);
   }
-  :root[data-desktop] .table-wrap::-webkit-scrollbar-track { margin-top: var(--th-h); }
 
   /* Locked or unlocked, the full timeline's rows keep their height: the
      + / − buttons sit inside the line instead of growing it. */
@@ -2268,9 +2252,6 @@
     overflow-y: auto;
     padding: 1.2rem max(1.2rem, calc((100% - 46rem) / 2)) 2rem;
   }
-  /* It scrolls with no scrollbar: one coming and going (as a list grows
-     past the window) would move the whole column sideways. */
-  :root[data-desktop] body[data-screen="unlocks"] .unlocks { scrollbar-width: none; }
   /* A game's page: the glow Runs has, in its colour (see .runs-log::before),
      staying at the top as the page scrolls. */
   :root[data-desktop] body[data-screen="unlocks"] .unlocks[style*="--run-tint"] {
@@ -2279,4 +2260,3 @@
   :root[data-desktop][data-theme="light"] body[data-screen="unlocks"] .unlocks[style*="--run-tint"] {
     background-image: radial-gradient(85% 90% at 15% 0%, rgba(var(--run-tint, 0, 0, 0), 0.14), rgba(var(--run-tint, 0, 0, 0), 0.03) 60%, transparent), radial-gradient(85% 90% at 85% 0%, rgba(var(--run-tint-2, var(--run-tint, 0, 0, 0)), 0.14), rgba(var(--run-tint-2, var(--run-tint, 0, 0, 0)), 0.03) 60%, transparent);
   }
-  :root[data-desktop] body[data-screen="unlocks"] .unlocks::-webkit-scrollbar { display: none; }
