@@ -411,7 +411,8 @@
   .page-actions .btn-hero { padding: 0 1.2rem; height: 2.5rem; font-size: 0.78rem; justify-content: center; }
   .page-actions .btn-hero:disabled { opacity: 0.4; cursor: not-allowed; }
   .page-actions .pa-schedule .btn-ghost { height: 2.5rem; padding: 0 1rem; font-size: 0.8rem; }
-  .btn-hero.btn-danger {
+  /* Red (Save with a warning, …): over the primary's gradient border too. */
+  :is(button, summary).btn-hero.btn-danger {
     color: var(--danger);
     border: 1.5px solid var(--danger);
     background: var(--danger-bg);
@@ -764,7 +765,7 @@
   body.local div.app-only, body.local ul.app-only { display: block; }
   body.local .web-only { display: none; }
   .input-help .format-title { margin-top: 1rem; }
-  .input-help .help-url { display: block; margin-top: 0.3rem; font-size: 0.74rem; overflow-wrap: anywhere; }
+  .input-help .help-url { display: block; margin-top: 0.3rem; font-size: 0.74rem; overflow-wrap: break-word; }
   @media (max-width: 900px) {
     .view-pane[data-view="input"].active { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
     .input-help { max-height: 9rem; }
@@ -822,17 +823,14 @@
     color: var(--text-dim);
   }
   .run-badge.live { --badge-bg: var(--accent-tint); color: var(--accent); }
-  .run-badge.live::before {
-    content: "";
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: currentColor;
-    animation: run-pulse 1.6s ease-in-out infinite;
-  }
+  /* Playing: its ▶ pulses. */
+  .run-badge.live svg { animation: run-pulse 1.6s ease-in-out infinite; }
   .run-badge.wait { --badge-bg: var(--info-bg); color: var(--info); }
   .run-badge.bad { --badge-bg: var(--danger-bg); color: var(--danger); }
   .run-badge.cut { --badge-bg: var(--warn-bg); color: var(--warn); }
+  /* Playing, Waiting and Stopped: an icon in a round badge. */
+  .run-badge:is(.live, .wait, .cut) { padding: 0.25rem; }
+  .run-badge:is(.live, .wait, .cut) svg { width: 11px; height: 11px; }
   /* Stopped partway through a session: a warm edge and how far it got. */
   .run-card.cut { box-shadow: inset 3px 0 0 var(--warn); }
   .run-card.cut .run-progress span { background: var(--warn); }
@@ -899,12 +897,12 @@
   .run-pop { display: flex; flex-direction: column; gap: 0.4rem; min-width: 19rem; }
   .run-pop .filter-list + .filter-list { margin: 0; padding: 0; border: 0; }
   .run-pop-label { margin-top: 0.2rem; font-size: 0.72rem; font-weight: 600; color: var(--text-dim); }
-  /* Other…'s box, in its place among the chips, their size. */
-  .run-pop input[type="text"] { width: 8rem; }
-  #run-delay-chips [data-value="custom"] { box-sizing: border-box; width: 8rem; text-align: center; }
+  /* All six chips one width (for When ready), and Other…'s box, in its
+     place among them, the same. */
+  .run-pop .filter-chip, .run-pop input[type="text"] { box-sizing: border-box; width: 6.1rem; text-align: center; }
   /* Under the title bar's coloured line, not across it. */
   :root[data-desktop] .topbar .run-pop { top: calc(100% + 20px); }
-  :root[data-desktop] .topbar .run-options .run-pop input[type="text"] { width: 8rem; height: 27px; border-radius: 7px; }
+  :root[data-desktop] .topbar .run-options .run-pop input[type="text"] { width: 6.1rem; height: 27px; border-radius: 7px; }
   .run-options :disabled { cursor: not-allowed; }
   /* Details tab: label / value rows. */
   .run-details { flex: 1; min-height: 0; overflow-y: auto; }
@@ -1603,7 +1601,7 @@
   .bar-stats .stats-strip { gap: 0.2rem 1.1rem; font-size: 0.76rem; }
   .bar-help .hover-help { display: none; }
 
-  body.local .view-pane[data-view="input"].active { grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); }
+  body.local .view-pane[data-view="input"].active { grid-template-columns: minmax(0, 1fr) minmax(0, 2.4fr); }
   /* The how-to shows inside the empty paste box, like a placeholder, and
      goes once something's pasted; clicks pass through to the box. */
   body.local .view-pane[data-view="input"] > .field { position: relative; }
@@ -1631,6 +1629,8 @@
   .schedule-bar .bar-field[data-slot="game-name"] input { width: 15rem; min-width: 7rem; flex: 0 1 auto; }
   .schedule-bar .bar-from { flex: 0 1 auto; min-width: 0; }
   .schedule-bar .bar-from input { min-width: 5.5rem; flex: 0 1 auto; }
+  /* The App ID over a timeline: fixed until the paste is unlocked. */
+  .schedule-bar input[readonly] { color: var(--text-dim); cursor: default; }
   .schedule-bar .bar-stats { min-width: 0; }
   .bar-stats { margin-left: auto; }
 
@@ -1641,7 +1641,7 @@
   .run-summary-title { font-size: 1.05rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .run-summary-line { margin-top: 0.15rem; font-size: 0.8rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
   .run-summary-line b { color: var(--text); font-weight: 500; }
-  .run-summary-line .warn { color: var(--warn); }
+  .run-summary-line .warn, .summary-value .warn { color: var(--warn); }
   .run-summary-line .bad { color: var(--danger); }
   .bar-btn {
     flex: none;
@@ -1715,9 +1715,11 @@
   .bar-popover #reset-btn { height: 30px; padding: 0; font-size: 0.78rem; }
 
   /* Schedule after a clean paste: a line saying what it gave, then the
-     result at full width; the paste box comes back with Edit paste. */
+     result, beside the paste. The line's room is kept before then too, so
+     nothing moves down when it fills in. */
   .paste-summary { display: none; }
-  body.local .box.has-timeline .paste-summary {
+  body.local .box:not(.has-timeline) .paste-summary > * { visibility: hidden; }
+  body.local .paste-summary {
     grid-column: 1 / -1;
     display: flex;
     align-items: center;
@@ -1727,10 +1729,12 @@
   .paste-summary-stats { flex: 1; min-width: 0; }
   .paste-summary .stats-strip { display: flex; flex-wrap: wrap; gap: 0.2rem 1.2rem; font-size: 0.8rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
   .paste-summary .stats-strip b { color: var(--text); font-weight: 600; }
+  .paste-summary #sched-full-btn { box-sizing: border-box; height: 1.7rem; min-width: 6.5rem; }
+  .paste-summary #sched-full-btn { justify-content: center; text-align: center; }
   .paste-summary .bar-btn[aria-pressed="true"] { color: var(--accent); background: var(--accent-tint); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
-  body.local .box.has-timeline .view-pane[data-view="input"].active { grid-template-rows: auto minmax(0, 1fr); }
-  body.local .box.paste-folded .view-pane[data-view="input"].active { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
-  body.local .box.paste-folded .view-pane[data-view="input"] > .field { display: none; }
+  body.local .view-pane[data-view="input"].active { grid-template-rows: auto minmax(0, 1fr); }
+  /* Its warnings show under the timeline, so not twice. */
+  body.local .box.has-timeline #input-alert-slot { display: none; }
 
   /* The overview and the log take only the room they need: a short
      game's overview isn't padded out, and an empty log is a line, growing

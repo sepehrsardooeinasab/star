@@ -274,6 +274,7 @@ def save_game(name, config, csv_text, overwrite=False):
     CSVS_DIR.mkdir(parents=True, exist_ok=True)
     config_path.write_text(json.dumps(config, indent=2) + "\n")
     (CSVS_DIR / f"{name}.csv").write_text(csv_text)
+    achievements.keep_asf_open()  # a Start often follows
     return {"saved": name}
 
 
@@ -815,6 +816,14 @@ def _keep_asf_current():
     """An app update can pin a newer ArchiSteamFarm. Installs it now, or,
     if a game is in a session, once no session is playing (games waiting
     between sessions don't hold it up)."""
+    # Settings a newer STAR relies on (like no update check of ASF's own)
+    # reach an install that isn't updated too; ASF reads them when it starts
+    # (and restarts if they change under it, so not while it's running).
+    if asf_setup.ASF_BINARY.exists() and not asf_setup.asf_running():
+        try:
+            asf_setup.write_configs()
+        except (OSError, ValueError):
+            pass
     while True:
         if (asf_setup.status()["outdated"] and not lock_info(SESSION_LOCK)
                 and not _setup["busy"] and not updates.updating()):

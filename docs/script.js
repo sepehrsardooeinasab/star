@@ -189,8 +189,16 @@
     return (gameSlug(title) || (title && appid > 0 ? "app" + appid : "")).slice(0, 60);
   }
 
+  // A failure that may pass by itself (Steam busy or out of reach, or
+  // STAR's own server), asked again after a few seconds.
+  function retryable(title) { return !title || title === "Couldn't reach Steam" || title === "Steam is busy"; }
+
+  // A link's achievements, read once. If Steam couldn't be reached (a
+  // passing hiccup), it's asked again every few seconds; Steam's own
+  // answers (a private profile, no such player) stay.
   function loadLink(url) {
-    if (linkSources[url]) return linkSources[url];
+    var known = linkSources[url];
+    if (known && !(known.retry && Date.now() - known.at >= 5000)) return known;
     linkSources[url] = {status: "loading"};
     api("/api/achievements/link", {url: url}).then(function (d) {
       linkSources[url] = {status: "ok", data: d};
@@ -200,18 +208,26 @@
         if (!els.copiedFrom.value && d.player) els.copiedFrom.value = d.player;
       }
     }).catch(function (err) {
-      linkSources[url] = {status: "error", message: err.message, title: (err.data || {}).title};
+      var title = (err.data || {}).title, retry = retryable(title);
+      linkSources[url] = {status: "error", message: err.message, title: title, retry: retry, at: Date.now()};
+      if (retry) setTimeout(scheduleRecompute, 5000);
     }).then(scheduleRecompute);
     return linkSources[url];
   }
 
   // Asked once the App ID has stayed the same for a moment, so typing one
-  // doesn't check every partial number. A failed check is tried again on
-  // the next change, after a moment.
-  var numbersTimer = null, numbersWanted = null;
+  // doesn't check every partial number. A failed check is tried again
+  // only when the paste changes (a new App ID is a new check), and by
+  // itself a few times when the failure may pass (see retryable): not on
+  // other changes, like Copied from or the options.
+  var numbersTimer = null, numbersWanted = null, numbersTries = {};
+  var RETRY_AFTER = [5000, 15000, 30000];
   function loadNumbers(appid) {
     var n = numberings[appid];
-    if (n && (n.status !== "error" || Date.now() - n.at < 5000)) return n;
+    if (n && n.status === "error") {
+      if (n.paste === els.exportText.value && !n.retryNow) return n;
+      if (n.paste !== els.exportText.value) numbersTries[appid] = 0;
+    } else if (n) return n;
     if (numbersWanted !== appid) {
       numbersWanted = appid;
       clearTimeout(numbersTimer);
@@ -229,8 +245,15 @@
         }, 700);
         api("/api/achievements/numbers", {appid: appid}).then(function (d) {
           numberings[appid] = {status: "ok", data: d};
+          numbersTries[appid] = 0;
         }).catch(function (err) {
-          numberings[appid] = {status: "error", message: err.message, title: (err.data || {}).title, at: Date.now()};
+          var title = (err.data || {}).title, tries = numbersTries[appid] = (numbersTries[appid] || 0) + 1;
+          var failed = numberings[appid] = {status: "error", message: err.message, title: title, paste: els.exportText.value};
+          if (retryable(title) && tries <= RETRY_AFTER.length) {
+            setTimeout(function () {
+              if (numberings[appid] === failed) { failed.retryNow = true; scheduleRecompute(); }
+            }, RETRY_AFTER[tries - 1]);
+          }
         }).then(function () {
           if (numbersWanted === appid) numbersWanted = null;
           scheduleRecompute();
@@ -894,8 +917,7 @@
         latest = {errors: [numbering.message], errorTitle: numbering.title, inputNotice: "danger"};
         return;
       } else {
-        numberDangers.push((numbering.title ? numbering.title + ". " : "") + numbering.message +
-          " Until then, numbers come from the pasted order, so the paste needs the default sort.");
+        numberDangers.push((numbering.title ? numbering.title + ". " : "") + numbering.message);
       }
     }
 
@@ -997,7 +1019,6 @@
   }
 
   var combined = false;  // the app's one-screen Schedule (see enableLocal)
-  var pasteOpen = false;  // the paste box shown again after it folded
   var schedFull = false;  // every achievement instead of the sessions
 
   function fileKeyForView(view) {
@@ -1028,7 +1049,7 @@
   function editsBannerHtml() {
     var n = editCount();
     if (!n || !showLockNotice) return "";
-    var label = isArmed("discard") ? "Confirm" : "Discard edits";
+    var label = isArmed("discard") ? "Confirm" : "Discard";
     return '<div class="notice info edits-banner"><span>' + n + " Timeline edit" + (n === 1 ? "" : "s") +
       ", so the pasted text is locked until you download or discard " + (n === 1 ? "it" : "them") + ".</span>" +
       '<button class="btn-ghost discard-edits' + (isArmed("discard") ? " armed" : "") + '" type="button">' + label + "</button></div>";
@@ -1080,7 +1101,8 @@
     els.downloadBtn.classList.toggle("btn-danger", dangers.length > 0);
     var replacing = local && isArmed("overwrite");
     els.downloadBtn.classList.toggle("armed", replacing);
-    els.downloadBtn.textContent = replacing ? "Confirm" : dangers.length ? "Save anyway" : "Save";
+    // A warning makes it red, not longer.
+    els.downloadBtn.textContent = replacing ? "Confirm" : "Save";
     els.downloadBtn.title = dangers.join("\n");
 
     var fileKey = fileKeyForView(currentView);
@@ -1095,9 +1117,11 @@
       var box = document.querySelector(".box");
       box.classList.toggle("has-paste", !!els.exportText.value.trim());
       box.classList.toggle("has-timeline", !!ok);
-      // A clean paste folds away (Edit paste brings it back), leaving the
-      // sessions overview, or with Full timeline, every achievement.
-      box.classList.toggle("paste-folded", !!ok && !pasteOpen);
+      // A new App ID rebuilds the timeline (its numbers checked again), so
+      // it's fixed while there are Timeline edits to lose.
+      els.appid.readOnly = editCount() > 0;
+      if (els.appid.readOnly) els.appid.setAttribute("data-tip", "Discard the Timeline edits to change it");
+      else els.appid.removeAttribute("data-tip");
       box.classList.toggle("sched-full", !!ok && schedFull);
       if (!latest || latest.errors.length) {
         // What's still missing (like the App ID) says so here; problems
@@ -1156,13 +1180,6 @@
     schedFull = !schedFull;
     this.setAttribute("aria-pressed", String(schedFull));
     render();
-  });
-  byId("paste-edit-btn").addEventListener("click", function () {
-    pasteOpen = !pasteOpen;
-    this.setAttribute("aria-pressed", String(pasteOpen));
-    this.textContent = pasteOpen ? "Done" : "Edit paste";
-    render();
-    if (pasteOpen) els.exportText.focus();
   });
 
   var debounceTimer = null;
@@ -1620,17 +1637,24 @@
 
   // A card says just enough to pick a game: its session and when it can
   // play. The Details tab has the rest.
+  // The card's badge, as an icon (its word on hover): playing, waiting to
+  // start, stopped partway through a session.
+  var PLAY_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.3v9.4l7.3-4.7z" fill="currentColor"/></svg>';
+  var WAIT_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M4.5 2.5h7M4.5 13.5h7M5.5 2.5c0 3 5 3.5 5 5.5s-5 2.5-5 5.5M10.5 2.5c0 3-5 3.5-5 5.5s5 2.5 5 5.5"/></svg>';
+  var STOP_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="4" width="8" height="8" rx="1.5" fill="currentColor"/></svg>';
   function runCardHtml(g) {
     // A game still in its break says when it can play, and looks it;
     // one that can play now just shows its session.
     var wait = g.session ? waitLeft(g) : 0;
-    // Stopped partway through a session: marked, with how far it got.
+    // Stopped partway through a session: a stop icon (how far it got on
+    // hover) and its bar.
     var cut = !g.running && g.state === "idle" && g.cut_short;
     var resting = !g.running && g.state === "idle" && wait > 0 && !cut;
-    var badge = g.state === "in_session" ? ["live", "Playing"]
-      : g.running ? ["wait", "Waiting"]
+    var badge = g.state === "in_session" ? ["live", PLAY_ICON, "Playing"]
+      : g.running ? ["wait", WAIT_ICON, "Waiting to start"]
       : g.state === "invalid" ? ["bad", "Problem"]
-      : cut ? ["cut", "Stopped"]
+      : cut ? ["cut", STOP_ICON, "Stopped at " + cut.played + " of " + cut.of]
       : g.finished || g.state === "completed" ? ["", "Done"] : null;
     var meta;
     if (g.state === "invalid") meta = "The config has a problem.";
@@ -1638,8 +1662,7 @@
     else if (!g.session) meta = g.total ? g.done + " / " + g.total + " achievements" : "";
     // Just the session: Playing / Waiting is the badge, and the next
     // unlock or start is in the selected game's summary.
-    else meta = "Session " + g.session + " of " + g.sessions +
-      (cut ? ' · <span class="warn">stopped at ' + cut.played + " of " + cut.of + "</span>" : "");
+    else meta = "Session " + g.session + " of " + g.sessions;
     // On a break: dimmed, with a clock; when it can play is on hover and
     // in the line over its sessions.
     var clock = resting ? '<span class="run-rest-mark" data-tip="' + escapeHtml(playableAt(wait)) + '"><svg class="run-rest" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" ' +
@@ -1649,7 +1672,8 @@
       '" data-name="' + escapeHtml(g.name) + '"' +
       (g.appid > 0 ? ' style="--card-hero: ' + escapeHtml(heroUrl(g)) + '"' : "") + ">" +
       '<div class="run-head">' + gameIconHtml(g) + '<span class="run-name">' + escapeHtml(gameTitle(g)) + "</span>" + counterMark(g) + clock +
-      (badge ? '<span class="run-badge ' + badge[0] + '">' + badge[1] + "</span>" : "") + "</div>" +
+      (badge ? '<span class="run-badge ' + badge[0] + '"' + (badge[2] ? ' data-tip="' + escapeHtml(badge[2]) + '" aria-label="' + escapeHtml(badge[2]) + '"' : "") +
+        ">" + badge[1] + "</span>" : "") + "</div>" +
       (meta ? '<div class="run-meta">' + meta + "</div>" : "") +
       (cut ? '<div class="run-progress"><span style="width:' + Math.round(100 * cut.played / cut.of) + '%"></span></div>' : "") +
       "</div>";
@@ -1675,6 +1699,7 @@
     }
     if (g.finished || g.state === "completed") return title + '<div class="run-summary-line">All achievements unlocked' + more + "</div>";
     var parts = [];
+    var cut = !g.running && g.state === "idle" && g.cut_short;
     function part(label, value) {
       parts.push('<div class="summary-part"><span class="summary-label">' + label + '</span><span class="summary-value">' +
         value + "</span></div>");
@@ -1683,8 +1708,11 @@
       part(g.state === "in_session" ? "Playing session" : "Session", g.session + " of " + g.sessions +
         (g.running ? ' <span class="summary-note">· ' + (g.stop_after ? "this one only" : "all sessions") + "</span>" : ""));
       // While it plays, how long it has left; otherwise how long it lasts.
-      part("This session", g.count + " achievement" + (g.count === 1 ? "" : "s") + " · " +
-        (g.state === "in_session" && g.session_left != null ? fmtDur(left(g.session_left)) + " left" : fmtDur(g.duration)));
+      var size = g.count + " achievement" + (g.count === 1 ? "" : "s") + " · " +
+        (g.state === "in_session" && g.session_left != null ? fmtDur(left(g.session_left)) + " left" : fmtDur(g.duration));
+      // Stopped partway: what's left of it, in yellow, why on hover.
+      part("This session", cut ? '<span class="warn" data-tip="Session ' + g.session + " stopped after " + cut.played + " of its " + cut.of +
+        ' achievements; Continue picks up here">' + size + "</span>" : size);
     }
     if (g.total) part("Unlocked", g.done + " / " + g.total);
     if (g.state === "in_session") {
@@ -1694,10 +1722,7 @@
       part(g.running ? "Starts" : "Playable", wait > 0 ? escapeHtml(fmtAt(wait)) : g.running ? "Starting…" : "Now");
     }
     parts[parts.length - 1] = parts[parts.length - 1].replace(/<\/div>$/, more + "</div>");
-    var cut = !g.running && g.state === "idle" && g.cut_short;
     return title + '<div class="summary-bar">' + parts.join("") + "</div>" +
-      (cut ? '<div class="run-summary-line"><span class="warn">Session ' + g.session + " stopped partway, after " + cut.played +
-        " of its " + cut.of + " achievements. Run it to pick up where it left off.</span></div>" : "") +
       (g.config_changed ? '<div class="run-summary-line"><span class="warn">The achievement order changed: run it once from the terminal to confirm.</span></div>' : "");
   }
 
@@ -1816,6 +1841,21 @@
     drawRunChips();
   }
 
+  // Runs is redrawn every few seconds while it's open. This changes only
+  // the parts whose HTML changed (a card, the summary's line), so what's
+  // the same, like the game art and icons, isn't rebuilt (and doesn't
+  // blink).
+  function patchHtml(el, html) {
+    if (el._html === html) return;
+    el._html = html;
+    // Made in this document (not a template's), so pictures load as usual.
+    var box = document.createElement("div");
+    box.innerHTML = html;
+    var next = [].slice.call(box.childNodes), now = [].slice.call(el.childNodes);
+    if (next.length !== now.length) { el.innerHTML = html; return; }
+    next.forEach(function (node, i) { if (!now[i].isEqualNode(node)) el.replaceChild(node, now[i]); });
+  }
+
   var runsDone = null;  // achievements the runs have unlocked, all told
   function renderRuns() {
     var games = runsData ? runsData.games : [];
@@ -1840,12 +1880,12 @@
     byId("runs-list-head").textContent = head.join(" · ");
 
     if (runsError) {
-      els.runsList.innerHTML = noticeHtml("danger", "Can't reach the app: " + runsError +
-        ". Start it again with runsteamunlocker --ui.");
+      patchHtml(els.runsList, noticeHtml("danger", "Can't reach the app: " + runsError +
+        ". Start it again with runsteamunlocker --ui."));
     } else if (!runsData) {
-      els.runsList.innerHTML = "";
+      patchHtml(els.runsList, "");
     } else if (!games.length) {
-      els.runsList.innerHTML = emptyHtml("▶", "No games yet. Make one under Schedule, then save it.");
+      patchHtml(els.runsList, emptyHtml("▶", "No games yet. Make one under Schedule, then save it."));
     } else {
       // The running game is pinned to the top until it stops; finished
       // games go to the bottom, or out of the list (Settings → Runs).
@@ -1856,8 +1896,8 @@
       if (listed.length && !listed.some(function (g) { return g.name === selectedRun; })) {
         selectedRun = listed[0].name;
       }
-      els.runsList.innerHTML = listed.length ? listed.map(runCardHtml).join("")
-        : emptyHtml("▶", "Every game is finished. Turn on Show finished games in Settings to see them.");
+      patchHtml(els.runsList, listed.length ? listed.map(runCardHtml).join("")
+        : emptyHtml("▶", "Every game is finished. Turn on Show finished games in Settings to see them."));
     }
     var shown = selectedGame();
     // Behind the selected game: a glow in its art's main colour.
@@ -1866,8 +1906,8 @@
       if (tint) runsLog.style.setProperty("--run-tint", tint);
       else runsLog.style.removeProperty("--run-tint");
     });
-    byId("run-summary").innerHTML = runsError ? "" : summaryHtml(shown);
-    byId("run-info").innerHTML = runsError ? "" : infoHtml(shown);
+    patchHtml(byId("run-summary"), runsError ? "" : summaryHtml(shown));
+    patchHtml(byId("run-info"), runsError ? "" : infoHtml(shown));
     byId("run-info").hidden = !runInfoOpen || !shown;
     renderTimeline();
   }
@@ -2939,10 +2979,11 @@
   }
   // The server checks Steam again shortly after achievements change (by
   // hand, or a run's unlock); look then, to show it checking and what's new.
-  var checkSoon = null;
+  var checkSoon = [];
   function expectCheck() {
-    clearTimeout(checkSoon);
-    checkSoon = setTimeout(function () { loadUnlocks(false); }, 17000);
+    checkSoon.forEach(clearTimeout);
+    // After each of the server's two checks (15s and a minute after).
+    checkSoon = [17000, 62000].map(function (ms) { return setTimeout(function () { loadUnlocks(false); }, ms); });
   }
   function unlockDay(date) {
     var day = function (d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); };

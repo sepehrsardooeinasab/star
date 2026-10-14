@@ -37,6 +37,7 @@ CACHE_FOR = 300  # seconds a game's numbers are reused
 
 _lock = threading.Lock()
 _cache = {}
+_listed = {}  # appid -> (when, alist's rows, the bot's Steam ID), for numbers()
 
 
 class Problem(Exception):
@@ -66,8 +67,17 @@ def _steam_stats(kind, who, app):
     url = f"https://steamcommunity.com/{kind}/{who}/stats/{app}/{query}"
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (STAR)"})
-        with urllib.request.urlopen(req, timeout=20) as r:
-            final, body = r.geturl(), r.read()
+        try:
+            with urllib.request.urlopen(req, timeout=20) as r:
+                final, body = r.geturl(), r.read()
+        except urllib.error.HTTPError as e:
+            # Steam turns pages away for a moment when they're read often
+            # (a run's checks read them too): once more, a little later.
+            if e.code != 429 and e.code < 500:
+                raise
+            time.sleep(3)
+            with urllib.request.urlopen(req, timeout=20) as r:
+                final, body = r.geturl(), r.read()
         # Some games' stats move to their short name (stats/4000 to
         # stats/GarrysMod), and the redirect drops the query: ask again there.
         if "xml=1" not in final:
@@ -75,6 +85,10 @@ def _steam_stats(kind, who, app):
             with urllib.request.urlopen(req, timeout=20) as r:
                 body = r.read()
         root = ET.fromstring(body)
+    except urllib.error.HTTPError as e:
+        if e.code == 429 or e.code >= 500:
+            raise Problem("Steam is busy", "It's turning requests away for a moment. STAR tries again shortly.")
+        raise Problem("Couldn't reach Steam", "Check your connection and try again.")
     except (urllib.error.URLError, OSError, ET.ParseError):
         raise Problem("Couldn't reach Steam", "Check your connection and try again.")
     error = root.findtext("error")
@@ -210,29 +224,44 @@ def _merge(rows, mine):
     return merged
 
 
+def keep_asf_open():
+    """ArchiSteamFarm closes 5 minutes after it was last used (a check,
+    a Save), so the next check or a Start doesn't wait for it to start up
+    again. A session closes it itself, after."""
+    if asf_running() and not lock_info(SESSION_LOCK):
+        from unlocker.runner import _schedule_asf_shutdown
+        _schedule_asf_shutdown()
+
+
 def numbers(appid):
     """{"appid", "achievements": [{number, name, description, apiname,
     unlocked, restricted}]} for a game, in alist's (aset's) numbering.
-    Starts ArchiSteamFarm if needed, and stops it again unless a session
-    started meanwhile."""
+    Starts ArchiSteamFarm if needed; it stays open a while after (see
+    keep_asf_open)."""
     with _lock:
         cached = _cache.get(appid)
         if cached and time.monotonic() - cached[0] < CACHE_FOR:
             return cached[1]
-        started = not asf_running()
         PROGRESS[appid] = []
         try:
-            _step(appid, "Starting ArchiSteamFarm" if started else "ArchiSteamFarm is running")
-            ensure_asf_running()
-            _step(appid, "Asking ArchiSteamFarm for the game's achievements")
-            rows = _alist(appid)
+            # ArchiSteamFarm's list is kept a while too, so asking again
+            # after Steam's page failed doesn't start ArchiSteamFarm again.
+            listed = _listed.get(appid)
+            if listed and time.monotonic() - listed[0] < CACHE_FOR:
+                rows, steamid = listed[1], listed[2]
+            else:
+                try:
+                    _step(appid, "ArchiSteamFarm is running" if asf_running() else "Starting ArchiSteamFarm")
+                    ensure_asf_running()
+                    _step(appid, "Asking ArchiSteamFarm for the game's achievements")
+                    rows, steamid = _alist(appid), _bot_steamid()
+                finally:
+                    keep_asf_open()
+                _listed[appid] = (time.monotonic(), rows, steamid)
             _step(appid, "Matching them with Steam's achievement details")
-            mine = _steam_stats("profiles", _bot_steamid(), appid)["achievements"]
+            mine = _steam_stats("profiles", steamid, appid)["achievements"]
             result = {"appid": appid, "achievements": _merge(rows, mine)}
         finally:
-            if started and not lock_info(SESSION_LOCK):
-                _step(appid, "Closing ArchiSteamFarm")
-                asf_setup._stop_idle_asf()  # waits until it's gone
             PROGRESS.pop(appid, None)
         _cache[appid] = (time.monotonic(), result)
         return result
@@ -247,13 +276,12 @@ def change(appid, unlock, lock):
     the account ArchiSteamFarm runs, matching names to aset's numbers with
     alist. The game plays from EDIT_PLAY seconds before the first change
     to EDIT_PLAY after the last, so they look made while playing. Not
-    while a game is in a session. Starts ArchiSteamFarm if needed, and
-    stops it again unless a session started meanwhile. Returns
+    while a game is in a session. Starts ArchiSteamFarm if needed (it stays
+    open a while after, see keep_asf_open). Returns
     {"unlocked": [names], "locked": [names]} as Steam took them."""
     if lock_info(SESSION_LOCK):
         raise Problem("A game is playing", "Change achievements when no session is running.")
     with _lock:
-        started = not asf_running()
         playing = False
         try:
             ensure_asf_running()
@@ -302,8 +330,7 @@ def change(appid, unlock, lock):
                 except Exception:  # noqa: BLE001 - the changes are made; ASF stops it when idle
                     pass
             _cache.pop(appid, None)  # the numbers' unlocked marks changed
-            if started and not lock_info(SESSION_LOCK):
-                asf_setup._stop_idle_asf()
+            keep_asf_open()
 
 
 def find_appid(name):
