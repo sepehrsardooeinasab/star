@@ -2097,7 +2097,33 @@
   .games-search::placeholder { color: var(--placeholder); }
   .games-search:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .games-sort { display: flex; align-items: center; gap: 0.5rem; }
-  .games-filters { flex-wrap: wrap; margin: -0.2rem 0 0.7rem; }
+  /* Which games show: a tick to show or hide each kind, Only for just them. */
+  .filter-list { display: flex; flex-direction: column; gap: 0.15rem; min-width: 15rem; }
+  .filter-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.3rem 0.2rem; font-size: 0.8rem; color: var(--text); }
+  .filter-name { flex: 1; }
+  .filter-check {
+    flex: none; display: inline-flex; align-items: center; justify-content: center;
+    width: 20px; height: 20px; padding: 0; color: transparent; background: none;
+    border: 1.5px solid var(--border-strong); border-radius: 50%; cursor: pointer;
+  }
+  .filter-check svg { width: 13px; height: 13px; }
+  .filter-check.on { color: #fff; background: var(--accent); border-color: var(--accent); }
+  .filter-only { padding: 0.15rem 0.55rem; font: inherit; font-size: 0.74rem; color: var(--text-dim); background: none; border: 1px solid transparent; border-radius: 999px; cursor: pointer; }
+  .filter-only:hover { color: var(--text); }
+  .filter-only.on { color: var(--accent); background: var(--accent-tint); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+  :is(.filter-check, .filter-only):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .lib-default.lib-filters { align-items: flex-start; }
+  .lib-default.lib-filters > span { padding-top: 0.3rem; }
+  /* Games: the list in a menu by the sort. */
+  .filters-menu { position: relative; }
+  .filters-menu summary { list-style: none; display: inline-flex; align-items: center; height: 2.2rem; padding: 0 0.8rem; font-size: 0.8rem; font-weight: 500; border: 1px solid var(--border-strong); border-radius: 8px; cursor: pointer; }
+  .filters-menu summary::-webkit-details-marker { display: none; }
+  .games-sort .filters-menu summary.btn-ghost { width: auto; }
+  .filters-menu summary.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); background: var(--accent-tint); }
+  .filters-pop {
+    position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; padding: 0.5rem 0.6rem;
+    background: var(--surface); border: 1px solid var(--border-strong); border-radius: 10px; box-shadow: 0 8px 24px var(--shadow);
+  }
   :is(.games-sort, .lib-default) select { margin-top: 0 !important; display: inline-block !important; }
   /* One width for every order's name, so changing the sort moves nothing. */
   .games-sort .btn-ghost { box-sizing: border-box; width: 7.2rem; height: 2.2rem; padding: 0 0.8rem; font-size: 0.8rem; text-align: center; }

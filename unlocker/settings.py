@@ -71,9 +71,9 @@ DEFAULTS = {
     "achievement_sort": "date",
     "achievement_order": "desc",
     "achievement_group": "status",
-    # Which games the Library's Games list shows: those without
-    # achievements ("show" or "hide"); those marked Private or hidden in
-    # Steam, and those marked finished ("show", "hide" or "only").
+    # Which games the Library's Games list shows: those marked Private or
+    # hidden in Steam, those marked finished and those without
+    # achievements, each "show", "hide" or "only".
     "library_private": "show",
     "library_hidden": "show",
     "library_no_achievements": "show",
@@ -148,7 +148,7 @@ APP_CHOICES = {"clock": ["system", "12h", "24h"], "theme": ["dark", "light"],
                "achievement_group": ["status", "none"],
                "library_private": ["show", "hide", "only"],
                "library_hidden": ["show", "hide", "only"],
-               "library_no_achievements": ["show", "hide"],
+               "library_no_achievements": ["show", "hide", "only"],
                "library_finished": ["show", "hide", "only"],
                "library_tab": ["achievements", "games"],
                "hidden_descriptions": ["unlocked", "all", "none"],
