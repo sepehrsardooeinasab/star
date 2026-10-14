@@ -328,11 +328,8 @@
   body[data-screen="guide"] #setup-error { margin: 0; padding: 0 1.3rem 0.8rem; }
   /* About STAR: the version and updates, in Settings only. */
   body:not([data-screen="guide"]) #step-about { display: none; }
-  body[data-screen="guide"] #hero-setup #step-about { grid-column: 1 / -1; }
-  /* A slim line at the end rather than a section. */
-  body[data-screen="guide"] #hero-setup #step-about { padding: 0.2rem 0.2rem 0; background: none; border: 0; }
-  #step-about .step-head { display: none; }
-  #step-about .update-row { margin: 0; padding: 0; border: 0; gap: 0.4rem; }
+  body[data-screen="guide"] #hero-setup #step-other { grid-column: 1 / -1; }
+  #step-about .update-row { flex: 1; min-width: 0; margin: 0; padding: 0; border: 0; gap: 0.4rem; }
   #step-about .update-row span { flex: 1 1 12rem; color: var(--text-dim); font-size: 0.76rem; }
   #step-about .update-row :is(button, a.btn-ghost) { padding: 0.3rem 0.7rem; font-size: 0.78rem; border-radius: 7px; }
   @media (max-width: 900px) {
@@ -1529,13 +1526,25 @@
     padding: 1.6rem max(1.2rem, calc((100% - 46rem) / 2)) 2rem;
   }
   :root[data-desktop] body[data-screen="guide"] .setup-step { background: var(--surface); border-radius: 10px; }
-  /* The version and updates: a box like the others, last. */
-  :root[data-desktop] body[data-screen="guide"] #hero-setup #step-about {
-    padding: 0.8rem 1.1rem;
-    background: var(--surface);
-    border: 1px solid var(--border);
-  }
   :root[data-desktop] body[data-screen="guide"] #step-about .update-row { align-items: center; }
+  /* Other: rows like Library's, straight under the title; buttons on
+     the right. */
+  #step-other .other-rows { margin-top: 0.7rem; padding-top: 0; border-top: 0; }
+  #step-other .lib-default[hidden] { display: none; }
+  #step-data .data-path { flex: 1; min-width: 0; margin: 0; }
+  #step-other .lib-default :is(button, a.btn-ghost) { padding: 0.3rem 0.7rem; font-size: 0.78rem; border-radius: 7px; }
+  #auto-update-row .setting-check { margin: 0; }
+  /* ArchiSteamFarm, Steam account and Library: the buttons on the right
+     of the title and its text; what opens under them (sign-in, the key,
+     Library's rows) is full width. */
+  :root[data-desktop] body[data-screen="guide"] :is(#step-asf, #step-steam, #step-unlocks) {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 1.2rem; align-items: center;
+  }
+  :root[data-desktop] body[data-screen="guide"] :is(#step-asf, #step-steam, #step-unlocks) > * { grid-column: 1 / -1; }
+  :root[data-desktop] body[data-screen="guide"] :is(#step-asf > :is(.step-head, .step-text), #step-steam > :is(.step-head, .step-text), #step-unlocks > :is(.step-head, #unlocks-key-text)) { grid-column: 1; }
+  :root[data-desktop] body[data-screen="guide"] :is(#step-asf > .step-actions, #step-steam > #steam-change, #step-unlocks > #unlocks-key-actions) {
+    grid-column: 2; grid-row: 1 / span 2; justify-self: end; margin-top: 0;
+  }
   :root[data-desktop] body[data-screen="guide"] #step-about .update-row span { color: var(--text); font-size: 0.82rem; }
   :root[data-desktop] body[data-screen="guide"] #hero-setup .run-settings { grid-template-columns: minmax(0, 1fr); gap: 1.1rem; }
   /* Every row the same height, checkbox or number, evenly spaced. */
