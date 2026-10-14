@@ -1613,7 +1613,6 @@
   /* Fields whose input moved into the bar leave nothing behind. */
   .bar-popover .settings-form .row2:not(:has(input)) { display: none; }
   .bar-popover .settings-form .field:not(:has(input, button)) { display: none; }
-  .bar-note { margin: 0.6rem 0 0; font-size: 0.74rem; line-height: 1.45; color: var(--text-dim); }
   .bar-stats { margin-left: auto; }
   .bar-stats .stats-strip { gap: 0.2rem 1.1rem; font-size: 0.76rem; }
   /* Nothing shows in it, so it takes no gap either: Reset all fields
@@ -1729,7 +1728,6 @@
   .bar-popover .settings-form .field input { width: 100%; padding-right: 1.6rem; }
   .bar-unit { position: absolute; right: 0.6rem; bottom: 0; height: 30px; display: flex; align-items: center; font-size: 0.76rem; color: var(--text-dim); pointer-events: none; }
   .bar-popover input[type="number"]::-webkit-inner-spin-button { display: none; }
-  .bar-popover .bar-note { margin-top: 0.8rem; padding-top: 0.7rem; border-top: 1px solid var(--border); }
   .bar-popover input { height: 30px; font-size: 0.82rem; }
   .bar-popover #reset-btn { height: 30px; padding: 0; font-size: 0.78rem; }
 
