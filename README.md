@@ -2,7 +2,7 @@
 
 **Steam Timed Achievement Replayer.** Replays a real player's achievement timeline on your Steam account: the same achievements, in the same order, with the same gaps between them and the same play sessions and breaks. The unlocking itself goes through [ArchiSteamFarm](https://github.com/JustArchiNET/ArchiSteamFarm) (ASF) and its [ASFAchievementManager](https://github.com/CatPoweredPlugins/ASFAchievementManager) plugin.
 
-A desktop app for macOS and Linux (not Windows). **[Website](https://sepehrsardooeinasab.github.io/star/)**: how it works and how to use it. The schedule builder also runs in the [browser](https://sepehrsardooeinasab.github.io/star/app.html).
+A desktop app for macOS and Linux (not Windows). **[Website](https://sepehrsardooeinasab.github.io/star/)**: how it works and how to use it. Without the desktop app, `runsteamunlocker --ui` opens the same app in your browser.
 
 ## Install
 
@@ -111,7 +111,7 @@ Only needed without the install command, e.g. when running straight from a clone
 
 - On [SteamHunters](https://steamhunters.com), in settings enable **show hidden achievements**, and show times with seconds.
 - Open the achievements of a player with a legitimate, completed profile for the game, in the default sort (the game's own order, not grouped). The app accepts any sort, or just the page's link.
-- Select the whole page, copy it, and paste it into the [schedule builder](https://sepehrsardooeinasab.github.io/star/app.html) in the browser. Save the config it makes into `jsons/`.
+- Select the whole page, copy it, and paste it into Schedule in STAR (`runsteamunlocker --ui` opens it in your browser). Save saves the config into `jsons/`.
 
 This step is manual because SteamHunters has no public API for per-player achievement data and blocks automated access (Cloudflare-protected, `robots.txt` disallows crawlers) — the schedule builder exists specifically to make pasted, human-copied text quick to turn into a config.
 
@@ -191,7 +191,7 @@ With randomness on, it applies to the delays between achievements and to the gap
   - `run_unlocker.py` — entry point for runs, the app's server and the command line
 - `runsteamunlocker` — bash launcher: starts ArchiSteamFarm if needed, then runs the unlocker for a given config
 - `runsteamunlocker.zsh-completion` — tab-completion for available configs
-- `docs/` — published via GitHub Pages: `index.html` is the website, `app.html` the app's interface (also usable in the browser)
+- `docs/` — published via GitHub Pages: `index.html` is the website, `app.html` the app's interface (opened on the website, it goes to the website)
 - `app/` — the desktop app (Tauri): a window that starts the local server and shows the page
 - `install.sh` — the one-line installer; `.github/workflows/release.yml` builds the app for each `v*` tag
 - `tools/check_asf_pins.py` — says whether a newer ArchiSteamFarm + plugin pair can replace the pinned one (the newest ASF in the series the latest plugin is built against); `.github/workflows/asf-versions.yml` runs it weekly and fails when the pins should be bumped

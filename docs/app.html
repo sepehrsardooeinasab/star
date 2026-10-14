@@ -18,17 +18,16 @@
     // laid out as the window's title bar.
     var params = new URLSearchParams(location.search), desktop = params.get("desktop");
     if (desktop) document.documentElement.setAttribute("data-desktop", desktop);
-    // The website's fonts; the app uses the system's own and loads none.
-    if (!desktop) {
-      document.write('<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' +
-        '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap">');
-    }
+    // Blank (the theme's background) until STAR's server answers and the
+    // first screen is picked (script.js: shown()); without the server (the
+    // website) it goes to the website instead.
+    document.documentElement.setAttribute("data-booting", "");
     // A dev build of the app: text can be copied and inspected.
     if (desktop && params.get("dev") === "1") document.documentElement.setAttribute("data-dev", "");
   })();
 </script>
 </head>
-<body data-screen="home">
+<body data-screen="work">
 <div class="glow" aria-hidden="true"></div>
 
 <header class="topbar" data-tauri-drag-region="deep">
@@ -37,14 +36,12 @@
     <span>STAR</span>
   </a>
   <div class="screen-switch" id="screen-switch" role="group" aria-label="Screen" hidden>
-    <button type="button" id="switch-home" class="switch-home" title="Home" aria-label="Home"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 9.2 10 3.8l6.5 5.4"/><path d="M5.2 8v7.7h3.4v-4.3h2.8v4.3h3.4V8"/></svg></button>
     <button type="button" id="switch-schedule" title="Make a schedule">Schedule</button>
     <button type="button" id="switch-runs" title="Run, stop and follow your games">Runs</button>
     <button type="button" id="switch-unlocks" title="Your games and achievements, from Steam">Library</button>
     <button type="button" id="switch-guide" title="Setup, updates and how it works">Settings</button>
   </div>
   <div class="topbar-right">
-    <button class="topbar-pill" id="guide-btn" type="button" title="How to set up and use it">Guide</button>
     <div class="appearance">
       <button class="icon-btn" id="appearance-toggle" type="button" aria-label="Appearance" aria-expanded="false" aria-controls="appearance-menu" title="Appearance">
         <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.2a6.8 6.8 0 1 0 0 13.6c.8 0 1.3-.6 1.3-1.3 0-.4-.1-.6-.4-.9-.2-.3-.4-.6-.4-.9 0-.7.6-1.3 1.3-1.3h1.6a3.4 3.4 0 0 0 3.4-3.4C14.8 3.9 11.8 1.2 8 1.2z" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="4.6" cy="7.4" r="1" fill="currentColor"/><circle cx="6.6" cy="4.6" r="1" fill="currentColor"/><circle cx="10" cy="4.6" r="1" fill="currentColor"/></svg>
@@ -80,9 +77,7 @@
   </div>
   <div class="page-actions">
     <div class="pa pa-schedule">
-      <button class="btn-hero primary page-action" id="download-btn" type="button" disabled>Download All</button>
-      <button class="btn-ghost" id="folder-btn" type="button" style="display:none">Choose save folder…</button>
-      <span class="folder-status" id="folder-status"></span>
+      <button class="btn-hero primary page-action" id="download-btn" type="button" disabled>Save</button>
     </div>
     <div class="pa pa-runs">
       <!-- Run opens a menu: when it starts and how much it plays; Run,
@@ -118,34 +113,7 @@
   </div>
 </div>
 
-<section class="hero" aria-labelledby="hero-title">
-  <div class="hero-eyebrow"><span>STAR · Steam Timed Achievement Replayer</span></div>
-  <h1 class="hero-title" id="hero-title"><span class="hero-bright">Replay a real player's</span> achievement timeline</h1>
-  <p class="hero-sub">Turn a SteamHunters export into realistic sessions and breaks, then let ArchiSteamFarm unlock them on your account at the same pace.</p>
-
-  <div class="hero-actions" id="hero-actions">
-    <button class="btn-hero primary" id="hero-new" type="button">New schedule</button>
-    <button class="btn-hero" id="hero-run" type="button">
-      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6L12.6 8z" fill="currentColor"/></svg>
-      Run a game
-    </button>
-  </div>
-  <p class="hero-note" id="hero-note">Schedules are made right here in your browser.</p>
-
-  <div class="hero-panel" id="hero-install" hidden>
-    <div class="panel-title">Get the app</div>
-    <p>Running games needs the app on your Mac or Linux PC. One line installs it, ArchiSteamFarm and its achievement plugin:</p>
-    <div class="install-line"><code id="install-cmd">curl -fsSL https://raw.githubusercontent.com/sepehrsardooeinasab/star/main/install.sh | sh</code><button class="btn-ghost" id="copy-install" type="button">Copy</button></div>
-    <p class="panel-small">Paste it into Terminal. Needs Python 3, which macOS offers to install the first time if it's missing.</p>
-    <ol class="guide-list">
-      <li>Open <b>STAR</b>. It walks you through installing ArchiSteamFarm and signing in to Steam.</li>
-      <li>On SteamHunters, open a player's achievements for the game, select the whole list and copy it.</li>
-      <li>Press <b>New schedule</b>, paste it, enter the game name and App ID under Settings, and save.</li>
-      <li>Open <b>Runs</b> in the top bar and press <b>Run</b>. It keeps going when you close the window.</li>
-    </ol>
-    <p class="panel-small">Run the same command again any time to update; your games and settings are kept.</p>
-  </div>
-
+<section class="hero" aria-labelledby="setup-title">
   <div class="hero-panel setup" id="hero-setup" hidden>
     <div class="panel-head">
       <div class="panel-title" id="setup-title">Finish setting up</div>
@@ -282,11 +250,6 @@
     <p class="setup-error" id="setup-error" hidden></p>
   </div>
 
-  <ul class="hero-points">
-    <li>Realistic sessions</li>
-    <li>Breaks in between</li>
-    <li>Stop and resume anytime</li>
-  </ul>
 </section>
 
 <div class="shell">
@@ -321,7 +284,7 @@
         <div class="tab-group output">
           <span class="tab-group-label">Output</span>
           <button class="tab" id="nav-json" type="button" title="Schedule (config.json)">
-            <span class="icon"><svg viewBox="0 0 20 20"><text x="10" y="14.5" text-anchor="middle" font-size="12" font-family="'JetBrains Mono',monospace" fill="currentColor">{ }</text></svg></span>
+            <span class="icon"><svg viewBox="0 0 20 20"><text x="10" y="14.5" text-anchor="middle" font-size="12" font-family="ui-monospace,monospace" fill="currentColor">{ }</text></svg></span>
             <span class="label">Schedule</span>
           </button>
           <button class="tab" id="nav-csv" type="button" title="Timeline (csv)">
