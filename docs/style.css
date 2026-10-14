@@ -1599,7 +1599,9 @@
   .bar-note { margin: 0.6rem 0 0; font-size: 0.74rem; line-height: 1.45; color: var(--text-dim); }
   .bar-stats { margin-left: auto; }
   .bar-stats .stats-strip { gap: 0.2rem 1.1rem; font-size: 0.76rem; }
-  .bar-help .hover-help { display: none; }
+  /* Nothing shows in it, so it takes no gap either: Reset all fields
+     ends where Full timeline does, below it. */
+  .bar-help { display: none; }
 
   body.local .view-pane[data-view="input"].active { grid-template-columns: minmax(0, 1fr) minmax(0, 2.4fr); }
   /* The how-to shows inside the empty paste box, like a placeholder, and
@@ -1620,7 +1622,7 @@
   }
   body.local .box.has-paste .view-pane[data-view="input"] .field .input-help { display: none; }
   .bar-from input { width: 9rem; }
-  .bar-reset #reset-btn { height: 28px; padding: 0 0.7rem; font-size: 0.76rem; white-space: nowrap; }
+  .bar-reset #reset-btn { box-sizing: border-box; height: 28px; min-width: 7rem; padding: 0 0.7rem; font-size: 0.76rem; white-space: nowrap; }
   /* One line at any window width: the name and Copied from give up room
      first, down to a usable width. */
   body.local .box:not([data-view="runs"]) .schedule-bar { flex-wrap: nowrap; }
@@ -1741,7 +1743,8 @@
   .paste-summary .stats-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); max-width: 56rem; gap: 0.2rem 1.2rem; font-size: 0.8rem; color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .paste-summary .stats-strip b { color: var(--text); font-weight: 600; }
   .paste-summary .stats-strip > span { overflow: hidden; text-overflow: ellipsis; }
-  .paste-summary #sched-full-btn { box-sizing: border-box; height: 1.7rem; min-width: 6.5rem; }
+  /* The same size as Reset all fields above it. */
+  .paste-summary #sched-full-btn { box-sizing: border-box; height: 28px; min-width: 7rem; }
   .paste-summary #sched-full-btn { justify-content: center; text-align: center; }
   .paste-summary .bar-btn[aria-pressed="true"] { color: var(--accent); background: var(--accent-tint); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
   body.local .view-pane[data-view="input"].active { grid-template-rows: auto minmax(0, 1fr); }
