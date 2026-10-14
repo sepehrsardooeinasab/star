@@ -1049,7 +1049,7 @@
   function editsBannerHtml() {
     var n = editCount();
     if (!n || !showLockNotice) return "";
-    var label = isArmed("discard") ? "Confirm" : "Discard edits";
+    var label = isArmed("discard") ? "Confirm" : "Discard";
     return '<div class="notice info edits-banner"><span>' + n + " Timeline edit" + (n === 1 ? "" : "s") +
       ", so the pasted text is locked until you download or discard " + (n === 1 ? "it" : "them") + ".</span>" +
       '<button class="btn-ghost discard-edits' + (isArmed("discard") ? " armed" : "") + '" type="button">' + label + "</button></div>";
