@@ -802,9 +802,17 @@
     return '<div class="empty-hint"><div class="glyph">' + glyph + "</div><p>" + escapeHtml(text) + "</p></div>";
   }
 
+  // Where Schedule's draft is kept. In the app only until it quits (a
+  // reload keeps it), so it opens empty; the website keeps it.
+  var desktop = document.documentElement.hasAttribute("data-desktop");
+  var draftStore = null;
+  try {
+    draftStore = desktop ? sessionStorage : localStorage;
+    if (desktop) localStorage.removeItem("unlock-scheduler-draft");  // kept there before
+  } catch (e) {}
   function saveDraft() {
     try {
-      localStorage.setItem("unlock-scheduler-draft", JSON.stringify({
+      draftStore.setItem("unlock-scheduler-draft", JSON.stringify({
         exportText: els.exportText.value,
         appid: els.appid.value,
         gameName: els.gameName.value,
@@ -820,7 +828,7 @@
 
   function loadDraft() {
     try {
-      var raw = localStorage.getItem("unlock-scheduler-draft");
+      var raw = draftStore.getItem("unlock-scheduler-draft");
       if (!raw) return;
       var d = JSON.parse(raw);
       if (d.exportText) els.exportText.value = d.exportText;
@@ -1298,10 +1306,17 @@
     edits = {};
     breaks = {};
     armedUntil = {};
-    try { localStorage.removeItem("unlock-scheduler-draft"); } catch (e) {}
+    try { draftStore.removeItem("unlock-scheduler-draft"); } catch (e) {}
     recompute();
     setView("input");
   }
+  // The app's window closed while a game runs (STAR stays in the menu
+  // bar): Schedule is emptied, as when STAR quits. Called by the app.
+  window.starWindowClosed = function () {
+    var view = currentView;
+    resetAll();
+    if (view !== "input") setView(view);
+  };
 
   els.resetBtn.addEventListener("click", function () {
     if (editCount() && !confirmTwice("reset")) return;
