@@ -1722,6 +1722,11 @@
   body.local #csv-slot > .empty-hint { border: 1px solid var(--border); border-radius: 7px; }
   body.local #csv-slot { position: relative; }
   body.local #csv-slot > .notices-below.in-frame { position: absolute; left: 0.75rem; right: 0.75rem; bottom: 0.75rem; }
+  /* With a timeline too: the frame is around the table and its warnings,
+     so it stays the same size when they come and go. */
+  body.local #csv-slot:has(> .table-wrap) { border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+  body.local #csv-slot > .table-wrap { border: 0; border-radius: 0; }
+  body.local #csv-slot > .notices-below:not(:empty):not(.in-frame) { padding: 0 0.75rem 0.75rem; }
   body.local .paste-summary {
     grid-column: 1 / -1;
     display: flex;
