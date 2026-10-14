@@ -518,6 +518,12 @@
   .run-settings-box summary span { color: var(--text-dim); font-weight: 400; }
   .run-settings-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 0.7rem; }
   .run-settings-top .step-text { color: var(--text-dim); font-size: 0.76rem; }
+  .run-settings-btns { display: flex; align-items: center; gap: 0.5rem; flex: none; }
+  /* Apply: as tall as the lock beside it. */
+  .run-settings-btns > * { height: 1.8rem; }
+  #run-settings-save { box-sizing: border-box; min-width: 4.8rem; padding: 0 0.8rem; font-size: 0.78rem; border-radius: 999px; border-color: var(--accent); color: var(--accent); }
+  /* Library's display options: the rows straight under the summary. */
+  .lib-defaults-box .lib-defaults { margin-top: 0.8rem; padding-top: 0; border-top: 0; }
   .lock-toggle {
     flex: none;
     display: inline-flex;

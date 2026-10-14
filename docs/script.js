@@ -2726,8 +2726,7 @@
     lock.setAttribute("aria-pressed", String(editingSettings));
     lock.setAttribute("data-tip", editingSettings ? "Lock again: changes you haven't saved are discarded" : "Unlock to change these");
     byId("run-settings-lock-label").textContent = editingSettings ? "Unlocked" : "Locked";
-    byId("run-settings-actions").hidden = !editingSettings;
-    byId("run-settings-save").disabled = !changed;
+    byId("run-settings-save").hidden = !editingSettings || !changed;
   }
 
   function saveRunSettings(values) {
@@ -2735,7 +2734,7 @@
       runSettings = d.settings;
       editingSettings = false;
       renderRunSettings();
-      showToast("Saved. Runs started from now on use these.");
+      showToast("Applied. Runs started from now on use these.");
     }).catch(function (err) { showToast("Couldn't save: " + err.message); });
   }
   byId("run-settings").addEventListener("input", syncRunSettings);
@@ -2751,16 +2750,12 @@
     editingSettings = !editingSettings;
     if (editingSettings) syncRunSettings(); else renderRunSettings();
   });
-  // Defaults fill the form; Save keeps them.
+  // ↺ puts a default in the form; Apply keeps it.
   function setToDefault(s) {
     var el = byId("set-" + s.key);
     if (!el) return;
     if (el.type === "checkbox") el.checked = s.default; else el.value = s.default;
   }
-  byId("run-settings-reset").addEventListener("click", function () {
-    (runSettings || []).forEach(setToDefault);
-    syncRunSettings();
-  });
   byId("run-settings").addEventListener("click", function (e) {
     var button = e.target.closest("[data-reset]");
     if (!button) return;

@@ -155,17 +155,17 @@
         <details class="run-settings-box" id="run-settings-box">
           <summary>Advanced run settings <span id="run-settings-summary"></span></summary>
           <div class="run-settings-top">
-            <span class="step-text" id="run-settings-note">Runs started after saving use these. Saved in settings.json in the data folder.</span>
+            <span class="step-text" id="run-settings-note">Runs started after applying use these. Saved in settings.json in the data folder.</span>
+            <span class="run-settings-btns">
+            <!-- Apply by the lock, as for a game's achievements; shown once something changed. -->
+            <button class="btn-ghost primary-ghost" id="run-settings-save" type="button" hidden>Apply</button>
             <button class="lock-toggle" id="run-settings-lock" type="button" aria-pressed="false" data-tip="Unlock to change these">
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path class="lock-shackle" d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>
               <span id="run-settings-lock-label">Locked</span>
             </button>
+            </span>
           </div>
           <form class="run-settings" id="run-settings" autocomplete="off"></form>
-          <div class="step-actions" id="run-settings-actions" hidden>
-            <button class="btn-ghost primary-ghost" id="run-settings-save" type="button" disabled>Save</button>
-            <button class="btn-ghost" id="run-settings-reset" type="button">Set all to defaults</button>
-          </div>
         </details>
       </li>
       <li class="setup-step done" id="step-unlocks" hidden>
@@ -180,6 +180,8 @@
           <button class="btn-ghost" type="submit">Save</button>
         </form>
         <p class="step-text unlocks-key-error" id="unlocks-key-error" hidden></p>
+        <details class="run-settings-box lib-defaults-box" id="lib-defaults-box">
+          <summary>Display options</summary>
         <div class="lib-defaults">
           <div class="lib-default"><span>Achievements shown</span>
             <select id="default-range" aria-label="Achievements shown">
@@ -220,6 +222,7 @@
             </select>
           </div>
         </div>
+        </details>
       </li>
       <!-- Other: the clock, the data folder, and STAR's version, a row each. -->
       <li class="setup-step done" id="step-other">
