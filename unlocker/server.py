@@ -624,14 +624,19 @@ def _auto_update():
 
 def _check_library():
     """Checks Steam for new games and achievements as often as Settings →
-    Library says (library_check), the Library open or not."""
-    time.sleep(120)  # let the app settle first
+    Library says (library_check), the Library open or not; and soon after
+    achievements change (by hand, or a run's unlock)."""
+    time.sleep(20)  # let the app settle first
+    looked = 0
     while True:
         try:
-            unlocks.auto_check()
+            unlocks.watch()
+            if time.time() - looked >= 300:
+                looked = time.time()
+                unlocks.auto_check()
         except Exception:  # noqa: BLE001 - a background check never stops the server
             pass
-        time.sleep(300)
+        time.sleep(10)
 
 
 def _learn_steamid():

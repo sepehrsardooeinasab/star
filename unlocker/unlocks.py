@@ -139,6 +139,38 @@ def _due(store):
     return not store["checked"] or (every is not None and store["checked"] < _last_check_time(every))
 
 
+# After achievements change (by hand, or a run's unlock), Steam is checked
+# again this long after, once it has them.
+REFRESH_AFTER = 15
+_soon = {"at": None, "seen": None}  # when that check is due; the runs' last progress
+
+
+def refresh_soon(after=REFRESH_AFTER):
+    """Has Steam checked again in `after` seconds (see watch)."""
+    at = time.time() + after
+    _soon["at"] = at if _soon["at"] is None else min(_soon["at"], at)
+
+
+def watch():
+    """Every few seconds: notices a run's progress saved (an unlock) and
+    has Steam checked again soon after, and starts that check when due."""
+    latest = max(_star_appids().values(), default=0)
+    if _soon["seen"] is not None and latest > _soon["seen"]:
+        refresh_soon()
+    _soon["seen"] = latest
+    if _soon["at"] is None or time.time() < _soon["at"]:
+        return
+    sid = steamid()
+    if not sid:
+        return
+    with _lock:
+        if SYNC["running"]:
+            return  # still due; started once this one ends
+        _soon["at"] = None
+        SYNC.update(running=True, done=0, total=0, notice=None, error=None)
+        threading.Thread(target=_sync, args=(sid, True), daemon=True).start()
+
+
 def auto_check():
     """Starts a check in the background when one is due, the Library open
     or not (the server asks every few minutes)."""
@@ -491,6 +523,7 @@ def change_achievements(appid, unlock, lock):
                 saved["unlocked"] = len(saved["unlocks"]) + len(saved["untimed"])
                 saved["stale"] = True  # read again from Steam on the next check
                 _save_store(store)
+    refresh_soon()
     return {**done, "game": game_page(appid)}
 
 

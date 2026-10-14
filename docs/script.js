@@ -1963,8 +1963,12 @@
     every.title = running && !g.auto ? "Started from the terminal: it plays as started there." : "";
   }
 
+  var runsDone = null;  // achievements the runs have unlocked, all told
   function renderRuns() {
     var games = runsData ? runsData.games : [];
+    var done = games.reduce(function (n, g) { return n + (g.done || 0); }, 0);
+    if (runsDone !== null && done > runsDone) expectCheck();
+    runsDone = done;
     var running = games.filter(function (g) { return g.running; }).length;
     byId("run-options").hidden = !games.length;
     renderRunBar(games);
@@ -3078,6 +3082,13 @@
       })
       .then(function () { unlocksBusy = false; renderUnlocks(); });
   }
+  // The server checks Steam again shortly after achievements change (by
+  // hand, or a run's unlock); look then, to show it checking and what's new.
+  var checkSoon = null;
+  function expectCheck() {
+    clearTimeout(checkSoon);
+    checkSoon = setTimeout(function () { loadUnlocks(false); }, 17000);
+  }
   function unlockDay(date) {
     var day = function (d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); };
     var diff = Math.round((day(new Date()) - day(date)) / 86400000);
@@ -3546,6 +3557,7 @@
         renderGamePage();
         showToast([r.unlocked.length ? "Unlocked " + r.unlocked.length : "", r.locked.length ? "locked " + r.locked.length : ""].filter(Boolean).join(", "));
         loadUnlocks(false);
+        expectCheck();
       }).catch(function (err) {
         achBusy = false;
         achError = err;
