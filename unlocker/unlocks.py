@@ -140,15 +140,16 @@ def _due(store):
 
 
 # After achievements change (by hand, or a run's unlock), Steam is checked
-# again this long after, once it has them.
-REFRESH_AFTER = 15
-_soon = {"at": None, "seen": None}  # when that check is due; the runs' last progress
+# again this long after, once it has them; and once more a minute after,
+# in case it was slow to show them.
+REFRESH_AFTER = (15, 60)
+_soon = {"at": [], "seen": None}  # when those checks are due; the runs' last progress
 
 
 def refresh_soon(after=REFRESH_AFTER):
-    """Has Steam checked again in `after` seconds (see watch)."""
-    at = time.time() + after
-    _soon["at"] = at if _soon["at"] is None else min(_soon["at"], at)
+    """Has Steam checked again `after` seconds from now (see watch)."""
+    now = time.time()
+    _soon["at"] = sorted(set(_soon["at"]) | {now + a for a in after})
 
 
 def watch():
@@ -158,7 +159,8 @@ def watch():
     if _soon["seen"] is not None and latest > _soon["seen"]:
         refresh_soon()
     _soon["seen"] = latest
-    if _soon["at"] is None or time.time() < _soon["at"]:
+    now = time.time()
+    if not _soon["at"] or now < _soon["at"][0]:
         return
     sid = steamid()
     if not sid:
@@ -166,7 +168,7 @@ def watch():
     with _lock:
         if SYNC["running"]:
             return  # still due; started once this one ends
-        _soon["at"] = None
+        _soon["at"] = [at for at in _soon["at"] if at > now]  # the later one stays due
         SYNC.update(running=True, done=0, total=0, notice=None, error=None)
         threading.Thread(target=_sync, args=(sid, True), daemon=True).start()
 

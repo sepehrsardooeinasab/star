@@ -2939,10 +2939,11 @@
   }
   // The server checks Steam again shortly after achievements change (by
   // hand, or a run's unlock); look then, to show it checking and what's new.
-  var checkSoon = null;
+  var checkSoon = [];
   function expectCheck() {
-    clearTimeout(checkSoon);
-    checkSoon = setTimeout(function () { loadUnlocks(false); }, 17000);
+    checkSoon.forEach(clearTimeout);
+    // After each of the server's two checks (15s and a minute after).
+    checkSoon = [17000, 62000].map(function (ms) { return setTimeout(function () { loadUnlocks(false); }, ms); });
   }
   function unlockDay(date) {
     var day = function (d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); };
