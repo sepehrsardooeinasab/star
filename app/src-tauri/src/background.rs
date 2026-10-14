@@ -46,6 +46,31 @@ fn span(seconds: f64) -> String {
     }
 }
 
+/// A running game's lines in the menu: what's playing, its session, how
+/// long the session has left and when the next achievement unlocks (Now
+/// until its time is known, as in Runs); between sessions, when the next
+/// one starts.
+fn game_lines(g: &serde_json::Value, title: &str) -> Vec<String> {
+    let playing = g["state"].as_str() == Some("in_session");
+    let mut lines = vec![format!("{}: {title}", if playing { "Playing" } else { "Waiting" })];
+    if let (Some(s), Some(n)) = (g["session"].as_u64(), g["sessions"].as_u64()) {
+        lines.push(format!("Session: {s} of {n}"));
+    }
+    if playing {
+        if let Some(left) = g["session_left"].as_f64() {
+            lines.push(format!("Session ends in: {}", span(left)));
+        }
+        let next = g["next_unlock_in"].as_f64().map_or("Now".to_string(), span);
+        lines.push(format!("Next achievement in: {next}"));
+    } else {
+        let wait = g["starts_in"].as_f64().or(g["ready_in"].as_f64()).unwrap_or(0.0);
+        if wait > 0.0 {
+            lines.push(format!("Starts in: {}", span(wait)));
+        }
+    }
+    lines
+}
+
 /// The running games, as menu lines, and those that can stop after this
 /// session ((name, title)).
 fn read_games() -> Option<(Vec<String>, Vec<(String, String)>)> {
@@ -56,26 +81,7 @@ fn read_games() -> Option<(Vec<String>, Vec<(String, String)>)> {
     for g in data["games"].as_array()?.iter().filter(|g| g["running"].as_bool() == Some(true)) {
         let name = g["name"].as_str().unwrap_or_default().to_string();
         let title = g["title"].as_str().filter(|t| !t.is_empty()).unwrap_or(&name).to_string();
-        // The game, its session, then how long the session has left and
-        // when the next unlock is (or, between sessions, when it starts).
-        lines.push(title.clone());
-        let playing = g["state"].as_str() == Some("in_session");
-        if let (Some(s), Some(n)) = (g["session"].as_u64(), g["sessions"].as_u64()) {
-            lines.push(format!("    {} {s} of {n}", if playing { "Playing session" } else { "Waiting for session" }));
-        }
-        if playing {
-            if let Some(left) = g["session_left"].as_f64() {
-                lines.push(format!("    Session ends in {}", span(left)));
-            }
-            if let Some(next) = g["next_unlock_in"].as_f64() {
-                lines.push(format!("    Next unlock in {}", span(next)));
-            }
-        } else {
-            let wait = g["starts_in"].as_f64().or(g["ready_in"].as_f64()).unwrap_or(0.0);
-            if wait > 0.0 {
-                lines.push(format!("    Starts in {}", span(wait)));
-            }
-        }
+        lines.extend(game_lines(g, &title));
         if g["auto"].as_bool() == Some(true) && g["stop_after"].as_bool() != Some(true) {
             stoppable.push((name, title));
         }
