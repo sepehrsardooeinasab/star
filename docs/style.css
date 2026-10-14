@@ -2038,7 +2038,7 @@
   /* A game's own page. */
   .game-back { height: 2.2rem; padding: 0 0.9rem; font-size: 0.8rem; }
   .library-tabs[hidden], .game-back[hidden] { display: none; }
-  .game-head { display: flex; align-items: center; gap: 0.9rem; }
+  .game-head { flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.9rem; }
   .game-head .lib-icon { width: 56px; height: 56px; border-radius: 9px; font-size: 1.3rem; }
   .game-title { font-size: 1.15rem; font-weight: 600; color: var(--text); }
   .game-head .lib-bar { flex-basis: 16rem; }
@@ -2051,8 +2051,14 @@
   .game-head :is(.lib-count, .lib-state) { font-size: 0.8rem; font-weight: 600; color: var(--text); }
   .game-head :is(.lib-progress, .game-meta, .game-title) { text-shadow: 0 0 6px var(--surface), 0 0 2px var(--surface); }
   .game-meta { margin-top: 0.25rem; font-size: 0.76rem; color: var(--text-dim); }
-  .game-links { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.9rem 0 0; }
+  /* The links as a column of icons down the banner's right side, in one
+     framed panel that stands out from the art. */
+  .game-links { flex: none; display: flex; flex-direction: column; gap: 0.2rem; padding: 0.25rem;
+    border: 1px solid var(--border-strong); border-radius: 9px; background: color-mix(in srgb, var(--surface) 88%, transparent); }
   .game-banner {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
     position: relative;
     isolation: isolate;
     overflow: hidden;
@@ -2079,10 +2085,14 @@
   .game-links .btn-ghost { padding: 0.35rem 0.8rem; font-size: 0.78rem; font-weight: 500; text-decoration: none; border: 1px solid var(--border-strong); border-radius: 8px; }
   .game-page .notice { margin-top: 0.8rem; }
   .game-links .primary-ghost { border-color: var(--accent); color: var(--accent); }
-  /* One width for both its labels, so marking it moves nothing. */
-  .game-finish { display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; box-sizing: border-box; min-width: 8.4rem; }
-  .game-finish svg { width: 14px; height: 14px; }
-  .game-finish.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); background: var(--accent-tint); }
+  /* Square icon buttons (24px), solid enough to read over the art. */
+  .game-links .game-site { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; padding: 0;
+    width: 1.5rem; height: 1.5rem; border-radius: 6px; border-color: transparent; background: transparent; }
+  .game-links .game-site:hover { background: var(--surface-3); }
+  .game-site svg, .game-site img { width: 14px; height: 14px; display: block; }
+  .game-site img { border-radius: 3px; }
+  .game-links .game-finish.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+    background: color-mix(in srgb, var(--accent) 20%, var(--surface)); }
   .ach-sort { justify-content: flex-start; margin: 1rem 0 0; }
   .unlock.locked .unlock-icon { opacity: 0.55; }
   /* Unlocking and locking by hand: a row is clicked, and its icon shows

@@ -3294,6 +3294,12 @@
     });
   }
   // Marked finished (done with, for good) on its page.
+  // The game's pages elsewhere, as icon buttons: Steam's logo (from Simple
+  // Icons, CC0) and SteamHunters' own icon (steamhunters.png, its favicon).
+  var STEAM_ICON = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M11.979 0C5.678 0 .511 4.86.022 11.037l6.432 2.658c.545-.371 1.203-.59 1.912-.59.063 0 .125.004.188.006l2.861-4.142V8.91c0-2.495 2.028-4.524 4.524-4.524 2.494 0 4.524 2.031 4.524 4.527s-2.03 4.525-4.524 4.525h-.105l-4.076 2.911c0 .052.004.105.004.159 0 1.875-1.515 3.396-3.39 3.396-1.635 0-3.016-1.173-3.331-2.727L.436 15.27C1.862 20.307 6.486 24 11.979 24c6.627 0 11.999-5.373 11.999-12S18.605 0 11.979 0zM7.54 18.21l-1.473-.61c.262.543.714.999 1.314 1.25 1.297.539 2.793-.076 3.332-1.375.263-.63.264-1.319.005-1.949s-.75-1.121-1.377-1.383c-.624-.26-1.29-.249-1.878-.03l1.523.63c.956.4 1.409 1.5 1.009 2.455-.397.957-1.497 1.41-2.454 1.012H7.54zm11.415-9.303c0-1.662-1.353-3.015-3.015-3.015-1.665 0-3.015 1.353-3.015 3.015 0 1.665 1.35 3.015 3.015 3.015 1.663 0 3.015-1.35 3.015-3.015zm-5.273-.005c0-1.252 1.013-2.266 2.265-2.266 1.249 0 2.266 1.014 2.266 2.266 0 1.251-1.017 2.265-2.266 2.265-1.253 0-2.265-1.014-2.265-2.265z"/></svg>';
+  var STEAMHUNTERS_ICON = '<img src="steamhunters.png" alt="" aria-hidden="true">';
+  // Open in Runs, beside them.
+  var RUNS_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M5 3.3v9.4l7.3-4.7z"/></svg>';
   var CHECK_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
     '<circle cx="8" cy="8" r="6.2"/><path d="M5.3 8.2l1.8 1.8 3.6-3.8"/></svg>';
   function finishedMark(g) {
@@ -3504,15 +3510,17 @@
     if (!p) { page.innerHTML = html + '<div class="unlocks-status">' + escapeHtml("Loading\u2026") + "</div>"; return; }
     if (p.error) { page.innerHTML = html + problemHtml("warn", (p.error.data || {}).title, p.error.message); return; }
     var done = p.total && p.unlocked >= p.total;
-    var links = '<a class="btn-ghost" target="_blank" rel="noopener" href="https://steamcommunity.com/stats/' + p.appid + '/achievements/">Steam</a>' +
+    var links = '<a class="btn-ghost game-site" target="_blank" rel="noopener" data-tip="Steam" aria-label="Steam" href="https://steamcommunity.com/stats/' +
+        p.appid + '/achievements/">' + STEAM_ICON + "</a>" +
       // Yours on SteamHunters (by Steam ID, as for a custom URL), else the game's.
-      '<a class="btn-ghost" target="_blank" rel="noopener" href="https://steamhunters.com/' +
-        (p.steamid ? "profiles/" + encodeURIComponent(p.steamid) + "/" : "") + "apps/" + p.appid + '/achievements">SteamHunters</a>' +
-      (p.star ? '<button class="btn-ghost primary-ghost" type="button" data-game-run="' + escapeHtml(p.star) + '">Open in Runs</button>' : "") +
-      '<button class="btn-ghost game-finish' + (p.finished ? " on" : "") + '" type="button" data-game-finish aria-pressed="' + !!p.finished + '">' +
-        (p.finished ? CHECK_ICON + "Finished" : "Mark as finished") + "</button>";
-    // A banner: the game's art faded in from the right, under its name,
-    // progress and links.
+      '<a class="btn-ghost game-site" target="_blank" rel="noopener" data-tip="SteamHunters" aria-label="SteamHunters" href="https://steamhunters.com/' +
+        (p.steamid ? "profiles/" + encodeURIComponent(p.steamid) + "/" : "") + "apps/" + p.appid + '/achievements">' + STEAMHUNTERS_ICON + "</a>" +
+      (p.star ? '<button class="btn-ghost game-site" type="button" data-game-run="' + escapeHtml(p.star) +
+        '" data-tip="Open in Runs" aria-label="Open in Runs">' + RUNS_ICON + "</button>" : "") +
+      '<button class="btn-ghost game-site game-finish' + (p.finished ? " on" : "") + '" type="button" data-game-finish aria-pressed="' + !!p.finished +
+        '" data-tip="' + (p.finished ? "Finished (click to unmark)" : "Mark as finished") + '" aria-label="Finished">' + CHECK_ICON + "</button>";
+    // A banner: the game's art faded in from the right, under its name and
+    // progress, with its links as a column of icons at the right.
     html += '<div class="game-banner"' + (p.appid > 0 ? ' style="--card-hero: ' + escapeHtml(heroUrl(p)) + '"' : "") + ">" +
       '<div class="game-head' + (p.private ? " private-game" : "") + (done ? " complete" : "") + '">' +
       iconHtml("lib-icon", p.icon, p.name) +
