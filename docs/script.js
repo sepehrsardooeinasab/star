@@ -2420,9 +2420,8 @@
     els.exportText.parentNode.insertBefore(help, els.exportText.nextSibling);
     els.exportText.placeholder = "";
     document.querySelector('.view-pane[data-view="input"]').appendChild(els.csvSlot);
-    // The app has no start screen: it opens on Runs (Settings takes over
-    // while setup isn't done; see refreshSetup).
-    byId("switch-home").hidden = true;
+    // It opens on Runs (Settings takes over while setup isn't done; see
+    // refreshSetup).
     showScreen("work");
     setView("runs");
     recompute();
@@ -2470,8 +2469,6 @@
     var signedIn = d.signed_in || (d.bot && !changingAccount);
     var firstRun = !(asfDone && (d.signed_in || d.bot));
     byId("hero-setup").hidden = !setupOpen;
-    byId("hero-actions").hidden = setupOpen && firstRun;
-    byId("hero-note").hidden = setupOpen;
     if (!setupOpen) return;
     byId("setup-title").textContent = firstRun ? "Finish setting up" : "Settings";
 
@@ -2887,21 +2884,14 @@
     }, 2000);
   }
 
-  // In the app, the Guide tab; the public page shows the install steps.
+  // The Settings tab.
   function showGuide() {
-    if (!local) {
-      showScreen("home");
-      byId("hero-install").hidden = false;
-      byId("hero-install").scrollIntoView({block: "center"});
-      return;
-    }
     setupOpen = true;
     showScreen("guide");
     renderSetup();
     refreshSetup();
   }
 
-  byId("guide-btn").addEventListener("click", showGuide);
   byId("update-check").addEventListener("click", function () { checkUpdates(true); });
   byId("update-now").addEventListener("click", function () {
     api("/api/update", {}).then(function (u) {
@@ -3801,29 +3791,15 @@
     byId("switch-runs").classList.toggle("active", work && currentView === "runs");
     byId("switch-unlocks").classList.toggle("active", document.body.getAttribute("data-screen") === "unlocks");
     byId("switch-guide").classList.toggle("active", document.body.getAttribute("data-screen") === "guide");
-    byId("switch-home").classList.toggle("active", document.body.getAttribute("data-screen") === "home");
   }
   byId("switch-schedule").addEventListener("click", function () { showScreen("work"); setView(scheduleView); });
   byId("switch-runs").addEventListener("click", function () { showScreen("work"); setView("runs"); });
   byId("switch-unlocks").addEventListener("click", showUnlocks);
   byId("switch-guide").addEventListener("click", showGuide);
-  byId("switch-home").addEventListener("click", function () { showScreen("home"); });
-
-  byId("hero-new").addEventListener("click", function () { showScreen("work"); setView("input"); });
-  byId("hero-run").addEventListener("click", function () {
-    if (local) { showScreen("work"); setView("runs"); return; }
-    // The public page can't run anything; offer the app instead.
-    byId("hero-install").hidden = !byId("hero-install").hidden;
-  });
   document.querySelector(".topbar .brand").addEventListener("click", function (e) {
     e.preventDefault();
-    if (local) { showScreen("work"); setView("runs"); } else showScreen("home");
-  });
-  byId("copy-install").addEventListener("click", function () {
-    var text = byId("install-cmd").textContent;
-    (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject())
-      .then(function () { showToast("Copied. Paste it into Terminal."); })
-      .catch(function () { showToast("Select the line and copy it."); });
+    showScreen("work");
+    setView("runs");
   });
 
   // This page is STAR's own (the app, or runsteamunlocker --ui). Without
