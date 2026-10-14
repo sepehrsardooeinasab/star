@@ -61,7 +61,8 @@ def _steam_stats(kind, who, app):
     """A player's achievements for a game from Steam's public stats page:
     {"appid", "game", "player", "steamid", "achievements": [...]}, in
     Steam's order (unlocked first, then locked)."""
-    query = "?xml=1&l=english"
+    # A new address each minute: Steam caches the page, for up to an hour.
+    query = f"?xml=1&l=english&t={int(time.time()) // 60}"
     url = f"https://steamcommunity.com/{kind}/{who}/stats/{app}/{query}"
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (STAR)"})

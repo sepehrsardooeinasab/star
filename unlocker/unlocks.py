@@ -285,9 +285,13 @@ def _game_unlocks(sid, appid, key=None):
     keeps no time for them), "locked"}; None when Steam won't show it
     (no achievements); PRIVATE when it's marked Private (known with a
     key); FAILED when the read failed (Steam busy or unreachable), to try
-    again next check. With a key, a game whose stats page fails (some do,
-    and Valve's own games have no readable page) is read through the Web
-    API instead."""
+    again next check. With a key, it's read through the Web API, which is
+    current (the public stats page is cached, for up to an hour after an
+    unlock); the stats page is the fallback, and the way without one."""
+    if key:
+        got = _api_unlocks(key, sid, appid)
+        if got is not FAILED:
+            return got
     for attempt in range(2):
         try:
             stats = achievements._steam_stats("profiles", sid, appid)
@@ -298,7 +302,7 @@ def _game_unlocks(sid, appid, key=None):
             if attempt == 0:
                 time.sleep(3)
     else:
-        return _api_unlocks(key, sid, appid) if key else FAILED
+        return FAILED
     if key and stats["achievements"] and not any(a["unlocked"] for a in stats["achievements"]):
         private = _private(key, sid, appid)
         if private is None:
