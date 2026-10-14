@@ -2117,27 +2117,6 @@
   .library-games[hidden] { display: none; }
   .lib-game { display: flex; align-items: center; gap: 0.8rem; padding: 0.6rem 0.8rem; box-sizing: border-box; height: 3.75rem; cursor: pointer; }
   .lib-game + .lib-game { border-top: 1px solid var(--border); }
-  /* Its art behind it, as on Runs' cards: faint, stronger towards the
-     right, away from the name. */
-  .lib-game { position: relative; isolation: isolate; overflow: hidden; }
-  .lib-game::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    background-image: var(--card-hero, none);
-    background-position: center 35%;
-    background-size: cover;
-    background-repeat: no-repeat;
-    opacity: 0.2;
-    -webkit-mask-image: linear-gradient(to left, #000 20%, rgba(0, 0, 0, 0.3));
-    mask-image: linear-gradient(to left, #000 20%, rgba(0, 0, 0, 0.3));
-  }
-  .lib-game:hover::before { opacity: 0.3; }
-  .lib-game.private-game::before { opacity: 0.08; }
-  :root[data-theme="light"] .lib-game::before { opacity: 0.45; }
-  :root[data-theme="light"] .lib-game:hover::before { opacity: 0.6; }
   .lib-icon { flex: none; width: 40px; height: 40px; border-radius: 6px; background: var(--surface-3); }
   /* No icon from Steam: the game's first letter, or a trophy. */
   .icon-ph {

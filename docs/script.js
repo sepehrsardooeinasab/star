@@ -3279,25 +3279,6 @@
         '<div class="unlock-meta"><div>' + escapeHtml(playedText(g)) + "</div>" +
         "<div>" + escapeHtml(fmtPlaytime(g.playtime)) + "</div></div></div>";
     }).join("");
-    showLibArt();
-  }
-  // Each game's art behind its row, as on Runs' cards: set as a row comes
-  // near the view, so a library of hundreds doesn't load them all.
-  var libArt = "IntersectionObserver" in window ? new IntersectionObserver(function (entries) {
-    entries.forEach(function (e) {
-      if (!e.isIntersecting) return;
-      setLibArt(e.target);
-      libArt.unobserve(e.target);
-    });
-  }, {rootMargin: "400px 0px"}) : null;
-  function setLibArt(row) {
-    var appid = Number(row.getAttribute("data-appid"));
-    if (appid > 0) row.style.setProperty("--card-hero", heroUrl({appid: appid}));
-  }
-  function showLibArt() {
-    byId("games-list").querySelectorAll(".lib-game").forEach(function (row) {
-      if (libArt) libArt.observe(row); else setLibArt(row);
-    });
   }
   // A game's own page: its achievements, unlocked (newest first) and
   // locked, from what's saved; links to Steam and SteamHunters, and to its
