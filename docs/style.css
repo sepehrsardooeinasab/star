@@ -1632,6 +1632,8 @@
   .schedule-bar .bar-field[data-slot="game-name"] input { width: 15rem; min-width: 7rem; flex: 0 1 auto; }
   .schedule-bar .bar-from { flex: 0 1 auto; min-width: 0; }
   .schedule-bar .bar-from input { min-width: 5.5rem; flex: 0 1 auto; }
+  /* The App ID over a timeline: fixed until Edit paste. */
+  .schedule-bar input[readonly] { color: var(--text-dim); cursor: default; }
   .schedule-bar .bar-stats { min-width: 0; }
   .bar-stats { margin-left: auto; }
 

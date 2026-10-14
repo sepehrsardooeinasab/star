@@ -1112,6 +1112,11 @@
       // A clean paste folds away (Edit paste brings it back), leaving the
       // sessions overview, or with Full timeline, every achievement.
       box.classList.toggle("paste-folded", !!ok && !pasteOpen);
+      // The App ID goes with the paste: changed only while the paste is
+      // open (empty, or after Edit paste), not over its timeline.
+      els.appid.readOnly = !!ok && !pasteOpen;
+      if (els.appid.readOnly) els.appid.setAttribute("data-tip", "Click Edit paste to change it");
+      else els.appid.removeAttribute("data-tip");
       box.classList.toggle("sched-full", !!ok && schedFull);
       if (!latest || latest.errors.length) {
         // What's still missing (like the App ID) says so here; problems
