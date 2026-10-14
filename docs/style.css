@@ -1459,9 +1459,9 @@
     border-right: 1px solid var(--border);
   }
   :root[data-desktop] .runs-log { padding: 0.9rem 1.2rem 1rem; }
-  /* The list runs to the sidebar's edge, so its scrollbar sits on the
-     border line instead of beside the games. */
-  :root[data-desktop] .runs-list { gap: 2px; margin-right: -0.6rem; padding-right: 0.6rem; }
+  /* The list scrolls with no scrollbar, as Library does. */
+  :root[data-desktop] .runs-list { gap: 2px; scrollbar-width: none; }
+  :root[data-desktop] .runs-list::-webkit-scrollbar { display: none; }
   :root[data-desktop] .run-card {
     padding: 0.85rem 0.8rem;
     background: transparent;
