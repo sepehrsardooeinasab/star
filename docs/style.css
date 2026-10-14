@@ -2258,3 +2258,7 @@
     overflow-y: auto;
     padding: 1.2rem max(1.2rem, calc((100% - 46rem) / 2)) 2rem;
   }
+  /* It scrolls with no scrollbar: one coming and going (as a list grows
+     past the window) would move the whole column sideways. */
+  :root[data-desktop] body[data-screen="unlocks"] .unlocks { scrollbar-width: none; }
+  :root[data-desktop] body[data-screen="unlocks"] .unlocks::-webkit-scrollbar { display: none; }
