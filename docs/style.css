@@ -1715,9 +1715,11 @@
   .bar-popover #reset-btn { height: 30px; padding: 0; font-size: 0.78rem; }
 
   /* Schedule after a clean paste: a line saying what it gave, then the
-     result, beside the paste. */
+     result, beside the paste. The line's room is kept before then too, so
+     nothing moves down when it fills in. */
   .paste-summary { display: none; }
-  body.local .box.has-timeline .paste-summary {
+  body.local .box:not(.has-timeline) .paste-summary > * { visibility: hidden; }
+  body.local .paste-summary {
     grid-column: 1 / -1;
     display: flex;
     align-items: center;
@@ -1730,7 +1732,7 @@
   .paste-summary #sched-full-btn { box-sizing: border-box; height: 1.7rem; min-width: 6.5rem; }
   .paste-summary #sched-full-btn { justify-content: center; text-align: center; }
   .paste-summary .bar-btn[aria-pressed="true"] { color: var(--accent); background: var(--accent-tint); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
-  body.local .box.has-timeline .view-pane[data-view="input"].active { grid-template-rows: auto minmax(0, 1fr); }
+  body.local .view-pane[data-view="input"].active { grid-template-rows: auto minmax(0, 1fr); }
   /* Its warnings show under the timeline, so not twice. */
   body.local .box.has-timeline #input-alert-slot { display: none; }
 
