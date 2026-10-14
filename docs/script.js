@@ -1129,11 +1129,11 @@
       if (!latest || latest.errors.length) {
         // What's still missing (like the App ID) says so here; problems
         // with the paste itself already show under it.
-        // The timeline's frame is there already, with these under it as
-        // its warnings are.
+        // The timeline's frame is there already, these inside it at the
+        // bottom, so it doesn't shrink when they come and go.
         var missing = latest && !latest.inputNotice && els.exportText.value.trim() ? latest.errors : [];
         slot.innerHTML = emptyHtml("☰", "The timeline shows up here once the paste reads cleanly.") +
-          '<div class="notices-below">' + (latest && latest.pending ? stepsHtml(latest.errors[0], latest.steps)
+          '<div class="notices-below in-frame">' + (latest && latest.pending ? stepsHtml(latest.errors[0], latest.steps)
             : missing.map(function (m) { return noticeHtml("info", m); }).join("")) + "</div>";
         return;
       }
