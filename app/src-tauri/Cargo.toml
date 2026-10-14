@@ -1,6 +1,6 @@
 [package]
 name = "star"
-version = "3.0.17"
+version = "3.0.18"
 description = "Desktop window for STAR (Steam Timed Achievement Replayer)"
 edition = "2021"
 
