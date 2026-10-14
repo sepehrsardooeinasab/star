@@ -2791,14 +2791,15 @@
         if (gamePage) renderGamePage();
       }
     }
-    if (lib.library_private && lib.library_no_achievements && lib.library_finished) {
+    if (lib.library_private && lib.library_hidden && lib.library_no_achievements && lib.library_finished) {
       byId("lib-private").value = lib.library_private;
+      byId("lib-hidden").value = lib.library_hidden;
       byId("lib-no-ach").value = lib.library_no_achievements;
       byId("lib-finished").value = lib.library_finished;
-      var filterKey = [lib.library_private, lib.library_no_achievements, lib.library_finished].join(" ");
+      var filterKey = [lib.library_private, lib.library_hidden, lib.library_no_achievements, lib.library_finished].join(" ");
       if (filterKey !== appliedLib.filter) {
         appliedLib.filter = filterKey;
-        libFilter = {private: lib.library_private, noAch: lib.library_no_achievements, finished: lib.library_finished};
+        libFilter = {private: lib.library_private, hidden: lib.library_hidden, noAch: lib.library_no_achievements, finished: lib.library_finished};
         if (unlocksData) renderUnlocks();
       }
     }
@@ -3125,14 +3126,14 @@
       '<span class="lib-state">' + Math.min(pct, 100) + "%</span>";
   }
   // Settings → Library: which games the list shows.
-  var libFilter = {private: "show", noAch: "show", finished: "show"};
+  // Private, hidden and finished: "show", "hide" or "only"; without
+  // achievements: "show" or "hide".
+  var libFilter = {private: "show", hidden: "show", noAch: "show", finished: "show"};
   function filterGames(games) {
+    function keep(choice, is) { return choice === "show" || (choice === "only") === !!is; }
     return games.filter(function (g) {
-      if (libFilter.private === "hide" && g.private) return false;
-      if (libFilter.noAch === "hide" && !g.stats) return false;
-      if (libFilter.finished === "hide" && g.finished) return false;
-      if (libFilter.finished === "only" && !g.finished) return false;
-      return true;
+      return keep(libFilter.private, g.private) && keep(libFilter.hidden, g.hidden) &&
+        keep(libFilter.finished, g.finished) && (libFilter.noAch !== "hide" || g.stats);
     });
   }
   // Marked finished (done with, for good) on its page.
@@ -3148,6 +3149,9 @@
   function renderGames(d) {
     var games = sortGames(d && !unlocksError ? d.games_list || [] : []);
     byId("games-sort").value = gamesSort;
+    byId("games-finished").value = libFilter.finished;
+    byId("games-private").value = libFilter.private;
+    byId("games-hidden").value = libFilter.hidden;
     byId("games-order").textContent = orderName(gamesSort, gamesOrder);
     var withAch = games.filter(function (g) { return g.stats; });
     var complete = games.filter(function (g) { return g.total && g.unlocked >= g.total; }).length;
@@ -3468,6 +3472,14 @@
     gamesOrder = gamesSort === "name" ? "asc" : "desc";  // A–Z, or newest / most first
     renderUnlocks();
   });
+  // Finished, Private and hidden games, here too: picked here, kept until
+  // the app closes (the defaults are in Settings → Library).
+  [["games-finished", "finished"], ["games-private", "private"], ["games-hidden", "hidden"]].forEach(function (f) {
+    byId(f[0]).addEventListener("change", function () {
+      libFilter[f[1]] = this.value;
+      renderGames(unlocksData);
+    });
+  });
   byId("games-search").addEventListener("input", function () {
     gamesQuery = this.value;
     renderGames(unlocksData);
@@ -3483,6 +3495,7 @@
   }
   byId("default-range").addEventListener("change", function () { saveSetting({unlocks_range: this.value}); });
   byId("lib-private").addEventListener("change", function () { saveSetting({library_private: this.value}); });
+  byId("lib-hidden").addEventListener("change", function () { saveSetting({library_hidden: this.value}); });
   byId("lib-no-ach").addEventListener("change", function () { saveSetting({library_no_achievements: this.value}); });
   byId("lib-finished").addEventListener("change", function () { saveSetting({library_finished: this.value}); });
   byId("library-check").addEventListener("change", function () { saveSetting({library_check: this.value}); });

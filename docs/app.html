@@ -228,6 +228,14 @@
             <select id="lib-private" aria-label="Private games">
               <option value="show">Show</option>
               <option value="hide">Hide</option>
+              <option value="only">Show only them</option>
+            </select>
+          </div>
+          <div class="lib-default"><span>Hidden games</span>
+            <select id="lib-hidden" aria-label="Hidden games">
+              <option value="show">Show</option>
+              <option value="hide">Hide</option>
+              <option value="only">Show only them</option>
             </select>
           </div>
           <div class="lib-default"><span>Games without achievements</span>
@@ -539,6 +547,24 @@
         </select>
         <button class="btn-ghost" id="games-order" type="button"></button>
       </div>
+    </div>
+    <!-- Which games show, for a while (the defaults are in Settings). -->
+    <div class="games-sort games-filters">
+      <select id="games-finished" aria-label="Finished games">
+        <option value="show">Finished: show</option>
+        <option value="hide">Finished: hide</option>
+        <option value="only">Finished only</option>
+      </select>
+      <select id="games-private" aria-label="Private games">
+        <option value="show">Private: show</option>
+        <option value="hide">Private: hide</option>
+        <option value="only">Private only</option>
+      </select>
+      <select id="games-hidden" aria-label="Hidden games">
+        <option value="show">Hidden: show</option>
+        <option value="hide">Hidden: hide</option>
+        <option value="only">Hidden only</option>
+      </select>
     </div>
     <div class="unlocks-status" id="games-status"></div>
     <p class="unlocks-hidden" id="games-unshown" hidden></p>

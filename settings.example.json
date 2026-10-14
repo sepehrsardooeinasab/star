@@ -27,6 +27,7 @@
   "achievement_order": "desc",
   "achievement_group": "status",
   "library_private": "show",
+  "library_hidden": "show",
   "library_no_achievements": "show",
   "library_finished": "show",
   "hidden_descriptions": "unlocked",

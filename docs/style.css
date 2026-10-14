@@ -2063,6 +2063,7 @@
   .games-search::placeholder { color: var(--placeholder); }
   .games-search:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .games-sort { display: flex; align-items: center; gap: 0.5rem; }
+  .games-filters { flex-wrap: wrap; margin: -0.2rem 0 0.7rem; }
   :is(.games-sort, .lib-default) select { margin-top: 0 !important; display: inline-block !important; }
   /* One width for every order's name, so changing the sort moves nothing. */
   .games-sort .btn-ghost { box-sizing: border-box; width: 7.2rem; height: 2.2rem; padding: 0 0.8rem; font-size: 0.8rem; text-align: center; }
