@@ -28,6 +28,9 @@ DEFAULTS = {
     # the log file is read, so it can be often: the game is back within
     # this long, rather than shown as not playing until the next unlock.
     "play_check_interval": 30,
+    # How many of a game's runs its log keeps (Runs shows them), newest
+    # last; older ones are dropped when a run starts.
+    "run_logs_kept": 5,
     # Unlocks this close together in the source data count as simultaneous
     # (a 1s delay is usually the same event straddling a second boundary),
     # and are batched into a single aset.
@@ -102,6 +105,7 @@ _TYPES = {
     "warm_settle_delay": (int,),
     "reconnect_settle_delay": (int,),
     "play_check_interval": (int,),
+    "run_logs_kept": (int,),
     "simultaneous_max_delay": (int,),
     "asf_shutdown_delay": (int,),
     "stop_other_asf": (bool,),
@@ -137,7 +141,7 @@ APP_EDITABLE = [
     "jitter_enabled", "jitter_percent", "jitter_min_delay",
     "stop_other_asf", "simultaneous_max_delay",
     "warm_settle_delay", "reconnect_settle_delay", "play_check_interval",
-    "bot_connect_timeout", "asf_shutdown_delay",
+    "bot_connect_timeout", "asf_shutdown_delay", "run_logs_kept",
 ]
 # On/off switches the app shows on their own, outside the run settings.
 APP_TOGGLES = ["keep_awake", "show_finished"]
@@ -184,6 +188,8 @@ def problems(overrides):
             found.append(f"{port!r} must be between 1 and 65535")
     if overrides.get("play_check_interval", 1) < 1:
         found.append("'play_check_interval' must be at least 1")
+    if overrides.get("run_logs_kept", 1) < 1:
+        found.append("'run_logs_kept' must be at least 1")
     if overrides.get("jitter_percent", 0) > 100:
         found.append("'jitter_percent' can't be more than 100")
     for key, choices in APP_CHOICES.items():

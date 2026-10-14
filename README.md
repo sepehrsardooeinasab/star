@@ -147,6 +147,7 @@ In the app, **Settings** has the keep-awake and update switches and **Advanced r
 | `play_check_interval` | `30` | How often (seconds) a session checks whether the bot reconnected to Steam, which drops the game it was playing. Only ASF's log is read, so it can be often. It's also checked before every unlock; when it happened, `play` is sent again. |
 | `simultaneous_max_delay` | `1` | Unlocks this many seconds apart or less are sent together in a single `aset`. |
 | `asf_shutdown_delay` | `300` | Seconds after a session ends before ASF is shut down, if it's idle. |
+| `run_logs_kept` | `5` | How many of a game's runs its log keeps (Runs shows them, up to 1 MB). Each run starts with a "Started" line. |
 | `stop_other_asf` | `true` | Stops other ArchiSteamFarm installs on this machine when a session starts, since Steam allows only one login per account. Turn it off if they use other accounts (e.g. a card-farming install). Either way, they're listed before you confirm. |
 | `jitter_enabled` | `false` | Turns on randomness, so a run doesn't replay the source player's timings to the second. |
 | `jitter_min_delay` | `60` | Only delays longer than this many seconds get randomness. Shorter ones are kept exact. |

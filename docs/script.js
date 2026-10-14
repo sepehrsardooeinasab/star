@@ -2643,7 +2643,8 @@
     reconnect_settle_delay: ["Wait before the first unlock, if Steam just reconnected", "seconds"],
     play_check_interval: ["Check the game is still playing every", "seconds", 1],
     bot_connect_timeout: ["Wait for Steam to connect up to", "seconds"],
-    asf_shutdown_delay: ["Close an idle ArchiSteamFarm after", "seconds"]
+    asf_shutdown_delay: ["Close an idle ArchiSteamFarm after", "seconds"],
+    run_logs_kept: ["Keep in each game's log its last", "runs", 1, 100]
   };
   var runSettings = null;  // [{key, value, default}] as saved
   var editingSettings = false;  // locked until Edit
@@ -2660,7 +2661,8 @@
   var RUN_SETTING_GROUPS = [
     ["Delays", ["jitter_enabled", "jitter_percent", "jitter_min_delay", "simultaneous_max_delay"]],
     ["ArchiSteamFarm", ["stop_other_asf", "warm_settle_delay", "reconnect_settle_delay",
-                        "play_check_interval", "bot_connect_timeout", "asf_shutdown_delay"]]
+                        "play_check_interval", "bot_connect_timeout", "asf_shutdown_delay"]],
+    ["Logs", ["run_logs_kept"]]
   ];
 
   function renderRunSettings() {

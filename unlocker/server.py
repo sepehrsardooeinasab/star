@@ -61,7 +61,11 @@ APP_ID = "steam-unlocker"
 # slashes, no leading dot, nothing a shell would trip over badly.
 NAME_RE = re.compile(r"[\w][\w .+-]{0,63}")
 MAX_BODY = 5 * 1024 * 1024
-LOG_TAIL_BYTES = 64 * 1024
+LOG_TAIL_BYTES = 256 * 1024
+# A game's log: each run starts with a RUN_HEADER line; the newest
+# run_logs_kept runs are kept, up to LOG_MAX_BYTES.
+RUN_HEADER = "\u2500\u2500 Started "
+LOG_MAX_BYTES = 1024 * 1024
 
 
 class AppError(Exception):
@@ -307,7 +311,15 @@ def start_run(name, every=False, delay=None):
     _starts_path(name).unlink(missing_ok=True)
     if delay:
         _starts_path(name).write_text((datetime.now() + timedelta(minutes=delay)).isoformat())
-    with open(auto_log_path(name), "w") as log:
+    log_path = auto_log_path(name)
+    try:
+        kept = settings_module.read_overrides().get("run_logs_kept", SETTINGS["run_logs_kept"])
+    except ValueError:
+        kept = SETTINGS["run_logs_kept"]
+    _keep_runs(log_path, kept - 1)  # and this one
+    with open(log_path, "a") as log:
+        log.write(f"{'' if log.tell() == 0 else chr(10)}{RUN_HEADER}{datetime.now():%a %b %-d, %H:%M} \u2500\u2500\n")
+        log.flush()
         proc = subprocess.Popen(
             [sys.executable, "-u", str(RUN_SCRIPT), name, "--auto"]
             + ([] if every else ["--once"]) + (["-in", str(delay)] if delay else []),
@@ -397,6 +409,24 @@ def _old_names(name):
         if known:
             break
     return known
+
+
+def _keep_runs(path, keep):
+    """Drops all but the newest keep runs from a game's log (text from
+    before the first header counts as one), then its oldest lines past
+    LOG_MAX_BYTES."""
+    try:
+        text = path.read_text(errors="replace")
+    except OSError:
+        return
+    starts = [m.start() for m in re.finditer("^" + re.escape(RUN_HEADER), text, re.M)]
+    if text.strip() and (not starts or starts[0] != 0):
+        starts.insert(0, 0)
+    cut = text[starts[-keep]:] if keep and len(starts) > keep else ("" if not keep else text)
+    if len(cut.encode()) > LOG_MAX_BYTES:
+        cut = cut.encode()[-LOG_MAX_BYTES:].decode(errors="replace").split("\n", 1)[-1]
+    if cut != text:
+        path.write_text(cut)
 
 
 def read_log(name):

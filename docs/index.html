@@ -177,6 +177,7 @@ runsteamunlocker -h              # help</code></pre>
         <tr><td><code>play_check_interval</code></td><td><code>30</code></td><td>How often (seconds) a session checks whether the bot reconnected to Steam, which drops the game it was playing. Only ASF's log is read, so it can be often. It's also checked before every unlock.</td></tr>
         <tr><td><code>bot_connect_timeout</code></td><td><code>60</code></td><td>Seconds a command keeps retrying while ASF starts or the bot connects to Steam.</td></tr>
         <tr><td><code>asf_shutdown_delay</code></td><td><code>300</code></td><td>Seconds after a session ends before an idle ASF is shut down.</td></tr>
+        <tr><td><code>run_logs_kept</code></td><td><code>5</code></td><td>How many of a game's runs its log keeps (Runs shows them, up to 1 MB). Each run starts with a "Started" line.</td></tr>
         <tr><td><code>asf_port</code></td><td><code>1243</code></td><td>Port ASF's local API listens on. Must match ASF's <code>IPC.config</code>.</td></tr>
         <tr><td><code>ipc_password</code></td><td><code>null</code></td><td>ASF's <code>IPCPassword</code>, if you set one.</td></tr>
         <tr><td><code>ui_port</code></td><td><code>8788</code></td><td>Port of the app's local server.</td></tr>
