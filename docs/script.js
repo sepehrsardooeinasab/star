@@ -1156,7 +1156,16 @@
         originals: latest.originals, breaks: breaks, autoBreaks: latest.autoBreaks
       }) + warningsHtml;
     }
+    // Back where it was scrolled: the table is redrawn on every change,
+    // and on coming back from another tab.
+    var wrap = slot.querySelector(".table-wrap");
+    if (wrap) wrap.scrollTop = schedScroll[schedScrollKey()] || 0;
   }
+  var schedScroll = {};  // the sessions overview and Full timeline apart
+  function schedScrollKey() { return schedFull ? "full" : "sessions"; }
+  els.csvSlot.addEventListener("scroll", function (e) {
+    if (e.target.classList.contains("table-wrap")) schedScroll[schedScrollKey()] = e.target.scrollTop;
+  }, true);
 
   byId("sched-full-btn").addEventListener("click", function () {
     schedFull = !schedFull;
