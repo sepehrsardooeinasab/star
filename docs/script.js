@@ -1262,6 +1262,8 @@
     tipBox.style.top = top + "px";
   });
 
+  document.addEventListener("click", function () { if (tipBox) tipBox.hidden = true; });
+
   function resetAll() {
     els.exportText.value = "";
     resetSettingFields();
@@ -2166,8 +2168,8 @@
     var lock = byId("timeline-lock");
     lock.setAttribute("aria-pressed", String(!!runEdit));
     lock.disabled = !!game.running && !runEdit;
-    lock.title = game.running ? "Stop the game to change its timeline"
-      : runEdit ? "Lock again (unsaved changes are dropped)" : "Unlock to change the delays and breaks still ahead";
+    lock.setAttribute("data-tip", game.running ? "Stop the game to change its timeline"
+      : runEdit ? "Lock again: changes you haven't saved are discarded" : "Unlock to change the delays and breaks still ahead");
     byId("timeline-lock-label").textContent = runEdit ? "Unlocked" : "Locked";
     byId("timeline-save").hidden = !runEdit;
     byId("timeline-save").disabled = !runEdit || JSON.stringify(runEdit.config) === JSON.stringify(runEdit.base);
@@ -2754,7 +2756,7 @@
     });
     var lock = byId("run-settings-lock");
     lock.setAttribute("aria-pressed", String(editingSettings));
-    lock.title = editingSettings ? "Lock again (unsaved changes are dropped)" : "Unlock to change these";
+    lock.setAttribute("data-tip", editingSettings ? "Lock again: changes you haven't saved are discarded" : "Unlock to change these");
     byId("run-settings-lock-label").textContent = editingSettings ? "Unlocked" : "Locked";
     byId("run-settings-actions").hidden = !editingSettings;
     byId("run-settings-save").disabled = !changed;
@@ -3515,7 +3517,8 @@
         '<button class="btn-ghost ach-group' + (achGroup === "status" ? " on" : "") + '" type="button" data-ach-group aria-pressed="' +
         (achGroup === "status") + '" data-tip="Show unlocked and locked achievements in separate lists">Split by status</button>' +
         '<span class="ach-right">' + achApplyHtml() +
-        '<button class="lock-toggle ach-lock" type="button" data-ach-lock aria-pressed="' + achEdit + '"' + (achRunning() ? " disabled" : "") + ">" + LOCK_ICON +
+        '<button class="lock-toggle ach-lock" type="button" data-ach-lock aria-pressed="' + achEdit + '"' + (achRunning() ? " disabled" : "") +
+        ' data-tip="' + (achEdit ? "Lock again: changes you haven't applied are discarded" : "Unlock to mark achievements to unlock or lock") + '">' + LOCK_ICON +
         "<span>" + (achEdit ? "Unlocked" : "Locked") + "</span></button></span></div>" +
         (achEdit && achError ? problemHtml("warn", (achError.data || {}).title, achError.message) : "");
       var tag = function (list, kind) { return list.map(function (a) { return Object.assign({kind: kind}, a); }); };
