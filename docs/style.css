@@ -900,9 +900,6 @@
   /* All six chips one width (for When ready), and Other…'s box, in its
      place among them, the same. */
   .run-pop .filter-chip, .run-pop input[type="text"] { box-sizing: border-box; width: 6.1rem; text-align: center; }
-  /* Under Start while Other is picked: what its box takes. */
-  .run-pop-hint { font-size: 0.72rem; color: var(--text-dim); }
-  .run-pop-hint.invalid { color: var(--danger); }
   /* Under the title bar's coloured line, not across it. */
   :root[data-desktop] .topbar .run-pop { top: calc(100% + 20px); }
   :root[data-desktop] .topbar .run-options .run-pop input[type="text"] { width: 6.1rem; height: 27px; border-radius: 7px; }
