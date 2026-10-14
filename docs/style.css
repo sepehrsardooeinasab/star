@@ -343,7 +343,7 @@
   #step-about .step-head { display: none; }
   #step-about .update-row { margin: 0; padding: 0; border: 0; gap: 0.4rem; }
   #step-about .update-row span { flex: 1 1 12rem; color: var(--text-dim); font-size: 0.76rem; }
-  #step-about .update-row :is(button, a.btn-ghost) { padding: 0.25rem 0.7rem; font-size: 0.74rem; }
+  #step-about .update-row :is(button, a.btn-ghost) { padding: 0.3rem 0.7rem; font-size: 0.78rem; border-radius: 7px; }
   @media (max-width: 900px) {
     body[data-screen="guide"] #hero-setup .setup-steps { grid-template-columns: minmax(0, 1fr); }
   }
@@ -580,7 +580,9 @@
   @keyframes step-spin { to { transform: rotate(360deg); } }
   .step-text { font-size: 0.82rem; white-space: pre-line; }
   .setup-step > button, .setup-form, .step-actions { margin-top: 0.7rem; }
-  .setup-step > button, .setup-form button, .step-actions button { padding: 0.45rem 0.95rem; font-size: 0.8rem; }
+  .setup-form button { padding: 0.45rem 0.95rem; font-size: 0.8rem; }
+  /* The size of Settings' chips. */
+  .setup-step > button, .step-actions button { padding: 0.3rem 0.7rem; font-size: 0.78rem; border-radius: 7px; }
   .step-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
   .data-path { display: block; margin-top: 0.5rem; font-size: 0.76rem; word-break: break-all; color: var(--text-dim); }
   .step-actions:not(:has(button:not([hidden]))) { display: none; }
@@ -2062,7 +2064,8 @@
   .game-links .btn-ghost { padding: 0.35rem 0.8rem; font-size: 0.78rem; font-weight: 500; text-decoration: none; border: 1px solid var(--border-strong); border-radius: 8px; }
   .game-page .notice { margin-top: 0.8rem; }
   .game-links .primary-ghost { border-color: var(--accent); color: var(--accent); }
-  .game-finish { display: inline-flex; align-items: center; gap: 0.35rem; }
+  /* One width for both its labels, so marking it moves nothing. */
+  .game-finish { display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; box-sizing: border-box; min-width: 8.4rem; }
   .game-finish svg { width: 14px; height: 14px; }
   .game-finish.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); background: var(--accent-tint); }
   .ach-sort { justify-content: flex-start; margin: 1rem 0 0; }
@@ -2131,9 +2134,14 @@
   /* A sort menu's rows (sort, order, group), parted by a line. */
   .filters-pop .filter-list + .filter-list { margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--border); }
   .chip-rows { display: flex; flex-direction: column; gap: 0.45rem; }
+  /* The picked sort's order, parted from its name by a thin line. */
+  .chip-arrow { margin-left: 0.5rem; padding-left: 0.45rem; border-left: 1px solid color-mix(in srgb, currentColor 40%, transparent); }
   /* One width for every sort's name, so changing it moves nothing. */
   .games-sort .filters-menu.sort-menu summary.btn-ghost { width: 9.6rem; justify-content: center; }
   .ach-sort .sort-menu .filters-pop { right: auto; left: 0; }
+  /* On a game's page, beside its sort: on when grouped. */
+  .games-sort .btn-ghost.ach-group { width: auto; height: 1.95rem; padding: 0 0.75rem; font-size: 0.78rem; font-weight: 500; }
+  .ach-group.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); background: var(--accent-tint); }
   .filters-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-top: 0.55rem; font-size: 0.74rem; }
   .lib-default.lib-filters { align-items: flex-start; }
   .lib-default.lib-filters > span { padding-top: 0.3rem; }
@@ -2244,15 +2252,16 @@
     background-position: right 0.55rem center !important;
     background-size: 12px !important;
     display: block;
-    height: 2.2rem;
+    /* The size of the chips beside them. */
+    height: 1.7rem;
     margin-top: 0.6rem;
     padding: 0 1.8rem 0 0.7rem;
     font: inherit;
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     color: var(--text);
     background: var(--surface);
     border: 1px solid var(--border-strong);
-    border-radius: 8px;
+    border-radius: 7px;
   }
   :is(#step-clock, #step-unlocks, .lib-default) select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .unlocks-day { margin: 1.1rem 0 0.45rem; font-size: 0.75rem; font-weight: 600; color: var(--text-dim); }

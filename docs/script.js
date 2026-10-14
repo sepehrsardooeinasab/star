@@ -3099,12 +3099,13 @@
     name: ["Z \u2192 A", "A \u2192 Z"], progress: ["Most first", "Least first"], playtime: ["Most first", "Least first"],
     date: ["Newest first", "Oldest first"], default: ["Reversed", "In order"]};
   function orderName(sort, order) { return ORDER_NAMES[sort][order === "desc" ? 0 : 1]; }
-  // Sorting, as chips like the filters: a row of sorts, then its orders
-  // (and for achievements, how they're grouped), one picked in each. In
-  // a menu in Games and on a game's page, and in Settings → Library.
+  // Sorting, as chips like the filters: a row of sorts, the picked one
+  // with an arrow for its order (clicked again, it flips). In a menu in
+  // Games and on a game's page, and in Settings → Library.
   var SORTS = {games: [["played", "Last played"], ["achievement", "Last achievement"], ["name", "Name"],
     ["progress", "Progress"], ["playtime", "Play time"]], ach: [["default", "Default"], ["date", "Date unlocked"], ["name", "Name"]]};
-  var GROUPS = [["status", "Unlocked / Locked"], ["none", "One list"]];
+  // A game's achievements: unlocked and locked apart, or in one list.
+  var GROUPS = [["status", "Group"], ["none", "No group"]];
   // A–Z, Steam's own order, or newest / most first.
   function naturalOrder(sort) { return sort === "name" || sort === "default" ? "asc" : "desc"; }
   function chipRow(key, choices, value) {
@@ -3113,24 +3114,29 @@
       return '<button class="filter-chip' + (on ? " on" : "") + '" type="button" data-value="' + c[0] + '" aria-pressed="' + on + '">' + c[1] + "</button>";
     }).join("") + "</div>";
   }
-  function sortRowsHtml(sorts, sort, order, group) {
-    var orders = naturalOrder(sort) === "asc" ? ["asc", "desc"] : ["desc", "asc"];
-    return chipRow("sort", sorts, sort) + chipRow("order", orders.map(function (o) { return [o, orderName(sort, o)]; }), order) +
-      (group ? chipRow("group", GROUPS, group) : "");
+  function sortRowsHtml(sorts, sort, order) {
+    return '<div class="filter-list" data-choice="sort">' + sorts.map(function (c) {
+      var on = c[0] === sort;
+      return '<button class="filter-chip' + (on ? " on" : "") + '" type="button" data-value="' + c[0] + '" aria-pressed="' + on + '"' +
+        (on ? ' data-order="' + order + '" data-tip="' + orderName(sort, order) + '"' : "") + ">" + c[1] +
+        (on ? '<span class="chip-arrow">' + (order === "desc" ? "\u2193" : "\u2191") + "</span>" : "") + "</button>";
+    }).join("") + "</div>";
   }
   // The menu's button: the sort, and an arrow for its order.
   function sortLabel(sorts, sort, order) {
     var name = sorts.filter(function (c) { return c[0] === sort; })[0][1];
     return name + (order === "desc" ? " \u2193" : " \u2191");
   }
-  // A chip picked: what changes. A new sort starts on its natural order.
+  // A chip picked: what changes. A new sort starts on its natural order;
+  // the one already picked flips its order.
   function onChoice(el, then) {
     el.addEventListener("click", function (e) {
       var chip = e.target.closest("[data-value]"), row = chip && chip.closest("[data-choice]");
       if (!row) return;
       var change = {}, key = row.getAttribute("data-choice"), value = chip.getAttribute("data-value");
       change[key] = value;
-      if (key === "sort") change.order = naturalOrder(value);
+      if (key === "sort") change.order = !chip.classList.contains("on") ? naturalOrder(value)
+        : chip.getAttribute("data-order") === "desc" ? "asc" : "desc";
       then(change);
     });
   }
@@ -3262,21 +3268,30 @@
     byId("games-filters-label").textContent = off ? "Filters \u00b7 " + off : "Filters";
     byId("games-filters-label").classList.toggle("on", !!off);
     byId("games-filters-all").hidden = !off;
-    var withAch = games.filter(function (g) { return g.stats; });
-    var complete = games.filter(function (g) { return g.total && g.unlocked >= g.total; }).length;
-    var hiddenCount = games.filter(function (g) { return g.hidden; }).length;
-    var privateCount = games.filter(function (g) { return g.private; }).length;
-    var unshown = games.filter(function (g) { return g.unreadable && !g.private; });
+    // Which games show, as the filters and the search say; what's counted
+    // is just those.
+    var kept = searchGames(filterGames(games));
+    var count = function (is) { return kept.filter(is).length; };
+    var withAch = count(function (g) { return g.stats; });
+    var complete = count(function (g) { return g.total && g.unlocked >= g.total; });
+    var privateCount = count(function (g) { return g.private; });
+    var finishedCount = count(function (g) { return g.finished; });
+    var unshown = kept.filter(function (g) { return g.unreadable && !g.private; });
     var parts = [];
-    if (d && !unlocksError) {
-      parts.push("<b>" + games.length.toLocaleString() + "</b> game" + (games.length === 1 ? "" : "s"));
-      parts.push(withAch.length.toLocaleString() + " with achievements");
-      if (games.length > withAch.length) parts.push((games.length - withAch.length).toLocaleString() + " without");
-      if (complete) parts.push(complete + " complete");
-      var finishedCount = games.filter(function (g) { return g.finished; }).length;
-      if (finishedCount) parts.push(finishedCount + " finished");
-      if (privateCount) parts.push(privateCount + " private");
-      if (hiddenCount) parts.push(hiddenCount + " hidden");
+    var query = gamesQuery.trim();
+    if (d && !unlocksError && query && !kept.length) {
+      parts.push("No games match \u201c" + escapeHtml(query) + "\u201d");
+    } else if (d && !unlocksError) {
+      parts.push("<b>" + kept.length.toLocaleString() + "</b>" + (kept.length < games.length ? " of " + games.length.toLocaleString() : "") +
+        " game" + (games.length === 1 ? "" : "s"));
+      // A count of some of them; none, or all (say with only Private
+      // shown), says nothing.
+      var some = function (n, label) { if (n && n < kept.length) parts.push(n.toLocaleString() + " " + label); };
+      some(withAch, "with achievements");
+      some(kept.length - withAch, "without");
+      some(complete, "complete");
+      some(finishedCount, "finished");
+      some(privateCount, "private");
       if (unshown.length) {
         parts.push('<button class="link-btn" type="button" id="games-unshown-btn" aria-expanded="' + unshownOpen + '">' +
           unshown.length + " not shown by Steam</button>");
@@ -3296,13 +3311,7 @@
         renderGames(unlocksData);
       });
     }
-    // Which games show, as the filters say; then the search.
-    var kept = filterGames(games);
-    if (games.length > kept.length) byId("games-status").firstChild.innerHTML += " \u00b7 " +
-      (games.length - kept.length).toLocaleString() + " filtered out";
-    var shown = searchGames(kept);
-    if (gamesQuery.trim() && d && !unlocksError)
-      byId("games-status").innerHTML += "<div>" + (shown.length ? "<b>" + shown.length.toLocaleString() + "</b> matching" : "No games match \u201c" + escapeHtml(gamesQuery.trim()) + "\u201d") + "</div>";
+    var shown = kept;
     byId("games-list").hidden = !shown.length;
     byId("games-list").innerHTML = shown.map(function (g) {
       var progress;
@@ -3454,7 +3463,9 @@
       html += '<div class="unlocks-bar ach-sort games-sort">' +
         '<details class="filters-menu sort-menu" id="ach-sort-menu"' + (achSortOpen ? " open" : "") + ">" +
         '<summary class="btn-ghost">' + sortLabel(SORTS.ach, achSort, achOrder) + "</summary>" +
-        '<div class="filters-pop">' + sortRowsHtml(SORTS.ach, achSort, achOrder, achGroup) + "</div></details>" +
+        '<div class="filters-pop">' + sortRowsHtml(SORTS.ach, achSort, achOrder) + "</div></details>" +
+        '<button class="btn-ghost ach-group' + (achGroup === "status" ? " on" : "") + '" type="button" data-ach-group aria-pressed="' +
+        (achGroup === "status") + '" data-tip="Unlocked and locked apart">Group</button>' +
         '<button class="lock-toggle ach-lock" type="button" data-ach-lock aria-pressed="' + achEdit + '">' + LOCK_ICON +
         "<span>" + (achEdit ? "Unlocked" : "Locked") + "</span></button></div>" + achBarHtml();
       var tag = function (list, kind) { return list.map(function (a) { return Object.assign({kind: kind}, a); }); };
@@ -3483,6 +3494,11 @@
   byId("game-page").addEventListener("click", function (e) {
     var run = e.target.closest("[data-game-run]");
     if (run) { selectedRun = run.getAttribute("data-game-run"); showScreen("work"); setView("runs"); }
+    if (e.target.closest("[data-ach-group]")) {
+      achGroup = achGroup === "status" ? "none" : "status";
+      renderGamePage();
+      return;
+    }
     if (e.target.closest("[data-ach-lock]") && !achBusy) {
       var on = !achEdit;
       resetAchEdit();
