@@ -765,7 +765,7 @@
   body.local div.app-only, body.local ul.app-only { display: block; }
   body.local .web-only { display: none; }
   .input-help .format-title { margin-top: 1rem; }
-  .input-help .help-url { display: block; margin-top: 0.3rem; font-size: 0.74rem; overflow-wrap: anywhere; }
+  .input-help .help-url { display: block; margin-top: 0.3rem; font-size: 0.74rem; overflow-wrap: break-word; }
   @media (max-width: 900px) {
     .view-pane[data-view="input"].active { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
     .input-help { max-height: 9rem; }
@@ -1601,7 +1601,7 @@
   .bar-stats .stats-strip { gap: 0.2rem 1.1rem; font-size: 0.76rem; }
   .bar-help .hover-help { display: none; }
 
-  body.local .view-pane[data-view="input"].active { grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); }
+  body.local .view-pane[data-view="input"].active { grid-template-columns: minmax(0, 1fr) minmax(0, 2.4fr); }
   /* The how-to shows inside the empty paste box, like a placeholder, and
      goes once something's pasted; clicks pass through to the box. */
   body.local .view-pane[data-view="input"] > .field { position: relative; }
@@ -1715,7 +1715,7 @@
   .bar-popover #reset-btn { height: 30px; padding: 0; font-size: 0.78rem; }
 
   /* Schedule after a clean paste: a line saying what it gave, then the
-     result, beside the paste (the same width as before it). */
+     result, beside the paste. */
   .paste-summary { display: none; }
   body.local .box.has-timeline .paste-summary {
     grid-column: 1 / -1;
