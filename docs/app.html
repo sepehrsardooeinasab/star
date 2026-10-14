@@ -516,7 +516,8 @@
     </div>
     <!-- In a game's page, in the tabs' place. -->
     <button class="btn-ghost game-back" id="game-back" type="button" hidden>← Games</button>
-    <span class="unlocks-updated" id="unlocks-updated"></span>
+    <!-- When Steam was read; under it, a check going on or the next one. -->
+    <div class="unlocks-when"><span class="unlocks-updated" id="unlocks-updated"></span><span class="unlocks-check" id="unlocks-check"></span></div>
   </div>
   <p class="unlocks-note" id="unlocks-note"></p>
   <div class="library-pane" id="pane-achievements">
@@ -528,8 +529,8 @@
       <button type="button" data-range="year">Year</button>
       <button type="button" data-range="all">All</button>
     </div>
+    <div class="unlocks-status" id="unlocks-status"></div>
   </div>
-  <div class="unlocks-status" id="unlocks-status"></div>
   <div class="unlocks-list" id="unlocks-list"></div>
   </div>
   <div class="library-pane" id="pane-games" hidden>

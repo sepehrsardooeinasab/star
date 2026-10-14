@@ -1989,9 +1989,16 @@
   #unlocks-screen .segmented button[aria-pressed="true"] { background: var(--accent-tint); color: var(--accent); }
   #unlocks-screen .segmented button:hover { color: var(--accent); }
   .unlocks-updated { font-size: 0.78rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .unlocks-when { display: flex; flex-direction: column; align-items: flex-end; gap: 0.15rem; text-align: right; }
+  .unlocks-check { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.74rem; color: var(--placeholder); font-variant-numeric: tabular-nums; }
+  .unlocks-check:empty { display: none; }
+  .unlocks-check.busy { color: var(--accent); }
+  .unlocks-check.busy::before { content: ""; width: 10px; height: 10px; border: 1.5px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: check-spin 0.8s linear infinite; }
+  @keyframes check-spin { to { transform: rotate(360deg); } }
   .unlocks-status { min-height: 1.2rem; margin-bottom: 0.4rem; font-size: 0.78rem; line-height: 1.6; color: var(--text-dim); font-variant-numeric: tabular-nums; }
   .unlocks-status b { color: var(--text); font-weight: 600; }
-  .unlocks-sync { color: var(--accent); }
+  /* Beside the range: what it holds, on the right. */
+  .unlocks-bar .unlocks-status { min-height: 0; margin: 0; text-align: right; }
   .unlocks-bar .library-tabs button { padding: 0.35rem 1rem; font-size: 0.82rem; font-weight: 500; }
   .library-pane[hidden], #games-index[hidden], .game-page[hidden] { display: none; }
   :is(.lib-game, .unlocks-group .unlock):hover { background: color-mix(in srgb, var(--accent-tint) 60%, var(--surface-2)); }

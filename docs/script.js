@@ -3472,6 +3472,16 @@
   window.addEventListener("scroll", syncToTop);
   byId("to-top").addEventListener("click", scrollLibraryTop);
 
+  // From Settings → Library → Check Steam (library_check).
+  var CHECK_HOURS = {"1h": 1, "3h": 3, "6h": 6, "12h": 12, "24h": 24};
+  function nextCheckText(fetchedAt) {
+    var pick = (runSettings || []).filter(function (x) { return x.key === "library_check"; })[0];
+    var choice = pick ? pick.value : "6h";
+    if (!CHECK_HOURS[choice]) return "Checks on Refresh";
+    var left = fetchedAt + CHECK_HOURS[choice] * 3600 - Date.now() / 1000;
+    var at = fmtAt(left);
+    return left <= 60 ? "Checking soon" : "Next check " + (/^\d/.test(at) ? "at " + at : at.replace(/^Tomorrow/, "tomorrow"));
+  }
   function renderUnlocks() {
     var d = unlocksData, list = byId("unlocks-list");
     var syncing = d && d.syncing;
@@ -3492,24 +3502,23 @@
     var gameCount = {};
     shown.forEach(function (u) { gameCount[u.appid] = 1; });
     gameCount = Object.keys(gameCount).length;
-    // What's counted, then (with a key) the library; while Steam is
-    // read, how far along; when it was last read, on the right.
+    // What's counted (beside the range).
     var lines = [];
-    if (unlocksBusy && !d) lines.push(escapeHtml("Asking Steam\u2026"));
-    else if (d && !unlocksError) {
+    if (d && !unlocksError) {
       var line = "<b>" + shown.length.toLocaleString() + "</b> achievement" + (shown.length === 1 ? "" : "s") + " in <b>" +
         gameCount + "</b> game" + (gameCount === 1 ? "" : "s") + " " + range[1];
       if (d.offline) line = '<span class="warn">' + escapeHtml(d.offline) + "</span> " + line;
       lines.push(line);
-      if (syncing) {
-        lines.push('<span class="unlocks-sync">' + escapeHtml(syncing.total
-          ? "Reading your games from Steam: " + syncing.done + " of " + syncing.total + "\u2026"
-          : "Asking Steam what changed\u2026") + "</span>");
-      }
     }
     byId("unlocks-status").innerHTML = lines.map(function (l) { return "<div>" + l + "</div>"; }).join("");
-    if (syncing) byId("games-status").innerHTML += "<div>" + lines[lines.length - 1] + "</div>";
+    // Top right, for both tabs: when Steam was read, and under it a check
+    // going on (Refresh, or on schedule) or when the next one is due.
     byId("unlocks-updated").textContent = d && !unlocksError && d.fetched_at ? "Updated " + fmtClock(new Date(d.fetched_at * 1000)) : "";
+    var check = byId("unlocks-check"), checking = unlocksBusy || syncing;
+    check.classList.toggle("busy", !!checking);
+    check.textContent = checking
+      ? (syncing && syncing.total ? "Reading your games: " + syncing.done + " of " + syncing.total + "\u2026" : "Checking Steam\u2026")
+      : d && !unlocksError && d.fetched_at ? nextCheckText(d.fetched_at) : "";
     if (unlocksError) {
       list.innerHTML = problemHtml("warn", (unlocksError.data || {}).title, unlocksError.message);
     } else if (d && !shown.length) {
