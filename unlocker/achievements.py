@@ -37,6 +37,7 @@ CACHE_FOR = 300  # seconds a game's numbers are reused
 
 _lock = threading.Lock()
 _cache = {}
+_listed = {}  # appid -> (when, alist's rows, the bot's Steam ID), for numbers()
 
 
 class Problem(Exception):
@@ -232,20 +233,29 @@ def numbers(appid):
         cached = _cache.get(appid)
         if cached and time.monotonic() - cached[0] < CACHE_FOR:
             return cached[1]
-        started = not asf_running()
         PROGRESS[appid] = []
         try:
-            _step(appid, "Starting ArchiSteamFarm" if started else "ArchiSteamFarm is running")
-            ensure_asf_running()
-            _step(appid, "Asking ArchiSteamFarm for the game's achievements")
-            rows = _alist(appid)
+            # ArchiSteamFarm's list is kept a while too, so asking again
+            # after Steam's page failed doesn't start ArchiSteamFarm again.
+            listed = _listed.get(appid)
+            if listed and time.monotonic() - listed[0] < CACHE_FOR:
+                rows, steamid = listed[1], listed[2]
+            else:
+                started = not asf_running()
+                try:
+                    _step(appid, "Starting ArchiSteamFarm" if started else "ArchiSteamFarm is running")
+                    ensure_asf_running()
+                    _step(appid, "Asking ArchiSteamFarm for the game's achievements")
+                    rows, steamid = _alist(appid), _bot_steamid()
+                finally:
+                    if started and not lock_info(SESSION_LOCK):
+                        _step(appid, "Closing ArchiSteamFarm")
+                        asf_setup._stop_idle_asf()  # waits until it's gone
+                _listed[appid] = (time.monotonic(), rows, steamid)
             _step(appid, "Matching them with Steam's achievement details")
-            mine = _steam_stats("profiles", _bot_steamid(), appid)["achievements"]
+            mine = _steam_stats("profiles", steamid, appid)["achievements"]
             result = {"appid": appid, "achievements": _merge(rows, mine)}
         finally:
-            if started and not lock_info(SESSION_LOCK):
-                _step(appid, "Closing ArchiSteamFarm")
-                asf_setup._stop_idle_asf()  # waits until it's gone
             PROGRESS.pop(appid, None)
         _cache[appid] = (time.monotonic(), result)
         return result

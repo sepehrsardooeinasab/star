@@ -216,13 +216,18 @@
   }
 
   // Asked once the App ID has stayed the same for a moment, so typing one
-  // doesn't check every partial number. A failed check is tried again on
-  // the next change, after a moment, and by itself when the failure may
-  // pass (see retryable).
-  var numbersTimer = null, numbersWanted = null;
+  // doesn't check every partial number. A failed check is tried again
+  // only when the paste changes (a new App ID is a new check), and by
+  // itself a few times when the failure may pass (see retryable): not on
+  // other changes, like Copied from or the options.
+  var numbersTimer = null, numbersWanted = null, numbersTries = {};
+  var RETRY_AFTER = [5000, 15000, 30000];
   function loadNumbers(appid) {
     var n = numberings[appid];
-    if (n && (n.status !== "error" || Date.now() - n.at < 5000)) return n;
+    if (n && n.status === "error") {
+      if (n.paste === els.exportText.value && !n.retryNow) return n;
+      if (n.paste !== els.exportText.value) numbersTries[appid] = 0;
+    } else if (n) return n;
     if (numbersWanted !== appid) {
       numbersWanted = appid;
       clearTimeout(numbersTimer);
@@ -240,10 +245,15 @@
         }, 700);
         api("/api/achievements/numbers", {appid: appid}).then(function (d) {
           numberings[appid] = {status: "ok", data: d};
+          numbersTries[appid] = 0;
         }).catch(function (err) {
-          var title = (err.data || {}).title;
-          numberings[appid] = {status: "error", message: err.message, title: title, at: Date.now()};
-          if (retryable(title)) setTimeout(scheduleRecompute, 5000);
+          var title = (err.data || {}).title, tries = numbersTries[appid] = (numbersTries[appid] || 0) + 1;
+          var failed = numberings[appid] = {status: "error", message: err.message, title: title, paste: els.exportText.value};
+          if (retryable(title) && tries <= RETRY_AFTER.length) {
+            setTimeout(function () {
+              if (numberings[appid] === failed) { failed.retryNow = true; scheduleRecompute(); }
+            }, RETRY_AFTER[tries - 1]);
+          }
         }).then(function () {
           if (numbersWanted === appid) numbersWanted = null;
           scheduleRecompute();
