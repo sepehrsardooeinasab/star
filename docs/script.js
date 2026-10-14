@@ -224,15 +224,17 @@
   var RETRY_AFTER = [5000, 15000, 30000];
   function loadNumbers(appid) {
     var n = numberings[appid];
+    var retrying = null;  // the failed check this one tries again by itself
     if (n && n.status === "error") {
       if (n.paste === els.exportText.value && !n.retryNow) return n;
       if (n.paste !== els.exportText.value) numbersTries[appid] = 0;
+      else retrying = n;
     } else if (n) return n;
     if (numbersWanted !== appid) {
       numbersWanted = appid;
       clearTimeout(numbersTimer);
       numbersTimer = setTimeout(function () {
-        var loading = numberings[appid] = {status: "loading", steps: []};
+        var loading = numberings[appid] = {status: "loading", steps: [], retrying: retrying};
         // What the check is doing (starting ArchiSteamFarm, signing in…),
         // shown as it goes.
         var poll = setInterval(function () {
@@ -260,7 +262,7 @@
         });
       }, 1200);
     }
-    return {status: "loading"};
+    return {status: "loading", retrying: retrying};
   }
 
   function sameText(a, b) {
@@ -893,6 +895,9 @@
     var numberDangers = [], numberWarnings = [];
     if (local) {
       var numbering = loadNumbers(appidVal);
+      // Trying again by itself: what the last try gave stays up (its
+      // message says it tries again), rather than the timeline going.
+      if (numbering.status === "loading" && numbering.retrying) numbering = numbering.retrying;
       if (numbering.status === "loading") {
         latest = {errors: ["Checking the achievement numbers with ArchiSteamFarm\u2026"], pending: true,
                   steps: numbering.steps};
