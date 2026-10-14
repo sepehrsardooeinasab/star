@@ -1730,7 +1730,9 @@
     margin-bottom: 0.9rem;
   }
   .paste-summary-stats { flex: 1; min-width: 0; }
-  .paste-summary .stats-strip { display: flex; flex-wrap: wrap; gap: 0.2rem 1.2rem; font-size: 0.8rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  /* Each figure in a column of its own width, so they stay put as the
+     numbers change (wide enough for the longest, like "364d 23h"). */
+  .paste-summary .stats-strip { display: grid; grid-template-columns: 10.5rem 6.5rem 13.5rem auto; gap: 0.2rem 1.2rem; font-size: 0.8rem; color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .paste-summary .stats-strip b { color: var(--text); font-weight: 600; }
   .paste-summary #sched-full-btn { box-sizing: border-box; height: 1.7rem; min-width: 6.5rem; }
   .paste-summary #sched-full-btn { justify-content: center; text-align: center; }
