@@ -1136,9 +1136,7 @@
       // App ID names.
       var schedAppid = parseInt(els.appid.value, 10);
       tintFor(schedAppid > 0 ? {appid: schedAppid} : null, function (tint) {
-        var pane = document.querySelector('.view-pane[data-view="input"]');
-        if (tint) pane.style.setProperty("--run-tint", tint);
-        else pane.style.removeProperty("--run-tint");
+        setTint(document.querySelector('.view-pane[data-view="input"]'), tint);
       }, "schedule");
       // A new App ID rebuilds the timeline (its numbers checked again), so
       // it's fixed while there are Timeline edits to lose.
@@ -1581,11 +1579,25 @@
   }
 
   function gameTitle(g) { return g.title || g.name; }
-  // A game's main colour ("r, g, b"), from its art: the most common
-  // colourful shade, so a dark or grey background doesn't win. Worked out
-  // once per game and remembered on this computer.
+  // The glow's colours on el (see tintFor), or none.
+  function setTint(el, tint) {
+    if (tint) {
+      el.style.setProperty("--run-tint", tint[0]);
+      el.style.setProperty("--run-tint-2", tint[1]);
+    } else {
+      el.style.removeProperty("--run-tint");
+      el.style.removeProperty("--run-tint-2");
+    }
+  }
+  // A game's two main colours (["r, g, b", "r, g, b"]), from its art: the
+  // most common colourful shade, so a dark or grey background doesn't win,
+  // and the next one that's clearly different (else the first again).
+  // Worked out once per game and remembered on this computer.
   var tints = {};
-  try { tints = JSON.parse(localStorage.getItem("game-tints") || "{}") || {}; } catch (e) {}
+  try {
+    tints = JSON.parse(localStorage.getItem("game-tints-2") || "{}") || {};
+    localStorage.removeItem("game-tints");  // one colour each, before
+  } catch (e) {}
   var tintWanted = {};  // per place it shows (Runs, Schedule): the latest asked
   function tintFor(g, done, place) {
     place = place || "runs";
@@ -1613,10 +1625,28 @@
           k.n += w; k.r += r * w; k.g += gr * w; k.b += b * w;
           if (!best || k.n > best.n) best = k;
         }
-        if (best) tint = [best.r, best.g, best.b].map(function (c) { return Math.round(c / best.n); }).join(", ");
+        var rgb = function (k) { return [k.r / k.n, k.g / k.n, k.b / k.n]; };
+        var hue = function (c) {
+          var mx = Math.max.apply(null, c), mn = Math.min.apply(null, c), d = mx - mn || 1;
+          var h = mx === c[0] ? (c[1] - c[2]) / d : mx === c[1] ? 2 + (c[2] - c[0]) / d : 4 + (c[0] - c[1]) / d;
+          return (h * 60 + 360) % 360;
+        };
+        if (best) {
+          var first = rgb(best), second = first;
+          Object.keys(buckets).map(function (key) { return buckets[key]; })
+            .sort(function (a, b) { return b.n - a.n; })
+            .some(function (k) {
+              if (k.n < best.n * 0.15) return true;  // too little of it to count
+              var c = rgb(k), d = Math.abs(hue(c) - hue(first));
+              if (Math.min(d, 360 - d) > 40) { second = c; return true; }  // another hue, not a shade
+              return false;
+            });
+          var str = function (c) { return c.map(Math.round).join(", "); };
+          tint = [str(first), str(second)];
+        }
       } catch (e) {}
       tints[appid] = tint;
-      try { localStorage.setItem("game-tints", JSON.stringify(tints)); } catch (e) {}
+      try { localStorage.setItem("game-tints-2", JSON.stringify(tints)); } catch (e) {}
       if (tintWanted[place] === appid) done(tint);
     };
     // No library art: the next picture Steam has for the game.
@@ -1936,9 +1966,7 @@
     var shown = selectedGame();
     // Behind the selected game: a glow in its art's main colour.
     tintFor(runsError ? null : shown, function (tint) {
-      var runsLog = document.querySelector(".runs-log");
-      if (tint) runsLog.style.setProperty("--run-tint", tint);
-      else runsLog.style.removeProperty("--run-tint");
+      setTint(document.querySelector(".runs-log"), tint);
     });
     patchHtml(byId("run-summary"), runsError ? "" : summaryHtml(shown));
     patchHtml(byId("run-info"), runsError ? "" : infoHtml(shown));
@@ -3406,9 +3434,7 @@
     var page = byId("game-page"), open = gamePageFor !== null;
     // Behind a game's page, as in Runs: a glow in its art's main colour.
     tintFor(open ? {appid: gamePageFor} : null, function (tint) {
-      var screen = byId("unlocks-screen");
-      if (tint) screen.style.setProperty("--run-tint", tint);
-      else screen.style.removeProperty("--run-tint");
+      setTint(byId("unlocks-screen"), tint);
     }, "library");
     page.hidden = !open;
     byId("games-index").hidden = open;

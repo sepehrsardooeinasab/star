@@ -938,7 +938,8 @@
     inset: 0;
     z-index: -1;
     pointer-events: none;
-    background: radial-gradient(130% 90% at 50% 0%, rgba(var(--run-tint, 0, 0, 0), 0.34), rgba(var(--run-tint, 0, 0, 0), 0.08) 60%, transparent);
+    /* Its two colours (see tintFor), one from each top corner. */
+    background: radial-gradient(85% 90% at 15% 0%, rgba(var(--run-tint, 0, 0, 0), 0.3), rgba(var(--run-tint, 0, 0, 0), 0.06) 60%, transparent), radial-gradient(85% 90% at 85% 0%, rgba(var(--run-tint-2, var(--run-tint, 0, 0, 0)), 0.3), rgba(var(--run-tint-2, var(--run-tint, 0, 0, 0)), 0.06) 60%, transparent);
     opacity: 0;
     transition: opacity 0.3s ease;
   }
@@ -2258,9 +2259,9 @@
   /* A game's page: the glow Runs has, in its colour (see .runs-log::before),
      staying at the top as the page scrolls. */
   :root[data-desktop] body[data-screen="unlocks"] .unlocks[style*="--run-tint"] {
-    background-image: radial-gradient(130% 90% at 50% 0%, rgba(var(--run-tint), 0.34), rgba(var(--run-tint), 0.08) 60%, transparent);
+    background-image: radial-gradient(85% 90% at 15% 0%, rgba(var(--run-tint, 0, 0, 0), 0.3), rgba(var(--run-tint, 0, 0, 0), 0.06) 60%, transparent), radial-gradient(85% 90% at 85% 0%, rgba(var(--run-tint-2, var(--run-tint, 0, 0, 0)), 0.3), rgba(var(--run-tint-2, var(--run-tint, 0, 0, 0)), 0.06) 60%, transparent);
   }
   :root[data-desktop][data-theme="light"] body[data-screen="unlocks"] .unlocks[style*="--run-tint"] {
-    background-image: radial-gradient(130% 90% at 50% 0%, rgba(var(--run-tint), 0.15), rgba(var(--run-tint), 0.04) 60%, transparent);
+    background-image: radial-gradient(85% 90% at 15% 0%, rgba(var(--run-tint, 0, 0, 0), 0.14), rgba(var(--run-tint, 0, 0, 0), 0.03) 60%, transparent), radial-gradient(85% 90% at 85% 0%, rgba(var(--run-tint-2, var(--run-tint, 0, 0, 0)), 0.14), rgba(var(--run-tint-2, var(--run-tint, 0, 0, 0)), 0.03) 60%, transparent);
   }
   :root[data-desktop] body[data-screen="unlocks"] .unlocks::-webkit-scrollbar { display: none; }
