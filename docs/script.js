@@ -3364,26 +3364,30 @@
     return a.description ? '<div class="unlock-desc">' + escapeHtml(a.description) + "</div>" : "";
   }
   // Unlocking and locking by hand, on a game's page: behind a lock like
-  // the timeline's; ticked locked ones are unlocked in the order picked,
-  // unticked unlocked ones locked again, on Apply (clicked twice).
+  // the timeline's. A locked achievement clicked gets a tick on its icon
+  // (and its place in the order), to unlock; an unlocked one an X, to
+  // lock again; on Apply (clicked twice).
   var achEdit = false, achPicks = [], achDrops = {}, achBusy = false, achError = null;
   var TICK = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.8 8.3l2.7 2.7 5.7-6"/></svg>';
+  var CROSS = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg>';
   var LOCK_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path class="lock-shackle" d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>';
   function resetAchEdit() {
     achEdit = false; achPicks = []; achDrops = {}; achError = null;
     delete armedUntil["ach-apply"];
   }
-  function achBarHtml() {
+  // What's marked, with Clear and Apply, in the sort's bar before the
+  // lock (so marking moves nothing); empty when nothing is.
+  function achApplyHtml() {
     var n = achPicks.length, m = Object.keys(achDrops).length;
     if (!achEdit) return "";
-    if (achBusy) return '<div class="ach-apply"><span>' + escapeHtml("Sending to Steam\u2026") + "</span></div>";
+    if (achBusy) return '<span class="ach-apply"><span>' + escapeHtml("Playing it, sending to Steam\u2026") + "</span></span>";
+    if (!n && !m) return "";
     var what = [n ? "Unlock " + n : "", m ? "Lock " + m : ""].filter(Boolean).join(" \u00b7 ");
     var armed = isArmed("ach-apply");
-    return (achError ? problemHtml("warn", (achError.data || {}).title, achError.message) : "") +
-      '<div class="ach-apply"><span>' + escapeHtml(what || "Tick locked achievements to unlock them, in order; untick unlocked ones to lock them.") + "</span>" +
-      (n || m ? '<button class="btn-ghost" type="button" data-ach-cancel>Clear</button>' +
-        '<button class="btn-ghost primary-ghost' + (armed ? " armed" : "") + '" type="button" data-ach-apply>' +
-        (armed ? "Click again to send to Steam" : "Apply") + "</button>" : "") + "</div>";
+    return '<span class="ach-apply"><span>' + escapeHtml(what) + "</span>" +
+      '<button class="btn-ghost" type="button" data-ach-cancel>Clear</button>' +
+      '<button class="btn-ghost primary-ghost' + (armed ? " armed" : "") + '" type="button" data-ach-apply>' +
+      (armed ? "Confirm" : "Apply") + "</button></span>";
   }
   function achRowsHtml(list, groupKind) {
     return list.map(function (a) {
@@ -3392,18 +3396,18 @@
         var at = new Date(a.time * 1000);
         when = '<div class="unlock-meta"><div>' + escapeHtml(fmtDay(a.time)) + "</div><div>" + escapeHtml(fmtClock(at)) + "</div></div>";
       }
-      var box = "";
+      var icon = iconHtml("unlock-icon", a.icon, "ach"), attrs = "";
+      var pick = achPicks.indexOf(a.name), drop = !!achDrops[a.name];
       if (achEdit) {
-        // Locked: ticked to unlock, with its place in the order; unlocked:
-        // ticked, unticked to lock it again.
-        var pick = achPicks.indexOf(a.name), drop = !!achDrops[a.name];
-        var on = kind === "locked" ? pick !== -1 : !drop;
-        box = '<button class="ach-check' + (on ? " on" : "") + (kind === "locked" ? " to-unlock" : "") + '" type="button" data-ach="' +
-          escapeHtml(a.name) + '" data-ach-kind="' + (kind === "locked" ? "locked" : "unlocked") + '" aria-pressed="' + on + '" aria-label="' +
-          escapeHtml(a.name) + '">' + (kind === "locked" && pick !== -1 ? String(pick + 1) : on ? TICK : "") + "</button>";
+        // The whole row is clicked; its icon shows what Apply will do.
+        var mark = kind === "locked" && pick !== -1 ? '<span class="ach-mark add">' + TICK + "<b>" + (pick + 1) + "</b></span>"
+          : kind !== "locked" && drop ? '<span class="ach-mark drop">' + CROSS + "</span>" : "";
+        icon = '<span class="ach-icon">' + icon + mark + "</span>";
+        attrs = ' role="button" tabindex="0" data-ach="' + escapeHtml(a.name) + '" data-ach-kind="' + (kind === "locked" ? "locked" : "unlocked") +
+          '" aria-pressed="' + (pick !== -1 || drop) + '"';
       }
-      return '<div class="unlock' + (kind === "locked" ? " locked" : "") + (achEdit && achDrops[a.name] ? " dropping" : "") +
-        (achEdit && kind === "locked" && achPicks.indexOf(a.name) !== -1 ? " picked" : "") + '">' + box + iconHtml("unlock-icon", a.icon, "ach") +
+      return '<div class="unlock' + (kind === "locked" ? " locked" : "") + (achEdit ? " editable" : "") + (achEdit && drop ? " dropping" : "") +
+        (achEdit && kind === "locked" && pick !== -1 ? " picked" : "") + '"' + attrs + ">" + icon +
         '<div class="unlock-text"><div class="unlock-name">' + escapeHtml(a.name) + "</div>" +
         achDescHtml(a, kind === "locked") + "</div>" + when + "</div>";
     }).join("");
@@ -3466,8 +3470,10 @@
         '<div class="filters-pop">' + sortRowsHtml(SORTS.ach, achSort, achOrder) + "</div></details>" +
         '<button class="btn-ghost ach-group' + (achGroup === "status" ? " on" : "") + '" type="button" data-ach-group aria-pressed="' +
         (achGroup === "status") + '" data-tip="Unlocked and locked apart">Group</button>' +
+        '<span class="ach-right">' + achApplyHtml() +
         '<button class="lock-toggle ach-lock" type="button" data-ach-lock aria-pressed="' + achEdit + '">' + LOCK_ICON +
-        "<span>" + (achEdit ? "Unlocked" : "Locked") + "</span></button></div>" + achBarHtml();
+        "<span>" + (achEdit ? "Unlocked" : "Locked") + "</span></button></span></div>" +
+        (achEdit && achError ? problemHtml("warn", (achError.data || {}).title, achError.message) : "");
       var tag = function (list, kind) { return list.map(function (a) { return Object.assign({kind: kind}, a); }); };
       if (achGroup === "none") {
         var all = sortAch(tag(p.unlocks, "unlocked"), true).concat(tag(p.untimed, "untimed"), tag(p.locked, "locked"));
@@ -3559,6 +3565,10 @@
     }
   });
   byId("game-back").addEventListener("click", closeGamePage);
+  byId("game-page").addEventListener("keydown", function (e) {
+    var row = e.target.closest("[data-ach]");
+    if (row && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); row.click(); }
+  });
   // The sort menu stays open while its chips redraw the page.
   onChoice(byId("game-page"), function (c) {
     if (c.sort) achSort = c.sort;
