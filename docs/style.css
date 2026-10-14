@@ -1783,6 +1783,10 @@
   .bar-btn:hover { color: var(--text); }
   .bar-btn[aria-expanded="true"], .bar-btn[aria-pressed="true"] { color: var(--accent); background: var(--accent-tint); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
   .runs-log-head .timeline-bar { flex: none; }
+  /* Save, the lock and Full timeline: one height, the lock and Full
+     timeline one width too. */
+  .runs-log-head :is(.timeline-bar button, #run-full-btn) { box-sizing: border-box; height: 1.7rem; }
+  .runs-log-head #run-full-btn { min-width: 6.5rem; justify-content: center; text-align: center; }
   .runs-log-head .timeline-bar > span:empty { display: none; }
   .run-info { margin: 0 0 0.8rem; padding: 0.7rem 0.9rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; }
   .run-info .details-list { margin: 0; }
