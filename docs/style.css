@@ -1877,9 +1877,11 @@
   table.csv-table.pretty tr.gap-row td { font-style: normal; }
   /* Durations on the left, like the sessions table's. */
 
-  /* After the time, as small as the + buttons, so the row keeps its height. */
-  table.csv-table.pretty .undo-edit { display: inline-grid; place-items: center; box-sizing: border-box; vertical-align: text-bottom;
-    width: 1rem; height: 1rem; padding: 0; margin: 0 0 0 0.45rem; font-size: 0.72rem; font-weight: 400; line-height: 1; }
+  /* After the time, as small as the + buttons. Its negative margins (half
+     its height) keep it out of the line's height, so in any font the row
+     is as tall as one without it. */
+  table.csv-table.pretty .undo-edit { display: inline-grid; place-items: center; box-sizing: border-box; vertical-align: middle;
+    width: 1rem; height: 1rem; padding: 0; margin: -0.5rem 0 -0.5rem 0.45rem; font-size: 0.72rem; font-weight: 400; line-height: 1; }
   /* Numbers take a fixed width, so the + buttons after them line up. */
   table.csv-table.pretty .row-num { display: inline-block; min-width: 1.6em; }
   table.csv-table.pretty td:first-child { width: 4.5rem; white-space: nowrap; }
