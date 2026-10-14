@@ -203,11 +203,13 @@ def write_configs():
     asf = json.loads(asf_json.read_text()) if asf_json.exists() else {}
     # Headless: never block on a terminal prompt (input comes through the
     # API instead). AutoRestart off: the unlocker starts and stops ASF.
-    # UpdatePeriod 0: ASF never updates itself, since the plugin only works
-    # with the ASF it's built for; install() updates the two together.
+    # UpdatePeriod 0 and UpdateChannel 0: ASF never updates itself, nor
+    # checks for one when it starts (seconds off each start), since the
+    # plugin only works with the ASF it's built for; install() updates the
+    # two together.
     # The plugin's names in English, matching Steam's, so the builder can
     # match achievements to their numbers by name.
-    asf.update({"Headless": True, "AutoRestart": False, "UpdatePeriod": 0,
+    asf.update({"Headless": True, "AutoRestart": False, "UpdatePeriod": 0, "UpdateChannel": 0,
                 "Rudokhvist.AchievementsCulture": "en-US"})
     asf_json.write_text(json.dumps(asf, indent=2) + "\n")
 
