@@ -24,7 +24,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 
 from unlocker import asf_setup
-from unlocker.api import asf_running, ensure_asf_running, send_command
+from unlocker.api import asf_running, ensure_asf_running, send_aset, send_areset, send_command
 from unlocker.state import JSONS_DIR, SESSION_LOCK, lock_info
 
 # A player's achievements for a game, from a SteamHunters or Steam link.
@@ -61,7 +61,8 @@ def _steam_stats(kind, who, app):
     """A player's achievements for a game from Steam's public stats page:
     {"appid", "game", "player", "steamid", "achievements": [...]}, in
     Steam's order (unlocked first, then locked)."""
-    query = "?xml=1&l=english"
+    # A new address each minute: Steam caches the page, for up to an hour.
+    query = f"?xml=1&l=english&t={int(time.time()) // 60}"
     url = f"https://steamcommunity.com/{kind}/{who}/stats/{app}/{query}"
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (STAR)"})
@@ -237,6 +238,74 @@ def numbers(appid):
         return result
 
 
+EDIT_PLAY = 30  # seconds the game plays before and after changes by hand
+
+
+def change(appid, unlock, lock):
+    """Unlocks the achievements named in unlock, one at a time in that
+    order (so their times follow it), and locks again those in lock, on
+    the account ArchiSteamFarm runs, matching names to aset's numbers with
+    alist. The game plays from EDIT_PLAY seconds before the first change
+    to EDIT_PLAY after the last, so they look made while playing. Not
+    while a game is in a session. Starts ArchiSteamFarm if needed, and
+    stops it again unless a session started meanwhile. Returns
+    {"unlocked": [names], "locked": [names]} as Steam took them."""
+    if lock_info(SESSION_LOCK):
+        raise Problem("A game is playing", "Change achievements when no session is running.")
+    with _lock:
+        started = not asf_running()
+        playing = False
+        try:
+            ensure_asf_running()
+            rows = _alist(appid)
+            by_name = {}
+            for row in rows:
+                by_name.setdefault(row["name"].casefold(), []).append(row)
+
+            def find(name):
+                found = by_name.get(_clean(name).casefold()) or []
+                if len(found) != 1:
+                    raise Problem("Couldn't match an achievement",
+                                  f"\u201c{name}\u201d isn't in ArchiSteamFarm's list for this game once. Nothing was changed.")
+                if found[0]["restricted"]:
+                    raise Problem("Steam protects this achievement",
+                                  f"\u201c{name}\u201d can only be unlocked by the game itself. Nothing was changed.")
+                return found[0]["number"]
+
+            to_unlock = [(name, find(name)) for name in unlock]
+            to_lock = [(name, find(name)) for name in lock]
+            send_command(f"play {appid}")
+            playing = True
+            time.sleep(EDIT_PLAY)
+            done = {"unlocked": [], "locked": []}
+            for i, (name, number) in enumerate(to_unlock):
+                if i:
+                    time.sleep(1.5)  # Steam keeps unlock times to the second
+                status, _ = send_aset(appid, number)
+                if status not in ("success", "already_unlocked"):
+                    raise Problem("Steam didn't take an unlock",
+                                  f"Stopped at \u201c{name}\u201d; those before it were unlocked.")
+                done["unlocked"].append(name)
+            if to_lock:
+                status, _ = send_areset(appid, [number for _, number in to_lock])
+                if status not in ("success", "already_locked"):
+                    raise Problem("Steam didn't lock them", "ArchiSteamFarm's answer wasn't a success.")
+                done["locked"] = [name for name, _ in to_lock]
+            time.sleep(EDIT_PLAY)
+            return done
+        finally:
+            # Stopped playing, unless a session started meanwhile (it plays
+            # its own game).
+            if playing and not lock_info(SESSION_LOCK):
+                try:
+                    send_command("resume")
+                except Exception:  # noqa: BLE001 - the changes are made; ASF stops it when idle
+                    pass
+            _cache.pop(appid, None)  # the numbers' unlocked marks changed
+            if started and not lock_info(SESSION_LOCK):
+                asf_setup._stop_idle_asf()
+
+
 def find_appid(name):
     """The App ID of the one Steam game named exactly name (ignoring case
     and ®/™), from the store's search; None when there's no such game or
@@ -381,10 +450,11 @@ def app_icon(appid):
 # From Steam's list of a game's achievements: its counters, achievements
 # that track progress in a stat (kill 200 enemies, find 26 radios), whose
 # counter an unlock doesn't move (a game with any is flagged, as its
-# unlocks won't look earned); and its hidden achievements' descriptions,
-# which the stats page leaves out. Saved per game as {"counters": n,
-# "hidden": {name: description}} (just n, from an older STAR, is looked
-# up again for the descriptions).
+# unlocks won't look earned); its hidden achievements' descriptions,
+# which the stats page leaves out; and their names in Steam's own order
+# (alist's too). Saved per game as {"counters": n, "hidden": {name:
+# description}, "order": [name, ...]} (one from an older STAR, without
+# them, is looked up again).
 COUNTERS_PATH = JSONS_DIR / ".counters.json"
 _counters_lock = threading.Lock()
 _counters_pending = set()
@@ -409,7 +479,8 @@ def _fetch_counters():
             # A target of 1 is a yes/no stat, not a counter.
             info = {"counters": sum(1 for a in found if int(a.get("max_progress_int") or 0) > 1),
                     "hidden": {a["localized_name"]: a.get("localized_desc") or "" for a in found
-                               if a.get("hidden") and a.get("localized_name")}}
+                               if a.get("hidden") and a.get("localized_name")},
+                    "order": [a["localized_name"] for a in found if a.get("localized_name")]}
         except (urllib.error.URLError, OSError, ValueError, TypeError, AttributeError):
             pass
         with _counters_lock:
@@ -460,6 +531,18 @@ def app_hidden(appid):
     info = _saved_info().get(str(appid))
     if isinstance(info, dict):
         return info.get("hidden") or {}
+    _look_up(appid)
+    return None
+
+
+def app_order(appid):
+    """The game's achievements' names in Steam's own order (alist's too);
+    looked up as app_counters, so None until known."""
+    if not isinstance(appid, int) or appid <= 0:
+        return None
+    info = _saved_info().get(str(appid))
+    if isinstance(info, dict) and "order" in info:
+        return info["order"]
     _look_up(appid)
     return None
 

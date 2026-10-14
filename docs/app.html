@@ -84,25 +84,35 @@
       <span class="folder-status" id="folder-status"></span>
     </div>
     <div class="pa pa-runs">
+      <!-- Run opens a menu: when it starts and how much it plays; Run,
+           then Confirm while it's open, starts it. Stop and Dismiss act
+           at once. The two selects hold the choices the menu's chips
+           show; Other… becomes the box for a time. -->
       <div class="run-options" id="run-options">
-        <select id="run-delay" aria-label="Start" title="When the first session starts. It never starts before its break is over.">
+        <details class="filters-menu run-menu" id="run-menu">
+          <summary class="btn-hero primary run-start" id="run-start">Run</summary>
+          <div class="filters-pop run-pop">
+            <div class="run-pop-label">Start</div>
+            <div class="filter-list" id="run-delay-chips"></div>
+            <div id="run-pop-hold" hidden><input type="text" id="run-delay-custom" placeholder="1h30m or 23:30" aria-label="Start in or at" spellcheck="false" hidden></div>
+            <div class="run-pop-label">Play</div>
+            <div class="filter-list" id="run-mode-chips"></div>
+          </div>
+        </details>
+        <select id="run-delay" aria-label="Start" hidden>
           <option value="0">When ready</option>
           <option value="30">In 30 min</option>
           <option value="60">In 1 hour</option>
-          <option value="120">In 2 hours</option>
-          <option value="240">In 4 hours</option>
           <option value="custom">Other…</option>
         </select>
-        <input type="text" id="run-delay-custom" placeholder="1h30m or 23:30" aria-label="Start in or at" spellcheck="false" hidden>
-        <select id="run-mode" aria-label="How much to play" title="Just the next session, or every remaining one back to back, waiting out the breaks.">
+        <select id="run-mode" aria-label="How much to play" hidden>
           <option value="0">1 session</option>
           <option value="1">All sessions</option>
         </select>
-        <button class="btn-primary run-start" id="run-start" type="button" disabled>Run</button>
       </div>
     </div>
     <div class="pa pa-unlocks">
-      <button class="btn-ghost page-action" id="unlocks-refresh" type="button" title="Ask Steam again">Refresh</button>
+      <button class="btn-hero primary page-action" id="unlocks-refresh" type="button" title="Ask Steam again">Refresh</button>
     </div>
   </div>
 </div>
@@ -165,17 +175,14 @@
           <button class="btn-ghost" type="submit">Continue</button>
         </form>
       </li>
-      <li class="setup-step" id="step-extras" hidden>
-        <div class="step-head"><span class="step-mark"></span><b>Keep awake</b></div>
-        <div class="setting-checks">
-          <label class="setting-check"><input type="checkbox" id="keep-awake-on" disabled> Keep the computer awake during runs</label>
-          <p class="step-text setting-why" id="awake-text" hidden></p>
-        </div>
-        <button class="btn-ghost" type="button" id="awake-check" title="Checks that the computer really stays awake">Test</button>
-      </li>
       <li class="setup-step done" id="step-runs" hidden>
         <div class="step-head"><span class="step-mark"></span><b>Runs</b></div>
         <label class="setting-check"><input type="checkbox" id="show-done"> Show finished games in Runs</label>
+        <div class="awake-row" id="awake-row" hidden>
+          <label class="setting-check"><input type="checkbox" id="keep-awake-on" disabled> Keep the computer awake during runs</label>
+          <button class="btn-ghost" type="button" id="awake-check" title="Checks that the computer really stays awake">Test</button>
+        </div>
+        <p class="step-text setting-why" id="awake-text" hidden></p>
         <details class="run-settings-box" id="run-settings-box">
           <summary>Advanced run settings <span id="run-settings-summary"></span></summary>
           <div class="run-settings-top">
@@ -214,47 +221,17 @@
               <option value="all">All</option>
             </select>
           </div>
-          <div class="lib-default"><span>Games sorted by</span>
-            <select id="default-sort" aria-label="Games sorted by">
-              <option value="name">Name</option>
-              <option value="progress">Progress</option>
-              <option value="achievement">Last achievement</option>
-              <option value="played">Last played</option>
-              <option value="playtime">Play time</option>
-            </select>
-            <select id="default-order" aria-label="Order"></select>
+          <div class="lib-default lib-filters"><span>Games sorted by</span>
+            <div class="chip-rows" id="lib-sort"></div>
           </div>
-          <div class="lib-default"><span>Private games</span>
-            <select id="lib-private" aria-label="Private games">
-              <option value="show">Show</option>
-              <option value="hide">Hide</option>
-            </select>
+          <div class="lib-default lib-filters"><span>Games shown</span>
+            <div class="filter-list" id="lib-filters" data-scope="settings"></div>
           </div>
-          <div class="lib-default"><span>Games without achievements</span>
-            <select id="lib-no-ach" aria-label="Games without achievements">
-              <option value="show">Show</option>
-              <option value="hide">Hide</option>
-            </select>
+          <div class="lib-default lib-filters"><span>Achievements sorted by</span>
+            <div class="chip-rows" id="lib-ach-sort"></div>
           </div>
-          <div class="lib-default"><span>Finished games</span>
-            <select id="lib-finished" aria-label="Finished games">
-              <option value="show">Show</option>
-              <option value="hide">Hide</option>
-              <option value="only">Show only them</option>
-            </select>
-          </div>
-          <div class="lib-default"><span>Achievements sorted by</span>
-            <select id="default-ach-sort" aria-label="A game's achievements sorted by">
-              <option value="date">Date unlocked</option>
-              <option value="name">Name</option>
-            </select>
-            <select id="default-ach-order" aria-label="Order"></select>
-          </div>
-          <div class="lib-default"><span>Achievements grouped</span>
-            <select id="default-ach-group" aria-label="A game's achievements grouped">
-              <option value="status">Unlocked / Locked</option>
-              <option value="none">None</option>
-            </select>
+          <div class="lib-default lib-filters"><span>Split by status</span>
+            <div class="chip-rows" id="lib-ach-group"></div>
           </div>
           <div class="lib-default"><span>Check Steam</span>
             <select id="library-check" aria-label="How often to check Steam">
@@ -508,7 +485,8 @@
     </div>
     <!-- In a game's page, in the tabs' place. -->
     <button class="btn-ghost game-back" id="game-back" type="button" hidden>← Games</button>
-    <span class="unlocks-updated" id="unlocks-updated"></span>
+    <!-- When Steam was read; under it, a check going on or the next one. -->
+    <div class="unlocks-when"><span class="unlocks-updated" id="unlocks-updated"></span><span class="unlocks-check" id="unlocks-check"></span></div>
   </div>
   <p class="unlocks-note" id="unlocks-note"></p>
   <div class="library-pane" id="pane-achievements">
@@ -520,8 +498,8 @@
       <button type="button" data-range="year">Year</button>
       <button type="button" data-range="all">All</button>
     </div>
+    <div class="unlocks-status" id="unlocks-status"></div>
   </div>
-  <div class="unlocks-status" id="unlocks-status"></div>
   <div class="unlocks-list" id="unlocks-list"></div>
   </div>
   <div class="library-pane" id="pane-games" hidden>
@@ -530,14 +508,19 @@
     <div class="unlocks-bar">
       <input class="games-search" id="games-search" type="search" placeholder="Search games" aria-label="Search games" autocomplete="off" spellcheck="false">
       <div class="games-sort">
-        <select id="games-sort" aria-label="Sort by">
-          <option value="name">Name</option>
-          <option value="progress">Progress</option>
-          <option value="achievement">Last achievement</option>
-          <option value="played">Last played</option>
-          <option value="playtime">Play time</option>
-        </select>
-        <button class="btn-ghost" id="games-order" type="button"></button>
+        <details class="filters-menu sort-menu" id="games-sort-menu">
+          <summary class="btn-ghost" id="games-sort-label">Sort</summary>
+          <div class="filters-pop" id="games-sort-pop"></div>
+        </details>
+        <!-- Which games show, for a while (the defaults are in Settings). -->
+        <details class="filters-menu" id="games-filters">
+          <summary class="btn-ghost" id="games-filters-label">Filters</summary>
+          <div class="filters-pop">
+            <div class="filter-list" id="games-filter-list" data-scope="games"></div>
+            <div class="filters-foot"><span class="filters-hint">Right-click: only this</span>
+              <button class="link-btn" id="games-filters-all" type="button" hidden>Show all</button></div>
+          </div>
+        </details>
       </div>
     </div>
     <div class="unlocks-status" id="games-status"></div>

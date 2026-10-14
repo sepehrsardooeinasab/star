@@ -288,6 +288,12 @@ def start_run(name, every=False, delay=None):
         raise AppError(f"There's no config for {name}.", 404)
     if _running_pid(name):
         raise AppError(f"{name} is already running.", 409)
+    # A session that ended has its break to wait out first (a stopped one
+    # can carry on, waiting only for its next unlock).
+    state = _game_state(name, None)
+    if state.get("ready_in") and not state.get("cut_short"):
+        raise AppError(f"{state.get('title') or name} isn't playable yet: the break after its last "
+                       "session isn't over.", 409)
     other = lock_info(GAME_LOCK)
     if other:
         raise AppError(f"{other[1] or 'Another game'} is running. Only one game runs "
@@ -527,6 +533,13 @@ def recent_unlocks(refresh):
         raise AppError(str(e), 409, title=e.title, has_key=bool(unlocks._key()))
 
 
+def change_achievements(appid, unlock, lock):
+    try:
+        return unlocks.start_change(appid, unlock, lock)
+    except unlocks.Problem as e:
+        raise AppError(str(e), 409, title=e.title)
+
+
 def mark_finished(appid, finished):
     try:
         return unlocks.set_finished(appid, finished)
@@ -617,14 +630,19 @@ def _auto_update():
 
 def _check_library():
     """Checks Steam for new games and achievements as often as Settings →
-    Library says (library_check), the Library open or not."""
-    time.sleep(120)  # let the app settle first
+    Library says (library_check), the Library open or not; and soon after
+    achievements change (by hand, or a run's unlock)."""
+    time.sleep(20)  # let the app settle first
+    looked = 0
     while True:
         try:
-            unlocks.auto_check()
+            unlocks.watch()
+            if time.time() - looked >= 300:
+                looked = time.time()
+                unlocks.auto_check()
         except Exception:  # noqa: BLE001 - a background check never stops the server
             pass
-        time.sleep(300)
+        time.sleep(10)
 
 
 def _learn_steamid():
@@ -778,6 +796,7 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/setup/code": lambda: setup_code(body.get("code")),
             "/api/unlocks/key": lambda: save_unlocks_key(body.get("key")),
             "/api/unlocks/finished": lambda: mark_finished(body.get("appid"), bool(body.get("finished"))),
+            "/api/unlocks/achievements": lambda: change_achievements(body.get("appid"), body.get("unlock"), body.get("lock")),
             "/api/update": app_update,
             "/api/quit": quit_server,
         }

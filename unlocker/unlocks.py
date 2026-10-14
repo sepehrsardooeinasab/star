@@ -17,17 +17,17 @@ Like SteamHunters and co., what's read is kept (STORE_PATH: each game's
 name, when it was last played and its unlocks), and a check reads again
 only what changed: library games played since they were last read (one
 GetOwnedGames call says which), games played in the last day, and STAR's
-games. A check runs every library_check (a setting; 6 hours unless
-changed), in the background or when the Library opens, and on Refresh.
+games. A check runs at the times of day library_check sets (a setting;
+every 6 hours from midnight unless changed), in the background or when
+the Library opens, and on Refresh.
 The first check reads every
 game, which can be hundreds of pages, so checks run in the background
 (SYNC says how far along) and the saved unlocks show meanwhile. Without
 internet, what's saved is shown.
 
-Games marked Private in the Steam client, or hidden (its "hidden"
-collection), are marked: Steam keeps those lists on the computer, not
-online, so they're read from the Steam client's own files when Steam is
-installed here.
+Games marked Private in the Steam client are marked: Steam keeps that
+list on the computer, so it's read from the Steam client's own files
+when Steam is installed here (and, with a key, asked of the Web API).
 """
 import json
 import re
@@ -51,9 +51,10 @@ STORE_PATH = JSONS_DIR / ".unlocks.json"
 # Library: a list of appids.
 FINISHED_PATH = JSONS_DIR / ".finished.json"
 SHOWN = 50000      # unlocks returned (all saved, in practice)
-# How often Steam is checked (settings' library_check), unless refreshed;
-# "manual": only on Refresh (and a first check).
-CHECK_EVERY = {"1h": 3600, "3h": 3 * 3600, "6h": 6 * 3600, "12h": 12 * 3600, "24h": 86400, "manual": None}
+# How often Steam is checked (settings' library_check), in hours, unless
+# refreshed: at set times of day counted from midnight (every 6 hours:
+# 12 AM, 6 AM, 12 PM, 6 PM); "manual": only on Refresh (and a first check).
+CHECK_EVERY = {"1h": 1, "3h": 3, "6h": 6, "12h": 12, "24h": 24, "manual": None}
 LIVE_FOR = 86400   # a game played this recently may still be unlocking…
 LIVE_EVERY = 1800  # …so it's read again this often (or on refresh)
 KEY_RE = re.compile(r"[0-9A-Fa-f]{32}")
@@ -116,8 +117,8 @@ def _key():
 
 
 def _check_every():
-    """Seconds between checks with Steam, from settings.json; None: only
-    on Refresh."""
+    """Hours between checks with Steam, from settings.json; None: only on
+    Refresh."""
     try:
         choice = settings_module.read_overrides().get("library_check")
     except ValueError:
@@ -125,9 +126,49 @@ def _check_every():
     return CHECK_EVERY.get(choice, CHECK_EVERY[settings_module.DEFAULTS["library_check"]])
 
 
+def _last_check_time(every, now=None):
+    """The latest of the day's check times (every `every` hours from
+    midnight, local time) at or before now."""
+    t = time.localtime(now)
+    return time.mktime((t.tm_year, t.tm_mon, t.tm_mday, t.tm_hour // every * every, 0, 0, 0, 0, -1))
+
+
 def _due(store):
+    """Never checked, or not since the latest of the day's check times."""
     every = _check_every()
-    return not store["checked"] or (every is not None and time.time() - store["checked"] >= every)
+    return not store["checked"] or (every is not None and store["checked"] < _last_check_time(every))
+
+
+# After achievements change (by hand, or a run's unlock), Steam is checked
+# again this long after, once it has them.
+REFRESH_AFTER = 15
+_soon = {"at": None, "seen": None}  # when that check is due; the runs' last progress
+
+
+def refresh_soon(after=REFRESH_AFTER):
+    """Has Steam checked again in `after` seconds (see watch)."""
+    at = time.time() + after
+    _soon["at"] = at if _soon["at"] is None else min(_soon["at"], at)
+
+
+def watch():
+    """Every few seconds: notices a run's progress saved (an unlock) and
+    has Steam checked again soon after, and starts that check when due."""
+    latest = max(_star_appids().values(), default=0)
+    if _soon["seen"] is not None and latest > _soon["seen"]:
+        refresh_soon()
+    _soon["seen"] = latest
+    if _soon["at"] is None or time.time() < _soon["at"]:
+        return
+    sid = steamid()
+    if not sid:
+        return
+    with _lock:
+        if SYNC["running"]:
+            return  # still due; started once this one ends
+        _soon["at"] = None
+        SYNC.update(running=True, done=0, total=0, notice=None, error=None)
+        threading.Thread(target=_sync, args=(sid, True), daemon=True).start()
 
 
 def auto_check():
@@ -175,33 +216,24 @@ STEAM_DIRS = [Path.home() / "Library/Application Support/Steam", Path.home() / "
               Path.home() / ".local/share/Steam", Path.home() / ".var/app/com.valvesoftware.Steam/.local/share/Steam"]
 
 
-def steam_marks(sid):
-    """(hidden, private): the appids this account hid in the Steam client
-    (its "hidden" collection) and marked Private (PrivateApps_<account> in
-    localconfig.vdf), from the client's files on this computer; empty
-    when Steam isn't installed here."""
+def private_marks(sid):
+    """The appids this account marked Private in the Steam client
+    (PrivateApps_<account> in localconfig.vdf), from the client's files on
+    this computer; empty when Steam isn't installed here."""
     account = str(int(sid) - 76561197960265728)
     for base in STEAM_DIRS:
         config = base / "userdata" / account / "config"
         if not config.is_dir():
             continue
-        hidden, private = set(), set()
-        try:
-            for entry in json.loads((config / "cloudstorage" / "cloud-storage-namespace-1.json").read_text()):
-                if isinstance(entry, list) and len(entry) == 2 and entry[0] == "user-collections.hidden":
-                    value = json.loads(entry[1].get("value") or "{}")
-                    hidden = {a for a in value.get("added") or [] if isinstance(a, int)}
-        except (OSError, ValueError, TypeError, AttributeError):
-            pass
         try:
             vdf = (config / "localconfig.vdf").read_text(encoding="utf-8", errors="replace")
             found = re.search(r'"PrivateApps_' + account + r'"\s+"(\[[^"]*\])"', vdf)
             if found:
-                private = {a for a in json.loads(found.group(1)) if isinstance(a, int)}
+                return {a for a in json.loads(found.group(1)) if isinstance(a, int)}
         except (OSError, ValueError):
             pass
-        return hidden, private
-    return set(), set()
+        return set()
+    return set()
 
 
 def _star_appids():
@@ -253,9 +285,13 @@ def _game_unlocks(sid, appid, key=None):
     keeps no time for them), "locked"}; None when Steam won't show it
     (no achievements); PRIVATE when it's marked Private (known with a
     key); FAILED when the read failed (Steam busy or unreachable), to try
-    again next check. With a key, a game whose stats page fails (some do,
-    and Valve's own games have no readable page) is read through the Web
-    API instead."""
+    again next check. With a key, it's read through the Web API, which is
+    current (the public stats page is cached, for up to an hour after an
+    unlock); the stats page is the fallback, and the way without one."""
+    if key:
+        got = _api_unlocks(key, sid, appid)
+        if got is not FAILED:
+            return got
     for attempt in range(2):
         try:
             stats = achievements._steam_stats("profiles", sid, appid)
@@ -266,7 +302,7 @@ def _game_unlocks(sid, appid, key=None):
             if attempt == 0:
                 time.sleep(3)
     else:
-        return _api_unlocks(key, sid, appid) if key else FAILED
+        return FAILED
     if key and stats["achievements"] and not any(a["unlocked"] for a in stats["achievements"]):
         private = _private(key, sid, appid)
         if private is None:
@@ -364,14 +400,14 @@ def _to_read(store, star, owned, refresh):
         if not g["stats"] or not g["played"]:
             continue  # no achievements, or never played: nothing unlocked
         saved = games.get(str(g["appid"]))
-        if saved is None or g["played"] != saved.get("played") or not _current(saved) or live(g["played"], saved) or unmarked(saved):
+        if saved is None or g["played"] != saved.get("played") or not _current(saved) or saved.get("stale") or live(g["played"], saved) or unmarked(saved):
             want[g["appid"]] = g["played"]
     owned_ids = {g["appid"] for g in owned or []}
     for appid, changed in star.items():
         saved = games.get(str(appid))
         if appid in want or (appid in owned_ids and saved is not None and _current(saved)):
             continue  # Steam's own last-played time decides, above
-        if saved is None or not _current(saved) or changed > saved["read"] or live(changed, saved):
+        if saved is None or not _current(saved) or saved.get("stale") or changed > saved["read"] or live(changed, saved):
             want[appid] = saved.get("played") if saved else None
     order = sorted(want, key=lambda appid: want[appid] or 0, reverse=True)
     return [a for a in order if a in star] + [a for a in order if a not in star], want
@@ -401,7 +437,7 @@ def set_finished(appid, finished):
     return {"appid": appid, "finished": appid in games}
 
 
-def _games_list(store, key, marks):
+def _games_list(store, key, private):
     """Every game, for the Library's Games: the library's (with a key) and
     those read, each with its achievement progress, most recently played
     first."""
@@ -421,34 +457,110 @@ def _games_list(store, key, marks):
             "finished": appid in finished,
             "unlocked": saved.get("unlocked", len(unlocks)), "total": saved.get("total"),
             "last_unlock": max((u["time"] for u in unlocks), default=None),
-            "unreadable": bool(saved.get("unreadable")), "hidden": appid in marks[0],
-            "private": appid in marks[1] or bool(saved.get("private"))})
+            "unreadable": bool(saved.get("unreadable")),
+            "private": appid in private or bool(saved.get("private"))})
     out.sort(key=lambda g: (g["played"] or 0, g["last_unlock"] or 0), reverse=True)
     return out
 
 
 def _result(store):
     games = store["games"]
-    marks = steam_marks(store["steamid"])
+    private = private_marks(store["steamid"])
     unlocks = []
     for appid, g in games.items():
         if not g.get("unlocks"):
             continue
         secret = achievements.app_hidden(int(appid)) or {}  # hidden achievements' descriptions
         unlocks += [{**u, "icon": achievements.current_host(u.get("icon")), "appid": int(appid),
-                     "game": g.get("game") or "", "hidden": int(appid) in marks[0],
-                     "private": int(appid) in marks[1] or bool(g.get("private")),
+                     "game": g.get("game") or "",
+                     "private": int(appid) in private or bool(g.get("private")),
                      **({"secret": True, "description": u.get("description") or secret[u["name"]]}
                         if u.get("name") in secret else {})}
                     for u in g["unlocks"]]
     unlocks.sort(key=lambda u: u["time"], reverse=True)
     key = bool(_key())
-    return {"unlocks": unlocks[:SHOWN], "games_list": _games_list(store, key, marks),
+    return {"unlocks": unlocks[:SHOWN], "games_list": _games_list(store, key, private),
             "has_key": key, "library": store.get("library") if key else None,
             "games": len(games),
             "fetched_at": int(store["checked"]),
             "offline": SYNC["notice"] or (f"{SYNC['error'][0]}: showing what was saved." if SYNC["error"] else None),
             "syncing": {"done": SYNC["done"], "total": SYNC["total"]} if SYNC["running"] else None}
+
+
+# Changes by hand run in the background (the game plays for a minute
+# around them), and a game's page follows them: {appid: {"running",
+# "unlocked", "locked" (names), "error": [title, message]}}.
+CHANGES = {}
+
+
+def start_change(appid, unlock, lock):
+    """Starts change_achievements in the background, one at a time; the
+    game's page says how it went (game_page's "change")."""
+    try:
+        appid = int(appid)
+    except (TypeError, ValueError):
+        raise Problem("No such game", "Pick a game from the list.")
+    if not [n for n in (unlock or []) + (lock or []) if n]:
+        raise Problem("Nothing to change", "Mark achievements first.")
+    with _lock:
+        if any(c.get("running") for c in CHANGES.values()):
+            raise Problem("Already changing achievements", "Wait for the change under way to finish.")
+        CHANGES[appid] = {"running": True}
+
+    def work():
+        try:
+            done = change_achievements(appid, unlock, lock)
+            CHANGES[appid] = {"running": False, "unlocked": done["unlocked"], "locked": done["locked"]}
+        except Problem as e:
+            CHANGES[appid] = {"running": False, "error": [e.title, str(e)]}
+        except Exception as e:  # noqa: BLE001 - said on the page, not lost in a thread
+            CHANGES[appid] = {"running": False, "error": ["Couldn't change them", str(e)]}
+    threading.Thread(target=work, daemon=True).start()
+    return {"started": True}
+
+
+def change_achievements(appid, unlock, lock):
+    """Unlocks (in order) and locks a game's achievements on Steam (see
+    achievements.change), then updates what's saved for it, the times
+    being now; it's read from Steam again on the next check."""
+    try:
+        appid = int(appid)
+    except (TypeError, ValueError):
+        raise Problem("No such game", "Pick a game from the list.")
+    unlock = [str(n) for n in unlock or [] if n]
+    lock = [str(n) for n in lock or [] if n]
+    if not unlock and not lock:
+        raise Problem("Nothing to change", "Tick or untick achievements first.")
+    try:
+        done = achievements.change(appid, unlock, lock)
+    except achievements.Problem as e:
+        raise Problem(e.title, str(e))
+    sid = steamid()
+    if sid:
+        with _lock:
+            store = _load_store(sid)
+            saved = store["games"].get(str(appid))
+            if saved and "total" in saved:
+                now = int(time.time())
+                rows = {a["name"]: a for kind in ("unlocks", "untimed", "locked") for a in saved.get(kind) or []}
+                for i, name in enumerate(done["unlocked"]):
+                    if name in rows:
+                        rows[name] = {**rows[name], "time": now + i, "_state": "unlocks"}
+                for name in done["locked"]:
+                    if name in rows:
+                        rows[name] = {**rows[name], "_state": "locked"}
+                for kind in ("unlocks", "untimed", "locked"):
+                    for a in saved.get(kind) or []:
+                        rows[a["name"]].setdefault("_state", kind)
+                item = lambda a: {k: v for k, v in a.items() if k not in ("_state", "time")}
+                saved["unlocks"] = [{**item(a), "time": a["time"]} for a in rows.values() if a["_state"] == "unlocks"]
+                saved["untimed"] = [item(a) for a in rows.values() if a["_state"] == "untimed"]
+                saved["locked"] = [item(a) for a in rows.values() if a["_state"] == "locked"]
+                saved["unlocked"] = len(saved["unlocks"]) + len(saved["untimed"])
+                saved["stale"] = True  # read again from Steam on the next check
+                _save_store(store)
+    refresh_soon()
+    return {**done, "game": game_page(appid)}
 
 
 def game_page(appid):
@@ -463,7 +575,7 @@ def game_page(appid):
     store = _load_store(sid) if sid else {"games": {}, "steamid": sid}
     saved = store["games"].get(str(appid), {})
     owned = next((g for g in store.get("owned") or [] if g["appid"] == appid), {})
-    hidden, private = steam_marks(sid) if sid else (set(), set())
+    private = private_marks(sid) if sid else set()
     star = next((name for name, a in list_profiles() if a == appid), None)
     secret = achievements.app_hidden(appid) or {}
 
@@ -479,9 +591,10 @@ def game_page(appid):
         "played": owned.get("played") or saved.get("played") or 0, "playtime": owned.get("playtime"),
         "total": saved.get("total"), "unlocked": saved.get("unlocked", len(saved.get("unlocks") or [])),
         "read": "total" in saved, "full": _current(saved), "unreadable": bool(saved.get("unreadable")),
-        "hidden": appid in hidden, "private": appid in private or bool(saved.get("private")), "star": star,
+        "private": appid in private or bool(saved.get("private")), "star": star,
         "counters": achievements.app_counters(appid), "stats": owned.get("stats", True),
-        "finished": appid in finished_games(),
+        "finished": appid in finished_games(), "order": achievements.app_order(appid),
+        "change": CHANGES.get(appid),
         "unlocks": sorted((icon(u) for u in saved.get("unlocks") or []), key=lambda u: u["time"], reverse=True),
         "untimed": [icon(u) for u in saved.get("untimed") or []],
         "locked": [icon(u) for u in saved.get("locked") or []],
@@ -545,7 +658,7 @@ def _sync(sid, refresh):
                     continue  # keeps what was saved; read again next check
                 saved = store["games"].setdefault(str(appid), {"game": "", "unlocks": []})
                 saved.update(read=time.time(), played=played[appid], unreadable=got in (None, PRIVATE),
-                             private=got == PRIVATE, v=READ_VERSION)
+                             private=got == PRIVATE, v=READ_VERSION, stale=False)
                 if isinstance(got, dict):
                     saved.update(got)
                 if done % 10 == 0:

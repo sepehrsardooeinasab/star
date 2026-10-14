@@ -1030,7 +1030,7 @@
     return (armedUntil[key] || 0) > Date.now();
   }
 
-  // First click arms `key` (render shows a "click again" label); a second
+  // First click arms `key` (render shows Confirm, in red); a second
   // click within ARM_MS returns true. Unclicked, it disarms itself.
   function confirmTwice(key) {
     if (isArmed(key)) { delete armedUntil[key]; return true; }
@@ -1043,9 +1043,7 @@
   function editsBannerHtml() {
     var n = editCount();
     if (!n || !showLockNotice) return "";
-    var label = isArmed("discard")
-      ? "Click again to discard " + n + " edit" + (n === 1 ? "" : "s")
-      : "Discard edits";
+    var label = isArmed("discard") ? "Confirm" : "Discard edits";
     return '<div class="notice info edits-banner"><span>' + n + " Timeline edit" + (n === 1 ? "" : "s") +
       ", so the pasted text is locked until you download or discard " + (n === 1 ? "it" : "them") + ".</span>" +
       '<button class="btn-ghost discard-edits' + (isArmed("discard") ? " armed" : "") + '" type="button">' + label + "</button></div>";
@@ -1057,8 +1055,7 @@
     var locked = editCount() > 0;
     els.exportText.readOnly = locked;
     els.exportText.classList.toggle("locked", locked);
-    els.resetBtn.textContent = locked && isArmed("reset")
-      ? "Click again to reset (discards edits)" : "Reset all fields";
+    els.resetBtn.textContent = locked && isArmed("reset") ? "Confirm" : "Reset all fields";
     els.resetBtn.classList.toggle("armed", locked && isArmed("reset"));
 
     // nav "has content" dots
@@ -1096,8 +1093,10 @@
       ? latest.errors.map(function (m) { return problemHtml(latest.inputNotice, latest.errorTitle, m); }).join("") : "";
     els.inputAlertSlot.innerHTML = dangerHtml + inputHtml + editsBannerHtml();
     els.downloadBtn.classList.toggle("btn-danger", dangers.length > 0);
-    els.downloadBtn.textContent = local
-      ? (dangers.length ? "Save anyway" : "Save schedule")
+    var replacing = local && isArmed("overwrite");
+    els.downloadBtn.classList.toggle("armed", replacing);
+    els.downloadBtn.textContent = replacing ? "Confirm" : local
+      ? (dangers.length ? "Save anyway" : "Save")
       : (dangers.length ? "Download anyway" : "Download All");
     els.downloadBtn.title = dangers.join("\n");
 
@@ -1650,7 +1649,9 @@
         // desktop app's window may not show.
         if (err.data && err.data.exists) {
           armedUntil["overwrite"] = Date.now() + ARM_MS;
-          showToast(err.message + " Click Save again within 4 seconds to replace it (its progress is kept).");
+          setTimeout(render, ARM_MS + 50);
+          render();
+          showToast(err.message + " Confirm to replace it (its progress is kept).");
           return;
         }
         showToast("Couldn't save: " + err.message);
@@ -1894,8 +1895,8 @@
     return null;
   }
 
-  // The bar acts on the selected game: Run or Continue it, or while it's
-  // running, Stop it, with 1 session / All sessions switching how much it plays.
+  // The bar acts on the selected game: Run or Continue it (a menu: when
+  // it starts, how much it plays), or while it's running, Stop it.
   function selectedGame() {
     return (runsData ? runsData.games : []).filter(function (x) { return x.name === selectedRun; })[0];
   }
@@ -1906,18 +1907,40 @@
     byId("run-mode").disabled = !!disabled;
   }
 
+  // The Run menu's chips, from the two selects' choices; Other…, picked,
+  // is the box for a time in its place. Drawn again only when a choice
+  // changes, so the box keeps its focus while typing.
+  var runChipsDrawn = "";
+  function runChips(select) {
+    return [].map.call(select.options, function (o) {
+      var on = o.value === select.value;
+      if (on && o.value === "custom") return '<span data-custom-slot></span>';
+      return '<button class="filter-chip' + (on ? " on" : "") + '" type="button" data-value="' + o.value + '" aria-pressed="' + on + '">' + o.text + "</button>";
+    }).join("");
+  }
+  function drawRunChips() {
+    var delay = byId("run-delay"), mode = byId("run-mode"), key = delay.value + " " + mode.value;
+    if (key === runChipsDrawn) return;
+    runChipsDrawn = key;
+    var custom = byId("run-delay-custom");
+    byId("run-pop-hold").appendChild(custom);  // out of the way while the chips redraw
+    byId("run-delay-chips").innerHTML = runChips(delay);
+    var slot = byId("run-delay-chips").querySelector("[data-custom-slot]");
+    if (slot) slot.replaceWith(custom);
+    byId("run-mode-chips").innerHTML = runChips(mode);
+  }
   function renderRunBar(games) {
     var g = selectedGame();
     var other = games.filter(function (x) { return x.running && (!g || x.name !== g.name); })[0];
     var button = byId("run-start"), delay = byId("run-delay"), mode;
     var custom = byId("run-delay-custom");
     var running = !!(g && g.running), done = !!(g && (g.finished || g.state === "completed"));
-    var minutes = runDelayMinutes(), why = "";
+    var minutes = runDelayMinutes(), why = "", blocked = false;
     custom.hidden = delay.value !== "custom";
     custom.classList.toggle("invalid", !custom.hidden && custom.value.trim() !== "" && minutes === null);
     if (running) {
       var armed = isArmed("stop:" + g.name);
-      button.textContent = armed ? "Stop?" : "Stop";
+      button.textContent = armed ? "Confirm" : "Stop";
       button.className = "btn-hero run-start" + (armed ? " armed" : "");
       mode = !g.stop_after;
     } else if (done && g.finished) {
@@ -1930,19 +1953,36 @@
       else if (g.state === "invalid") why = gameTitle(g) + "'s config has a problem.";
       else if (g.config_changed) why = "The achievement order changed. Run it once from the terminal to confirm.";
       else if (other) why = "Only one game runs at a time. Stop " + gameTitle(other) + " first.";
-      else if (minutes === null) why = "Start: enter a time like 45m, 1h30m or 23:30.";
-      button.textContent = g && g.done ? "Continue" : "Run";
-      button.className = "btn-hero primary run-start";
+      else if (g.session && !g.cut_short && waitLeft(g) > 0) {
+        // A session that ended: its break first. (One stopped partway can
+        // carry on.)
+        var at = fmtAt(waitLeft(g));
+        why = "Playable " + (/^\d/.test(at) ? "at " + at : at.replace(/^Tomorrow/, "tomorrow"));
+      }
+      blocked = !!why;  // the menu doesn't open
+      if (blocked) byId("run-menu").open = false;
+      // Open, it confirms what the menu says (not while the time is unclear).
+      var open = byId("run-menu").open;
+      button.textContent = open ? "Confirm" : g && g.done ? "Continue" : "Run";
+      button.className = "btn-hero run-start" + (open ? " btn-danger" : " primary");
+      if (open && minutes === null) blocked = true;
       mode = runOpts.every;
     }
-    button.disabled = !!why;
-    button.title = why;
+    button.classList.toggle("is-disabled", blocked);
+    button.setAttribute("aria-disabled", blocked);
+    button.title = blocked ? why : "";
+    if (running || done) byId("run-menu").open = false;
     delay.disabled = custom.disabled = running || done;
     setRunMode(mode, done || (running && !g.auto));
+    drawRunChips();
   }
 
+  var runsDone = null;  // achievements the runs have unlocked, all told
   function renderRuns() {
     var games = runsData ? runsData.games : [];
+    var done = games.reduce(function (n, g) { return n + (g.done || 0); }, 0);
+    if (runsDone !== null && done > runsDone) expectCheck();
+    runsDone = done;
     var running = games.filter(function (g) { return g.running; }).length;
     byId("run-options").hidden = !games.length;
     renderRunBar(games);
@@ -2374,10 +2414,32 @@
     }
   });
 
-  byId("run-start").addEventListener("click", function () {
-    var g = selectedGame();
-    if (!g) return;
-    runAction(g.running ? "stop" : g.finished ? "dismiss" : "run", g.name);
+  // Run opens its menu, and then (Confirm) starts it; Stop and Dismiss
+  // act at once.
+  byId("run-start").addEventListener("click", function (e) {
+    var g = selectedGame(), menu = byId("run-menu");
+    if (!g || this.classList.contains("is-disabled")) { e.preventDefault(); return; }
+    if (g.running || g.finished) { e.preventDefault(); runAction(g.running ? "stop" : "dismiss", g.name); return; }
+    if (menu.open) {
+      e.preventDefault();
+      menu.open = false;
+      runAction("run", g.name);
+    }
+  });
+  byId("run-menu").addEventListener("toggle", function () { renderRunBar(runsData ? runsData.games : []); });
+  byId("run-delay-custom").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); byId("run-start").click(); }
+  });
+  // A chip picks in its select, as if picked there.
+  [["run-delay-chips", "run-delay"], ["run-mode-chips", "run-mode"]].forEach(function (pair) {
+    byId(pair[0]).addEventListener("click", function (e) {
+      var chip = e.target.closest("[data-value]");
+      if (!chip) return;
+      var select = byId(pair[1]);
+      select.value = chip.getAttribute("data-value");
+      select.dispatchEvent(new Event("change"));
+      renderRunBar(runsData ? runsData.games : []);
+    });
   });
   setRunMode(runOpts.every, false);
   byId("run-delay").addEventListener("change", function () {
@@ -2418,7 +2480,7 @@
     });
   }
 
-  // render() redraws the cards for the "click again" labels too.
+  // render() redraws the cards for the Confirm labels too.
   var baseRender = render;
   render = function () { baseRender(); if (local) renderRuns(); };
 
@@ -2768,8 +2830,7 @@
       if (lib.unlocks_range !== appliedLib.range) { appliedLib.range = unlocksRange = lib.unlocks_range; if (unlocksData) renderUnlocks(); }
     }
     if (lib.library_sort && lib.library_order) {
-      byId("default-sort").value = lib.library_sort;
-      syncOrderOptions(byId("default-order"), lib.library_sort, lib.library_order);
+      byId("lib-sort").innerHTML = sortRowsHtml(SORTS.games, lib.library_sort, lib.library_order);
       var sortKey = lib.library_sort + " " + lib.library_order;
       if (sortKey !== appliedLib.sort) {
         appliedLib.sort = sortKey;
@@ -2779,9 +2840,8 @@
       }
     }
     if (lib.achievement_sort && lib.achievement_order && lib.achievement_group) {
-      byId("default-ach-sort").value = lib.achievement_sort;
-      syncOrderOptions(byId("default-ach-order"), lib.achievement_sort, lib.achievement_order);
-      byId("default-ach-group").value = lib.achievement_group;
+      byId("lib-ach-sort").innerHTML = sortRowsHtml(SORTS.ach, lib.achievement_sort, lib.achievement_order);
+      byId("lib-ach-group").innerHTML = chipRow("group", GROUPS, lib.achievement_group);
       var achKey = [lib.achievement_sort, lib.achievement_order, lib.achievement_group].join(" ");
       if (achKey !== appliedLib.ach) {
         appliedLib.ach = achKey;
@@ -2791,14 +2851,14 @@
         if (gamePage) renderGamePage();
       }
     }
-    if (lib.library_private && lib.library_no_achievements && lib.library_finished) {
-      byId("lib-private").value = lib.library_private;
-      byId("lib-no-ach").value = lib.library_no_achievements;
-      byId("lib-finished").value = lib.library_finished;
-      var filterKey = [lib.library_private, lib.library_no_achievements, lib.library_finished].join(" ");
+    if (FILTERS.every(function (f) { return lib[f[2]]; })) {
+      var fromSettings = {};
+      FILTERS.forEach(function (f) { fromSettings[f[0]] = lib[f[2]]; });
+      renderFilterList("lib-filters", fromSettings);
+      var filterKey = FILTERS.map(function (f) { return lib[f[2]]; }).join(" ");
       if (filterKey !== appliedLib.filter) {
         appliedLib.filter = filterKey;
-        libFilter = {private: lib.library_private, noAch: lib.library_no_achievements, finished: lib.library_finished};
+        libFilter = fromSettings;
         if (unlocksData) renderUnlocks();
       }
     }
@@ -2849,10 +2909,10 @@
 
   function renderExtras(d) {
     var x = d.extras;
-    byId("step-extras").hidden = !x || !(d.asf && d.plugin);
+    // Under Runs in Settings.
+    byId("awake-row").hidden = !x;
     if (!x) return;
     var awake = x.keep_awake;
-    byId("step-extras").className = "setup-step" + (awake.tool ? " done" : "");
     extrasTools.keep_awake = !!awake.tool;
     byId("awake-text").hidden = !!awake.tool;
     byId("awake-text").textContent = "Not available here: needs systemd-inhibit.";
@@ -3035,6 +3095,13 @@
       })
       .then(function () { unlocksBusy = false; renderUnlocks(); });
   }
+  // The server checks Steam again shortly after achievements change (by
+  // hand, or a run's unlock); look then, to show it checking and what's new.
+  var checkSoon = null;
+  function expectCheck() {
+    clearTimeout(checkSoon);
+    checkSoon = setTimeout(function () { loadUnlocks(false); }, 17000);
+  }
   function unlockDay(date) {
     var day = function (d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); };
     var diff = Math.round((day(new Date()) - day(date)) / 86400000);
@@ -3054,13 +3121,48 @@
   var gamesSort = "played", gamesOrder = "desc", appliedLib = {};
   var ORDER_NAMES = {played: ["Newest first", "Oldest first"], achievement: ["Newest first", "Oldest first"],
     name: ["Z \u2192 A", "A \u2192 Z"], progress: ["Most first", "Least first"], playtime: ["Most first", "Least first"],
-    date: ["Newest first", "Oldest first"]};
+    date: ["Newest first", "Oldest first"], default: ["Reversed", "In order"]};
   function orderName(sort, order) { return ORDER_NAMES[sort][order === "desc" ? 0 : 1]; }
-  function syncOrderOptions(select, sort, order) {
-    select.innerHTML = ["desc", "asc"].map(function (o) {
-      return '<option value="' + o + '">' + orderName(sort, o) + "</option>";
-    }).join("");
-    select.value = order;
+  // Sorting, as chips like the filters: a row of sorts, the picked one
+  // with an arrow for its order (clicked again, it flips). In a menu in
+  // Games and on a game's page, and in Settings → Library.
+  var SORTS = {games: [["played", "Last played"], ["achievement", "Last achievement"], ["name", "Name"],
+    ["progress", "Progress"], ["playtime", "Play time"]], ach: [["default", "Default"], ["date", "Date unlocked"], ["name", "Name"]]};
+  // A game's achievements: unlocked and locked apart, or in one list.
+  var GROUPS = [["status", "On"], ["none", "Off"]];
+  // A–Z, Steam's own order, or newest / most first.
+  function naturalOrder(sort) { return sort === "name" || sort === "default" ? "asc" : "desc"; }
+  function chipRow(key, choices, value) {
+    return '<div class="filter-list" data-choice="' + key + '">' + choices.map(function (c) {
+      var on = c[0] === value;
+      return '<button class="filter-chip' + (on ? " on" : "") + '" type="button" data-value="' + c[0] + '" aria-pressed="' + on + '">' + c[1] + "</button>";
+    }).join("") + "</div>";
+  }
+  function sortRowsHtml(sorts, sort, order) {
+    return '<div class="filter-list" data-choice="sort">' + sorts.map(function (c) {
+      var on = c[0] === sort;
+      return '<button class="filter-chip' + (on ? " on" : "") + '" type="button" data-value="' + c[0] + '" aria-pressed="' + on + '"' +
+        (on ? ' data-order="' + order + '" data-tip="' + orderName(sort, order) + '"' : "") + ">" + c[1] +
+        (on ? '<span class="chip-arrow">' + (order === "desc" ? "\u2193" : "\u2191") + "</span>" : "") + "</button>";
+    }).join("") + "</div>";
+  }
+  // The menu's button: the sort, and an arrow for its order.
+  function sortLabel(sorts, sort, order) {
+    var name = sorts.filter(function (c) { return c[0] === sort; })[0][1];
+    return name + (order === "desc" ? " \u2193" : " \u2191");
+  }
+  // A chip picked: what changes. A new sort starts on its natural order;
+  // the one already picked flips its order.
+  function onChoice(el, then) {
+    el.addEventListener("click", function (e) {
+      var chip = e.target.closest("[data-value]"), row = chip && chip.closest("[data-choice]");
+      if (!row) return;
+      var change = {}, key = row.getAttribute("data-choice"), value = chip.getAttribute("data-value");
+      change[key] = value;
+      if (key === "sort") change.order = !chip.classList.contains("on") ? naturalOrder(value)
+        : chip.getAttribute("data-order") === "desc" ? "asc" : "desc";
+      then(change);
+    });
   }
   function sortGames(games) {
     function key(g) {
@@ -3102,9 +3204,8 @@
     return g.counters > 0 ? '<span class="mark-counters" data-tip="' + COUNTERS_TIP + '" aria-label="' + COUNTERS_TIP + '">' + COUNTER_ICON + "</span>" : "";
   }
   function markHtml(g) {
-    if (!g.private && !g.hidden) return "";
-    var label = g.private ? "Private" : "Hidden";
-    return '<span class="mark-off" data-tip="' + label + '" aria-label="' + label + '">' + EYE_OFF + "</span>";
+    if (!g.private) return "";
+    return '<span class="mark-off" data-tip="Private" aria-label="Private">' + EYE_OFF + "</span>";
   }
   // Search: games whose name has every word typed, in any order.
   var gamesQuery = "";
@@ -3124,15 +3225,52 @@
       '<span class="lib-count"><span class="lib-got">' + unlocked + '</span><span class="lib-of">/</span><span class="lib-all">' + total + "</span></span>") +
       '<span class="lib-state">' + Math.min(pct, 100) + "%</span>";
   }
-  // Settings → Library: which games the list shows.
-  var libFilter = {private: "show", noAch: "show", finished: "show"};
+  // Which games show: groups, each shown (on) or hidden; a game shows
+  // when any group it's in is on. Active: in none of the others. Chips in
+  // Games' Filters menu (for a while) and in Settings → Library (the
+  // defaults).
+  var FILTERS = [["active", "Active", "library_active"], ["finished", "Finished", "library_finished"],
+    ["private", "Private", "library_private"], ["noAch", "No ach.", "library_no_achievements", "No achievements"]];
+  function gameGroups(g) {
+    var groups = {finished: !!g.finished, private: !!g.private, noAch: !g.stats};
+    groups.active = !(groups.finished || groups.private || groups.noAch);
+    return groups;
+  }
+  function renderFilterList(id, values) {
+    byId(id).innerHTML = FILTERS.map(function (f) {
+      var on = values[f[0]] !== "hide";
+      return '<button class="filter-chip' + (on ? " on" : "") + '" type="button" data-filter="' + f[0] + '" aria-pressed="' + on + '"' +
+        (f[3] ? ' data-tip="' + f[3] + '"' : "") + ">" + f[1] + "</button>";
+    }).join("");
+  }
+  // A click shows or hides a group; right-click (or Option-click) shows
+  // only it, or every group again when it's already the only one.
+  function nextFilters(values, key, only) {
+    var next = {};
+    FILTERS.forEach(function (f) { next[f[0]] = values[f[0]] === "hide" ? "hide" : "show"; });
+    if (!only) {
+      next[key] = next[key] === "hide" ? "show" : "hide";
+      return next;
+    }
+    var alone = FILTERS.every(function (f) { return (next[f[0]] === "show") === (f[0] === key); });
+    FILTERS.forEach(function (f) { next[f[0]] = alone || f[0] === key ? "show" : "hide"; });
+    return next;
+  }
+  function onFilterList(id, then) {
+    function pick(e, only) {
+      var chip = e.target.closest("[data-filter]");
+      if (!chip) return;
+      e.preventDefault();
+      then(chip.getAttribute("data-filter"), only);
+    }
+    byId(id).addEventListener("click", function (e) { pick(e, e.altKey); });
+    byId(id).addEventListener("contextmenu", function (e) { pick(e, true); });
+  }
+  var libFilter = {active: "show", finished: "show", private: "show", noAch: "show"};
   function filterGames(games) {
     return games.filter(function (g) {
-      if (libFilter.private === "hide" && g.private) return false;
-      if (libFilter.noAch === "hide" && !g.stats) return false;
-      if (libFilter.finished === "hide" && g.finished) return false;
-      if (libFilter.finished === "only" && !g.finished) return false;
-      return true;
+      var groups = gameGroups(g);
+      return FILTERS.some(function (f) { return groups[f[0]] && libFilter[f[0]] !== "hide"; });
     });
   }
   // Marked finished (done with, for good) on its page.
@@ -3147,23 +3285,37 @@
   function playedText(g) { return g.played ? "Played " + fmtDay(g.played) : neverPlayed(g) ? "Never played" : ""; }
   function renderGames(d) {
     var games = sortGames(d && !unlocksError ? d.games_list || [] : []);
-    byId("games-sort").value = gamesSort;
-    byId("games-order").textContent = orderName(gamesSort, gamesOrder);
-    var withAch = games.filter(function (g) { return g.stats; });
-    var complete = games.filter(function (g) { return g.total && g.unlocked >= g.total; }).length;
-    var hiddenCount = games.filter(function (g) { return g.hidden; }).length;
-    var privateCount = games.filter(function (g) { return g.private; }).length;
-    var unshown = games.filter(function (g) { return g.unreadable && !g.private; });
+    byId("games-sort-label").textContent = sortLabel(SORTS.games, gamesSort, gamesOrder);
+    byId("games-sort-pop").innerHTML = sortRowsHtml(SORTS.games, gamesSort, gamesOrder);
+    renderFilterList("games-filter-list", libFilter);
+    var off = FILTERS.filter(function (f) { return libFilter[f[0]] === "hide"; }).length;
+    byId("games-filters-label").textContent = off ? "Filters \u00b7 " + off : "Filters";
+    byId("games-filters-label").classList.toggle("on", !!off);
+    byId("games-filters-all").hidden = !off;
+    // Which games show, as the filters and the search say; what's counted
+    // is just those.
+    var kept = searchGames(filterGames(games));
+    var count = function (is) { return kept.filter(is).length; };
+    var withAch = count(function (g) { return g.stats; });
+    var complete = count(function (g) { return g.total && g.unlocked >= g.total; });
+    var privateCount = count(function (g) { return g.private; });
+    var finishedCount = count(function (g) { return g.finished; });
+    var unshown = kept.filter(function (g) { return g.unreadable && !g.private; });
     var parts = [];
-    if (d && !unlocksError) {
-      parts.push("<b>" + games.length.toLocaleString() + "</b> game" + (games.length === 1 ? "" : "s"));
-      parts.push(withAch.length.toLocaleString() + " with achievements");
-      if (games.length > withAch.length) parts.push((games.length - withAch.length).toLocaleString() + " without");
-      if (complete) parts.push(complete + " complete");
-      var finishedCount = games.filter(function (g) { return g.finished; }).length;
-      if (finishedCount) parts.push(finishedCount + " finished");
-      if (privateCount) parts.push(privateCount + " private");
-      if (hiddenCount) parts.push(hiddenCount + " hidden");
+    var query = gamesQuery.trim();
+    if (d && !unlocksError && query && !kept.length) {
+      parts.push("No games match \u201c" + escapeHtml(query) + "\u201d");
+    } else if (d && !unlocksError) {
+      parts.push("<b>" + kept.length.toLocaleString() + "</b>" + (kept.length < games.length ? " of " + games.length.toLocaleString() : "") +
+        " game" + (games.length === 1 ? "" : "s"));
+      // A count of some of them; none, or all (say with only Private
+      // shown), says nothing.
+      var some = function (n, label) { if (n && n < kept.length) parts.push(n.toLocaleString() + " " + label); };
+      some(withAch, "with achievements");
+      some(kept.length - withAch, "without");
+      some(complete, "complete");
+      some(finishedCount, "finished");
+      some(privateCount, "private");
       if (unshown.length) {
         parts.push('<button class="link-btn" type="button" id="games-unshown-btn" aria-expanded="' + unshownOpen + '">' +
           unshown.length + " not shown by Steam</button>");
@@ -3183,14 +3335,7 @@
         renderGames(unlocksData);
       });
     }
-    // Which games show, as Settings → Library says (Private, without
-    // achievements, finished); then the search.
-    var kept = filterGames(games);
-    if (games.length > kept.length) byId("games-status").firstChild.innerHTML += " \u00b7 " +
-      (games.length - kept.length).toLocaleString() + " filtered out";
-    var shown = searchGames(kept);
-    if (gamesQuery.trim() && d && !unlocksError)
-      byId("games-status").innerHTML += "<div>" + (shown.length ? "<b>" + shown.length.toLocaleString() + "</b> matching" : "No games match \u201c" + escapeHtml(gamesQuery.trim()) + "\u201d") + "</div>";
+    var shown = kept;
     byId("games-list").hidden = !shown.length;
     byId("games-list").innerHTML = shown.map(function (g) {
       var progress;
@@ -3199,7 +3344,7 @@
       else if (!g.read) progress = '<span class="lib-dim">' + (neverPlayed(g) ? "Never played" : "Not read yet") + "</span>";
       else progress = progressHtml(g.unlocked, g.total, true);
       var done = g.total && g.unlocked >= g.total;
-      return '<div class="lib-game' + (g.hidden || g.private ? " hidden-game" : "") + (done ? " complete" : "") +
+      return '<div class="lib-game' + (g.private ? " private-game" : "") + (done ? " complete" : "") +
         '" data-appid="' + g.appid + '" role="button" tabindex="0">' +
         iconHtml("lib-icon", g.icon, g.name) +
         '<div class="lib-text"><div class="lib-name"><span class="name-text">' + escapeHtml(g.name) + "</span>" + finishedMark(g) + markHtml(g) + counterMark(g) + "</div>" +
@@ -3218,17 +3363,19 @@
     if (!quiet) {
       gamePageFor = appid;
       gamePage = null;
+      resetAchEdit();
       renderGamePage();
       scrollLibraryTop();
     }
     api("/api/unlocks/game?appid=" + encodeURIComponent(appid)).then(function (p) {
-      if (gamePageFor === appid) { gamePage = p; renderGamePage(); }
+      if (gamePageFor === appid) { gamePage = p; renderGamePage(); changeSeen(p); }
     }).catch(function (e) {
       if (gamePageFor === appid && !quiet) { gamePage = {error: e}; renderGamePage(); }
     });
   }
   function closeGamePage() {
     gamePageFor = gamePage = null;
+    resetAchEdit();
     renderGamePage();
   }
   // A hidden achievement's description (Steam's stats page leaves it out;
@@ -3240,6 +3387,51 @@
       return '<div class="unlock-desc lib-dim">Hidden achievement</div>';
     return a.description ? '<div class="unlock-desc">' + escapeHtml(a.description) + "</div>" : "";
   }
+  // Unlocking and locking by hand, on a game's page: behind a lock like
+  // the timeline's. A locked achievement clicked gets a tick on its icon
+  // (and its place in the order), to unlock; an unlocked one an X, to
+  // lock again; on Apply (clicked twice).
+  var achEdit = false, achPicks = [], achDrops = {}, achError = null;
+  // Changes started here, until seen done (then said in a toast).
+  var achWatch = {}, achPoll = null;
+  function achRunning() { return !!(gamePage && gamePage.change && gamePage.change.running); }
+  // A game's page as read: while a change runs, read again in a moment;
+  // once one started here is done, say how it went.
+  function changeSeen(p) {
+    var ch = p.change;
+    clearTimeout(achPoll);
+    if (ch && ch.running) {
+      achPoll = setTimeout(function () { if (gamePageFor === p.appid) openGamePage(p.appid, true); }, 3000);
+      return;
+    }
+    if (!ch || !achWatch[p.appid]) return;
+    delete achWatch[p.appid];
+    if (ch.error) { showToast(ch.error[0] + ". " + ch.error[1]); return; }
+    showToast([ch.unlocked.length ? "Unlocked " + ch.unlocked.length : "", ch.locked.length ? "locked " + ch.locked.length : ""].filter(Boolean).join(", "));
+    loadUnlocks(false);
+    expectCheck();
+  }
+  var TICK = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.8 8.3l2.7 2.7 5.7-6"/></svg>';
+  var CROSS = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg>';
+  var LOCK_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path class="lock-shackle" d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>';
+  function resetAchEdit() {
+    achEdit = false; achPicks = []; achDrops = {}; achError = null;
+    delete armedUntil["ach-apply"];
+  }
+  // What's marked, with Clear and Apply, in the sort's bar before the
+  // lock (so marking moves nothing); empty when nothing is.
+  function achApplyHtml() {
+    var n = achPicks.length, m = Object.keys(achDrops).length;
+    if (achRunning()) return '<span class="ach-apply"><span>' + escapeHtml("Playing it, sending to Steam\u2026") + "</span></span>";
+    if (!achEdit) return "";
+    if (!n && !m) return "";
+    var what = [n ? "Unlock " + n : "", m ? "Lock " + m : ""].filter(Boolean).join(" \u00b7 ");
+    var armed = isArmed("ach-apply");
+    return '<span class="ach-apply"><span>' + escapeHtml(what) + "</span>" +
+      '<button class="btn-ghost" type="button" data-ach-cancel>Clear</button>' +
+      '<button class="btn-ghost primary-ghost' + (armed ? " armed" : "") + '" type="button" data-ach-apply>' +
+      (armed ? "Confirm" : "Apply") + "</button></span>";
+  }
   function achRowsHtml(list, groupKind) {
     return list.map(function (a) {
       var when = "", kind = groupKind || a.kind;
@@ -3247,7 +3439,18 @@
         var at = new Date(a.time * 1000);
         when = '<div class="unlock-meta"><div>' + escapeHtml(fmtDay(a.time)) + "</div><div>" + escapeHtml(fmtClock(at)) + "</div></div>";
       }
-      return '<div class="unlock' + (kind === "locked" ? " locked" : "") + '">' + iconHtml("unlock-icon", a.icon, "ach") +
+      var icon = iconHtml("unlock-icon", a.icon, "ach"), attrs = "";
+      var pick = achPicks.indexOf(a.name), drop = !!achDrops[a.name];
+      if (achEdit) {
+        // The whole row is clicked; its icon shows what Apply will do.
+        var mark = kind === "locked" && pick !== -1 ? '<span class="ach-mark add">' + TICK + "<b>" + (pick + 1) + "</b></span>"
+          : kind !== "locked" && drop ? '<span class="ach-mark drop">' + CROSS + "</span>" : "";
+        icon = '<span class="ach-icon">' + icon + mark + "</span>";
+        attrs = ' role="button" tabindex="0" data-ach="' + escapeHtml(a.name) + '" data-ach-kind="' + (kind === "locked" ? "locked" : "unlocked") +
+          '" aria-pressed="' + (pick !== -1 || drop) + '"';
+      }
+      return '<div class="unlock' + (kind === "locked" ? " locked" : "") + (achEdit ? " editable" : "") + (achEdit && drop ? " dropping" : "") +
+        (achEdit && kind === "locked" && pick !== -1 ? " picked" : "") + '"' + attrs + ">" + icon +
         '<div class="unlock-text"><div class="unlock-name">' + escapeHtml(a.name) + "</div>" +
         achDescHtml(a, kind === "locked") + "</div>" + when + "</div>";
     }).join("");
@@ -3256,11 +3459,17 @@
   // list, by date unlocked (those without a time, and locked ones, after,
   // in Steam's order) or by name; picked here, kept until the app closes
   // (the defaults are in Settings → Library).
-  var achSort = "date", achOrder = "desc", achGroup = "status";
+  var achSort = "date", achOrder = "desc", achGroup = "status", achSortOpen = false;
   function sortAch(list, timed) {
     var out = list.slice();
     if (achSort === "name") out.sort(function (a, b) { return a.name.localeCompare(b.name); });
-    else if (timed) out.sort(function (a, b) { return a.time - b.time; });
+    else if (achSort === "default") {
+      // Steam's own order (alist's), once known; until then as read.
+      var at = {};
+      ((gamePage && gamePage.order) || []).forEach(function (n, i) { if (!(n in at)) at[n] = i; });
+      var pos = function (a) { return a.name in at ? at[a.name] : 1e9; };
+      out.sort(function (a, b) { return pos(a) - pos(b); });
+    } else if (timed) out.sort(function (a, b) { return a.time - b.time; });
     else return out;
     return achOrder === "desc" ? out.reverse() : out;
   }
@@ -3285,7 +3494,7 @@
     // A banner: the game's art faded in from the right, under its name,
     // progress and links.
     html += '<div class="game-banner"' + (p.appid > 0 ? ' style="--card-hero: ' + escapeHtml(heroUrl(p)) + '"' : "") + ">" +
-      '<div class="game-head' + (p.hidden || p.private ? " hidden-game" : "") + (done ? " complete" : "") + '">' +
+      '<div class="game-head' + (p.private ? " private-game" : "") + (done ? " complete" : "") + '">' +
       iconHtml("lib-icon", p.icon, p.name) +
       '<div class="lib-text"><div class="game-title"><span class="name-text">' + escapeHtml(p.name) + "</span>" + finishedMark(p) + markHtml(p) + counterMark(p) + "</div>" +
       (p.read ? '<div class="lib-progress">' + progressHtml(p.unlocked, p.total) + "</div>" : "") +
@@ -3298,15 +3507,20 @@
     else if (!p.read) html += noticeHtml("info", "Not read from Steam yet. It's read on a coming check.");
     else {
       if (!p.full) html += noticeHtml("info", "Its locked achievements show after its next read from Steam.");
-      html += '<div class="unlocks-bar ach-sort games-sort"><select id="ach-sort" aria-label="Sort achievements by">' +
-        '<option value="date">Date unlocked</option><option value="name">Name</option></select>' +
-        '<button class="btn-ghost" id="ach-order" type="button">' + orderName(achSort, achOrder) + "</button>" +
-        '<select id="ach-group" aria-label="Group achievements by"><option value="status">Group: Unlocked / Locked</option>' +
-        '<option value="none">Group: None</option></select></div>';
+      html += '<div class="unlocks-bar ach-sort games-sort">' +
+        '<details class="filters-menu sort-menu" id="ach-sort-menu"' + (achSortOpen ? " open" : "") + ">" +
+        '<summary class="btn-ghost">' + sortLabel(SORTS.ach, achSort, achOrder) + "</summary>" +
+        '<div class="filters-pop">' + sortRowsHtml(SORTS.ach, achSort, achOrder) + "</div></details>" +
+        '<button class="btn-ghost ach-group' + (achGroup === "status" ? " on" : "") + '" type="button" data-ach-group aria-pressed="' +
+        (achGroup === "status") + '" data-tip="Show unlocked and locked achievements in separate lists">Split by status</button>' +
+        '<span class="ach-right">' + achApplyHtml() +
+        '<button class="lock-toggle ach-lock" type="button" data-ach-lock aria-pressed="' + achEdit + '"' + (achRunning() ? " disabled" : "") + ">" + LOCK_ICON +
+        "<span>" + (achEdit ? "Unlocked" : "Locked") + "</span></button></span></div>" +
+        (achEdit && achError ? problemHtml("warn", (achError.data || {}).title, achError.message) : "");
       var tag = function (list, kind) { return list.map(function (a) { return Object.assign({kind: kind}, a); }); };
       if (achGroup === "none") {
         var all = sortAch(tag(p.unlocks, "unlocked"), true).concat(tag(p.untimed, "untimed"), tag(p.locked, "locked"));
-        if (achSort === "name") all = sortAch(all);
+        if (achSort !== "date") all = sortAch(all);
         html += '<div class="unlocks-day">All \u00b7 ' + all.length + '</div><div class="unlocks-group">' + achRowsHtml(all) + "</div>";
       } else {
         var groups = [["Unlocked", sortAch(p.unlocks, true), "unlocked"], ["Unlocked, no time kept by Steam", sortAch(p.untimed), "untimed"], ["Locked", sortAch(p.locked), "locked"]];
@@ -3317,7 +3531,6 @@
       }
     }
     page.innerHTML = html;
-    if (byId("ach-sort")) { byId("ach-sort").value = achSort; byId("ach-group").value = achGroup; }
   }
   byId("games-list").addEventListener("click", function (e) {
     var row = e.target.closest("[data-appid]");
@@ -3330,7 +3543,56 @@
   byId("game-page").addEventListener("click", function (e) {
     var run = e.target.closest("[data-game-run]");
     if (run) { selectedRun = run.getAttribute("data-game-run"); showScreen("work"); setView("runs"); }
-    if (e.target.closest("#ach-order")) { achOrder = achOrder === "desc" ? "asc" : "desc"; renderGamePage(); }
+    if (e.target.closest("[data-ach-group]")) {
+      achGroup = achGroup === "status" ? "none" : "status";
+      renderGamePage();
+      return;
+    }
+    if (e.target.closest("[data-ach-lock]") && !achRunning()) {
+      var on = !achEdit;
+      resetAchEdit();
+      achEdit = on;
+      renderGamePage();
+      return;
+    }
+    var box = e.target.closest("[data-ach]");
+    if (box && achEdit && !achRunning()) {
+      var name = box.getAttribute("data-ach");
+      if (box.getAttribute("data-ach-kind") === "locked") {
+        var at = achPicks.indexOf(name);
+        if (at === -1) achPicks.push(name); else achPicks.splice(at, 1);
+      } else if (achDrops[name]) delete achDrops[name];
+      else achDrops[name] = true;
+      delete armedUntil["ach-apply"];
+      achError = null;
+      renderGamePage();
+      return;
+    }
+    if (e.target.closest("[data-ach-cancel]")) { achPicks = []; achDrops = {}; achError = null; delete armedUntil["ach-apply"]; renderGamePage(); return; }
+    if (e.target.closest("[data-ach-apply]") && gamePage) {
+      if (!isArmed("ach-apply")) {
+        armedUntil["ach-apply"] = Date.now() + ARM_MS;
+        setTimeout(function () { if (gamePage) renderGamePage(); }, ARM_MS + 50);
+        renderGamePage();
+        return;
+      }
+      delete armedUntil["ach-apply"];
+      var appid = gamePage.appid;
+      // Started on the server, which takes a minute or so (the game plays
+      // around the changes); the page follows it, left or not.
+      api("/api/unlocks/achievements", {appid: appid, unlock: achPicks, lock: Object.keys(achDrops)}).then(function () {
+        achWatch[appid] = true;
+        if (gamePageFor !== appid) return;
+        resetAchEdit();
+        gamePage.change = {running: true};
+        renderGamePage();
+        changeSeen(gamePage);
+      }).catch(function (err) {
+        achError = err;
+        renderGamePage();
+      });
+      return;
+    }
     var fin = e.target.closest("[data-game-finish]");
     if (fin && gamePage) {
       fin.disabled = true;
@@ -3343,13 +3605,20 @@
     }
   });
   byId("game-back").addEventListener("click", closeGamePage);
-  byId("game-page").addEventListener("change", function (e) {
-    if (e.target.id === "ach-group") { achGroup = e.target.value; renderGamePage(); return; }
-    if (e.target.id !== "ach-sort") return;
-    achSort = e.target.value;
-    achOrder = achSort === "name" ? "asc" : "desc";  // A–Z, or newest first
+  byId("game-page").addEventListener("keydown", function (e) {
+    var row = e.target.closest("[data-ach]");
+    if (row && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); row.click(); }
+  });
+  // The sort menu stays open while its chips redraw the page.
+  onChoice(byId("game-page"), function (c) {
+    if (c.sort) achSort = c.sort;
+    if (c.order) achOrder = c.order;
+    if (c.group) achGroup = c.group;
     renderGamePage();
   });
+  byId("game-page").addEventListener("toggle", function (e) {
+    if (e.target.id === "ach-sort-menu") achSortOpen = e.target.open;
+  }, true);
 
   function showLibraryTab(tab) {
     if (tab === libraryTab) return;
@@ -3383,6 +3652,22 @@
   window.addEventListener("scroll", syncToTop);
   byId("to-top").addEventListener("click", scrollLibraryTop);
 
+  // From Settings → Library → Check Steam (library_check): at set times
+  // of day counted from midnight (every 6 hours: 12 AM, 6 AM, 12 PM, 6 PM),
+  // or right away when the last check is older than the latest of them.
+  var CHECK_HOURS = {"1h": 1, "3h": 3, "6h": 6, "12h": 12, "24h": 24};
+  function nextCheckText(fetchedAt) {
+    var pick = (runSettings || []).filter(function (x) { return x.key === "library_check"; })[0];
+    var every = CHECK_HOURS[pick ? pick.value : "6h"];
+    if (!every) return "Checks on Refresh";
+    var last = new Date();
+    last.setHours(Math.floor(last.getHours() / every) * every, 0, 0, 0);
+    if (fetchedAt * 1000 < last.getTime()) return "Checking soon";
+    var next = new Date(last.getTime());
+    next.setHours(last.getHours() + every);
+    var at = fmtAt((next.getTime() - Date.now()) / 1000);
+    return "Next check " + (/^\d/.test(at) ? "at " + at : at.replace(/^Tomorrow/, "tomorrow"));
+  }
   function renderUnlocks() {
     var d = unlocksData, list = byId("unlocks-list");
     var syncing = d && d.syncing;
@@ -3403,24 +3688,23 @@
     var gameCount = {};
     shown.forEach(function (u) { gameCount[u.appid] = 1; });
     gameCount = Object.keys(gameCount).length;
-    // What's counted, then (with a key) the library; while Steam is
-    // read, how far along; when it was last read, on the right.
+    // What's counted (beside the range).
     var lines = [];
-    if (unlocksBusy && !d) lines.push(escapeHtml("Asking Steam\u2026"));
-    else if (d && !unlocksError) {
+    if (d && !unlocksError) {
       var line = "<b>" + shown.length.toLocaleString() + "</b> achievement" + (shown.length === 1 ? "" : "s") + " in <b>" +
         gameCount + "</b> game" + (gameCount === 1 ? "" : "s") + " " + range[1];
       if (d.offline) line = '<span class="warn">' + escapeHtml(d.offline) + "</span> " + line;
       lines.push(line);
-      if (syncing) {
-        lines.push('<span class="unlocks-sync">' + escapeHtml(syncing.total
-          ? "Reading your games from Steam: " + syncing.done + " of " + syncing.total + "\u2026"
-          : "Asking Steam what changed\u2026") + "</span>");
-      }
     }
     byId("unlocks-status").innerHTML = lines.map(function (l) { return "<div>" + l + "</div>"; }).join("");
-    if (syncing) byId("games-status").innerHTML += "<div>" + lines[lines.length - 1] + "</div>";
+    // Top right, for both tabs: when Steam was read, and under it a check
+    // going on (Refresh, or on schedule) or when the next one is due.
     byId("unlocks-updated").textContent = d && !unlocksError && d.fetched_at ? "Updated " + fmtClock(new Date(d.fetched_at * 1000)) : "";
+    var check = byId("unlocks-check"), checking = unlocksBusy || syncing;
+    check.classList.toggle("busy", !!checking);
+    check.textContent = checking
+      ? (syncing && syncing.total ? "Reading your games: " + syncing.done + " of " + syncing.total + "\u2026" : "Checking Steam\u2026")
+      : d && !unlocksError && d.fetched_at ? nextCheckText(d.fetched_at) : "";
     if (unlocksError) {
       list.innerHTML = problemHtml("warn", (unlocksError.data || {}).title, unlocksError.message);
     } else if (d && !shown.length) {
@@ -3433,7 +3717,7 @@
           html += (lastDay ? "</div>" : "") + '<div class="unlocks-day">' + escapeHtml(day) + '</div><div class="unlocks-group">';
           lastDay = day;
         }
-        html += '<div class="unlock' + (u.hidden || u.private ? " hidden-game" : "") + '">' +
+        html += '<div class="unlock' + (u.private ? " private-game" : "") + '">' +
           iconHtml("unlock-icon", u.icon, "ach") +
           '<div class="unlock-text"><div class="unlock-name">' + escapeHtml(u.name) + "</div>" +
           achDescHtml(u, false) + "</div>" +
@@ -3463,18 +3747,32 @@
     unlocksRange = b.getAttribute("data-range");
     renderUnlocks();
   });
-  byId("games-sort").addEventListener("change", function () {
-    gamesSort = this.value;
-    gamesOrder = gamesSort === "name" ? "asc" : "desc";  // A–Z, or newest / most first
+  onChoice(byId("games-sort-pop"), function (c) {
+    if (c.sort) gamesSort = c.sort;
+    gamesOrder = c.order;
     renderUnlocks();
+  });
+  // Filters, here for a while (the defaults are in Settings → Library).
+  onFilterList("games-filter-list", function (key, only) {
+    libFilter = nextFilters(libFilter, key, only);
+    renderGames(unlocksData);
+  });
+  byId("games-filters-all").addEventListener("click", function () {
+    FILTERS.forEach(function (f) { libFilter[f[0]] = "show"; });
+    renderGames(unlocksData);
+  });
+  // A menu (Filters, a sort) closes on a click outside it. (composedPath:
+  // a click on a chip redraws it, leaving the clicked chip, or on a game's
+  // page the whole menu, out of the page by now; so it's matched by id.)
+  document.addEventListener("click", function (e) {
+    var inside = e.composedPath().filter(function (n) { return n.classList && n.classList.contains("filters-menu"); })[0];
+    document.querySelectorAll(".filters-menu[open]").forEach(function (menu) {
+      if (!inside || inside.id !== menu.id) menu.open = false;
+    });
   });
   byId("games-search").addEventListener("input", function () {
     gamesQuery = this.value;
     renderGames(unlocksData);
-  });
-  byId("games-order").addEventListener("click", function () {
-    gamesOrder = gamesOrder === "desc" ? "asc" : "desc";
-    renderUnlocks();
   });
   // Settings → Library: the defaults, saved in settings.json.
   function saveSetting(values) {
@@ -3482,24 +3780,27 @@
       .catch(function (err) { showToast("Couldn't save: " + err.message); });
   }
   byId("default-range").addEventListener("change", function () { saveSetting({unlocks_range: this.value}); });
-  byId("lib-private").addEventListener("change", function () { saveSetting({library_private: this.value}); });
-  byId("lib-no-ach").addEventListener("change", function () { saveSetting({library_no_achievements: this.value}); });
-  byId("lib-finished").addEventListener("change", function () { saveSetting({library_finished: this.value}); });
+  onFilterList("lib-filters", function (key, only) {
+    var values = {}, now = {}, change = {};
+    (runSettings || []).forEach(function (x) { values[x.key] = x.value; });
+    FILTERS.forEach(function (f) { now[f[0]] = values[f[2]]; });
+    var next = nextFilters(now, key, only);
+    FILTERS.forEach(function (f) { change[f[2]] = next[f[0]]; });
+    saveSetting(change);
+  });
   byId("library-check").addEventListener("change", function () { saveSetting({library_check: this.value}); });
   byId("hidden-descriptions").addEventListener("change", function () { saveSetting({hidden_descriptions: this.value}); });
-  byId("default-sort").addEventListener("change", function () {
-    var order = this.value === "name" ? "asc" : "desc";
-    syncOrderOptions(byId("default-order"), this.value, order);
-    saveSetting({library_sort: this.value, library_order: order});
+  onChoice(byId("lib-sort"), function (c) {
+    var change = {library_order: c.order};
+    if (c.sort) change.library_sort = c.sort;
+    saveSetting(change);
   });
-  byId("default-order").addEventListener("change", function () { saveSetting({library_order: this.value}); });
-  byId("default-ach-sort").addEventListener("change", function () {
-    var order = this.value === "name" ? "asc" : "desc";
-    syncOrderOptions(byId("default-ach-order"), this.value, order);
-    saveSetting({achievement_sort: this.value, achievement_order: order});
+  onChoice(byId("lib-ach-sort"), function (c) {
+    var change = {achievement_order: c.order};
+    if (c.sort) change.achievement_sort = c.sort;
+    saveSetting(change);
   });
-  byId("default-ach-order").addEventListener("change", function () { saveSetting({achievement_order: this.value}); });
-  byId("default-ach-group").addEventListener("change", function () { saveSetting({achievement_group: this.value}); });
+  onChoice(byId("lib-ach-group"), function (c) { saveSetting({achievement_group: c.group}); });
   // Settings → Library: the Steam Web API key, so the Library covers the
   // whole library.
   function renderUnlocksKey() {

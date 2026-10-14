@@ -65,15 +65,18 @@ DEFAULTS = {
     # achievement, name or progress; descending (newest, Z–A, most) or not.
     "library_sort": "played",
     "library_order": "desc",
-    # How a game's achievements are listed on its page: by date unlocked
-    # or name, descending (newest, Z–A) or not; grouped into unlocked and
+    # How a game's achievements are listed on its page: in Steam's own
+    # order ("default"), by date unlocked or name, descending (reversed,
+    # newest, Z–A) or not; grouped into unlocked and
     # locked ("status") or all in one list ("none").
     "achievement_sort": "date",
     "achievement_order": "desc",
     "achievement_group": "status",
-    # Which games the Library's Games list shows: those marked Private in
-    # Steam, those without achievements ("show" or "hide"), and those
-    # marked finished ("show", "hide" or "only").
+    # Which games the Library's Games list shows, by group, each "show" or
+    # "hide": those marked Private in Steam, those marked finished, those
+    # without achievements, and the rest ("active"). A game shows when any
+    # group it's in is shown.
+    "library_active": "show",
     "library_private": "show",
     "library_no_achievements": "show",
     "library_finished": "show",
@@ -83,7 +86,9 @@ DEFAULTS = {
     # unlocked, always ("all"), or never ("none").
     "hidden_descriptions": "unlocked",
     # How often the Library checks Steam for new games and achievements,
-    # in the background: 1h, 3h, 6h, 12h, 24h, or "manual" (on Refresh).
+    # in the background, at set times of day counted from midnight (6h:
+    # 12 AM, 6 AM, 12 PM, 6 PM): 1h, 3h, 6h, 12h, 24h, or "manual" (on
+    # Refresh).
     "library_check": "6h",
 }
 
@@ -115,6 +120,7 @@ _TYPES = {
     "achievement_sort": (str,),
     "achievement_order": (str,),
     "achievement_group": (str,),
+    "library_active": (str,),
     "library_private": (str,),
     "library_no_achievements": (str,),
     "library_finished": (str,),
@@ -141,19 +147,20 @@ APP_CHOICES = {"clock": ["system", "12h", "24h"], "theme": ["dark", "light"],
                "unlocks_range": ["day", "week", "month", "year", "all"],
                "library_sort": ["played", "achievement", "name", "progress", "playtime"],
                "library_order": ["desc", "asc"],
-               "achievement_sort": ["date", "name"],
+               "achievement_sort": ["default", "date", "name"],
                "achievement_order": ["desc", "asc"],
                "achievement_group": ["status", "none"],
+               "library_active": ["show", "hide"],
                "library_private": ["show", "hide"],
                "library_no_achievements": ["show", "hide"],
-               "library_finished": ["show", "hide", "only"],
+               "library_finished": ["show", "hide"],
                "library_tab": ["achievements", "games"],
                "hidden_descriptions": ["unlocked", "all", "none"],
                "library_check": ["1h", "3h", "6h", "12h", "24h", "manual"]}
 
 # Settings older versions had, ignored (and dropped on the next save from
 # the app) rather than refused as unknown.
-RETIRED = {"notifications"}
+RETIRED = {"notifications", "library_hidden"}
 
 
 def problems(overrides):

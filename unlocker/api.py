@@ -275,6 +275,21 @@ def send_aset(appid, ach_ids):
     return "unknown", result
 
 
+def send_areset(appid, ach_ids):
+    """Locks achievements again (the plugin's areset), as send_aset."""
+    if isinstance(ach_ids, (list, tuple)):
+        ach_ids = ",".join(str(a) for a in ach_ids)
+    result, _ = send_command(f"areset {appid} {ach_ids}")
+
+    if result is None:
+        return "unreachable", ""
+    if "success" in result.lower():
+        return "success", result
+    if "already locked" in result.lower() or "not unlocked" in result.lower():
+        return "already_locked", result
+    return "unknown", result
+
+
 def send_alist(appid):
     """Returns ({achievement_number: is_unlocked}, reconnected), or (None,
     reconnected) if ASF wasn't reachable. Doesn't modify anything, unlike
