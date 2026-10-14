@@ -1730,10 +1730,12 @@
     margin-bottom: 0.9rem;
   }
   .paste-summary-stats { flex: 1; min-width: 0; }
-  /* The figures in four equal columns, so they stay put as the numbers
-     change and are evenly spaced (each wide enough for the longest). */
-  .paste-summary .stats-strip { display: grid; grid-template-columns: repeat(4, 13.5rem); gap: 0.2rem 1.2rem; font-size: 0.8rem; color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  /* The figures in four equal columns of the room there is (up to a
+     point), so they stay put as the numbers change and are evenly spaced;
+     one that doesn't fit ends in "…". */
+  .paste-summary .stats-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); max-width: 56rem; gap: 0.2rem 1.2rem; font-size: 0.8rem; color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .paste-summary .stats-strip b { color: var(--text); font-weight: 600; }
+  .paste-summary .stats-strip > span { overflow: hidden; text-overflow: ellipsis; }
   .paste-summary #sched-full-btn { box-sizing: border-box; height: 1.7rem; min-width: 6.5rem; }
   .paste-summary #sched-full-btn { justify-content: center; text-align: center; }
   .paste-summary .bar-btn[aria-pressed="true"] { color: var(--accent); background: var(--accent-tint); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
