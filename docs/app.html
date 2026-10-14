@@ -225,7 +225,8 @@
             <select id="default-order" aria-label="Order"></select>
           </div>
           <div class="lib-default lib-filters"><span>Games shown</span>
-            <div class="filter-list" id="lib-filters" data-scope="settings"></div>
+            <div><div class="filter-list" id="lib-filters" data-scope="settings"></div>
+              <p class="filters-hint">Right-click a group to show only it.</p></div>
           </div>
           <div class="lib-default"><span>Achievements sorted by</span>
             <select id="default-ach-sort" aria-label="A game's achievements sorted by">
@@ -526,7 +527,11 @@
         <!-- Which games show, for a while (the defaults are in Settings). -->
         <details class="filters-menu" id="games-filters">
           <summary class="btn-ghost" id="games-filters-label">Filters</summary>
-          <div class="filters-pop"><div class="filter-list" id="games-filter-list" data-scope="games"></div></div>
+          <div class="filters-pop">
+            <div class="filter-list" id="games-filter-list" data-scope="games"></div>
+            <div class="filters-foot"><span class="filters-hint">Right-click: only this</span>
+              <button class="link-btn" id="games-filters-all" type="button" hidden>Show all</button></div>
+          </div>
         </details>
       </div>
     </div>
