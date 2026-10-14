@@ -917,8 +917,7 @@
         latest = {errors: [numbering.message], errorTitle: numbering.title, inputNotice: "danger"};
         return;
       } else {
-        numberDangers.push((numbering.title ? numbering.title + ". " : "") + numbering.message +
-          " Until then, numbers come from the pasted order, so the paste needs the default sort.");
+        numberDangers.push((numbering.title ? numbering.title + ". " : "") + numbering.message);
       }
     }
 
