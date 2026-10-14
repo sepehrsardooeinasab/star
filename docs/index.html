@@ -174,7 +174,7 @@ runsteamunlocker -h              # help</code></pre>
         <tr><td><code>stop_other_asf</code></td><td><code>true</code></td><td>Stops other ArchiSteamFarm installs on this computer when a session starts, since Steam allows one login per account. Turn it off if they use other accounts (e.g. a card-farming install).</td></tr>
         <tr><td><code>warm_settle_delay</code></td><td><code>10</code></td><td>Seconds between starting the game and the first unlock, when the bot was already connected.</td></tr>
         <tr><td><code>reconnect_settle_delay</code></td><td><code>60</code></td><td>The same wait when Steam just reconnected. Shorter values have produced offline-looking timestamps.</td></tr>
-        <tr><td><code>play_check_interval</code></td><td><code>900</code></td><td>How often (seconds) a session checks whether the bot reconnected to Steam, which drops the game it was playing. It's also checked before every unlock.</td></tr>
+        <tr><td><code>play_check_interval</code></td><td><code>30</code></td><td>How often (seconds) a session checks whether the bot reconnected to Steam, which drops the game it was playing. Only ASF's log is read, so it can be often. It's also checked before every unlock.</td></tr>
         <tr><td><code>bot_connect_timeout</code></td><td><code>60</code></td><td>Seconds a command keeps retrying while ASF starts or the bot connects to Steam.</td></tr>
         <tr><td><code>asf_shutdown_delay</code></td><td><code>300</code></td><td>Seconds after a session ends before an idle ASF is shut down.</td></tr>
         <tr><td><code>asf_port</code></td><td><code>1243</code></td><td>Port ASF's local API listens on. Must match ASF's <code>IPC.config</code>.</td></tr>
