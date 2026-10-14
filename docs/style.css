@@ -333,6 +333,11 @@
     grid-auto-flow: row dense;
   }
   body[data-screen="guide"] #hero-setup #step-runs { grid-column: 1 / -1; }
+  /* Keep awake, under Runs, with Test beside it. */
+  .awake-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem 0.8rem; margin-top: 0.5rem; }
+  .awake-row[hidden] { display: none; }
+  .setup-step .awake-row .setting-check { margin: 0; }
+  .awake-row button { padding: 0.3rem 0.7rem; font-size: 0.78rem; border-radius: 7px; }
   body[data-screen="guide"] #hero-setup .run-settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 2.5rem; }
   body[data-screen="guide"] #setup-error { margin: 0; padding: 0 1.3rem 0.8rem; }
   /* About STAR: the version and updates, in Settings only. */

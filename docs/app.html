@@ -175,17 +175,14 @@
           <button class="btn-ghost" type="submit">Continue</button>
         </form>
       </li>
-      <li class="setup-step" id="step-extras" hidden>
-        <div class="step-head"><span class="step-mark"></span><b>Keep awake</b></div>
-        <div class="setting-checks">
-          <label class="setting-check"><input type="checkbox" id="keep-awake-on" disabled> Keep the computer awake during runs</label>
-          <p class="step-text setting-why" id="awake-text" hidden></p>
-        </div>
-        <button class="btn-ghost" type="button" id="awake-check" title="Checks that the computer really stays awake">Test</button>
-      </li>
       <li class="setup-step done" id="step-runs" hidden>
         <div class="step-head"><span class="step-mark"></span><b>Runs</b></div>
         <label class="setting-check"><input type="checkbox" id="show-done"> Show finished games in Runs</label>
+        <div class="awake-row" id="awake-row" hidden>
+          <label class="setting-check"><input type="checkbox" id="keep-awake-on" disabled> Keep the computer awake during runs</label>
+          <button class="btn-ghost" type="button" id="awake-check" title="Checks that the computer really stays awake">Test</button>
+        </div>
+        <p class="step-text setting-why" id="awake-text" hidden></p>
         <details class="run-settings-box" id="run-settings-box">
           <summary>Advanced run settings <span id="run-settings-summary"></span></summary>
           <div class="run-settings-top">

@@ -2909,10 +2909,10 @@
 
   function renderExtras(d) {
     var x = d.extras;
-    byId("step-extras").hidden = !x || !(d.asf && d.plugin);
+    // Under Runs in Settings.
+    byId("awake-row").hidden = !x;
     if (!x) return;
     var awake = x.keep_awake;
-    byId("step-extras").className = "setup-step" + (awake.tool ? " done" : "");
     extrasTools.keep_awake = !!awake.tool;
     byId("awake-text").hidden = !!awake.tool;
     byId("awake-text").textContent = "Not available here: needs systemd-inhibit.";
