@@ -2100,9 +2100,11 @@
   .ach-right { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; }
   .ach-apply { display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; color: var(--text-dim); white-space: nowrap; }
   .ach-apply > span { margin-right: 0.25rem; }
-  .games-sort .ach-apply .btn-ghost { width: auto; height: 1.95rem; padding: 0 0.75rem; font-size: 0.78rem; }
+  /* Clear and Apply: like the timeline's Save in Runs, beside the lock. */
+  .games-sort .ach-apply .btn-ghost { width: auto; height: auto; padding: 0.25rem 0.75rem; font-size: 0.76rem; }
+  .ach-apply .primary-ghost { border-color: var(--accent); color: var(--accent); }
   /* Apply and Confirm: one width, so arming it moves nothing. */
-  .games-sort .ach-apply [data-ach-apply] { box-sizing: border-box; width: 5.2rem; padding: 0; justify-content: center; }
+  .games-sort .ach-apply [data-ach-apply] { box-sizing: border-box; min-width: 4.8rem; justify-content: center; text-align: center; }
   .unlock.locked :is(.unlock-name, .unlock-desc) { color: var(--placeholder); }
   /* Drawn by the app, not as WebKit's search field (taller than its
      height, with its own padding). */

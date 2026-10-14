@@ -3129,7 +3129,7 @@
   var SORTS = {games: [["played", "Last played"], ["achievement", "Last achievement"], ["name", "Name"],
     ["progress", "Progress"], ["playtime", "Play time"]], ach: [["default", "Default"], ["date", "Date unlocked"], ["name", "Name"]]};
   // A game's achievements: unlocked and locked apart, or in one list.
-  var GROUPS = [["status", "Group"], ["none", "No group"]];
+  var GROUPS = [["status", "On"], ["none", "Off"]];
   // A–Z, Steam's own order, or newest / most first.
   function naturalOrder(sort) { return sort === "name" || sort === "default" ? "asc" : "desc"; }
   function chipRow(key, choices, value) {
@@ -3512,7 +3512,7 @@
         '<summary class="btn-ghost">' + sortLabel(SORTS.ach, achSort, achOrder) + "</summary>" +
         '<div class="filters-pop">' + sortRowsHtml(SORTS.ach, achSort, achOrder) + "</div></details>" +
         '<button class="btn-ghost ach-group' + (achGroup === "status" ? " on" : "") + '" type="button" data-ach-group aria-pressed="' +
-        (achGroup === "status") + '" data-tip="Unlocked and locked apart">Group</button>' +
+        (achGroup === "status") + '" data-tip="Show unlocked and locked achievements in separate lists">Split by status</button>' +
         '<span class="ach-right">' + achApplyHtml() +
         '<button class="lock-toggle ach-lock" type="button" data-ach-lock aria-pressed="' + achEdit + '"' + (achRunning() ? " disabled" : "") + ">" + LOCK_ICON +
         "<span>" + (achEdit ? "Unlocked" : "Locked") + "</span></button></span></div>" +
