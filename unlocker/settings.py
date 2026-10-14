@@ -30,7 +30,7 @@ DEFAULTS = {
     "play_check_interval": 30,
     # How many of a game's runs its log keeps (Runs shows them), newest
     # last; older ones are dropped when a run starts.
-    "run_logs_kept": 5,
+    "run_logs_kept": 3,
     # Unlocks this close together in the source data count as simultaneous
     # (a 1s delay is usually the same event straddling a second boundary),
     # and are batched into a single aset.
