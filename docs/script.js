@@ -1894,8 +1894,9 @@
     return null;
   }
 
-  // The bar acts on the selected game: Run or Continue it, or while it's
-  // running, Stop it, with 1 session / All sessions switching how much it plays.
+  // The bar acts on the selected game: Run or Continue it (a menu: when
+  // it starts, how much it plays), or while it's running, Stop it, with
+  // All sessions switching how much it plays.
   function selectedGame() {
     return (runsData ? runsData.games : []).filter(function (x) { return x.name === selectedRun; })[0];
   }
@@ -1906,13 +1907,20 @@
     byId("run-mode").disabled = !!disabled;
   }
 
+  // The Run menu's chips, from the two selects' choices.
+  function runChips(select) {
+    return [].map.call(select.options, function (o) {
+      var on = o.value === select.value;
+      return '<button class="filter-chip' + (on ? " on" : "") + '" type="button" data-value="' + o.value + '" aria-pressed="' + on + '">' + o.text + "</button>";
+    }).join("");
+  }
   function renderRunBar(games) {
     var g = selectedGame();
     var other = games.filter(function (x) { return x.running && (!g || x.name !== g.name); })[0];
     var button = byId("run-start"), delay = byId("run-delay"), mode;
     var custom = byId("run-delay-custom");
     var running = !!(g && g.running), done = !!(g && (g.finished || g.state === "completed"));
-    var minutes = runDelayMinutes(), why = "";
+    var minutes = runDelayMinutes(), why = "", blocked = false;
     custom.hidden = delay.value !== "custom";
     custom.classList.toggle("invalid", !custom.hidden && custom.value.trim() !== "" && minutes === null);
     if (running) {
@@ -1930,15 +1938,29 @@
       else if (g.state === "invalid") why = gameTitle(g) + "'s config has a problem.";
       else if (g.config_changed) why = "The achievement order changed. Run it once from the terminal to confirm.";
       else if (other) why = "Only one game runs at a time. Stop " + gameTitle(other) + " first.";
-      else if (minutes === null) why = "Start: enter a time like 45m, 1h30m or 23:30.";
-      button.textContent = g && g.done ? "Continue" : "Run";
+      blocked = !!why;  // the menu doesn't open
+      if (!why && minutes === null) why = "Enter a time like 45m, 1h30m or 23:30.";
+      button.textContent = byId("run-go").textContent = g && g.done ? "Continue" : "Run";
       button.className = "btn-hero primary run-start";
       mode = runOpts.every;
     }
-    button.disabled = !!why;
-    button.title = why;
+    button.classList.toggle("is-disabled", blocked);
+    button.setAttribute("aria-disabled", blocked);
+    button.title = blocked ? why : "";
+    if (running || done || blocked) byId("run-menu").open = false;
+    byId("run-go").disabled = !!why;
+    byId("run-why").textContent = blocked ? "" : why;
     delay.disabled = custom.disabled = running || done;
     setRunMode(mode, done || (running && !g.auto));
+    byId("run-delay-chips").innerHTML = runChips(delay);
+    byId("run-mode-chips").innerHTML = runChips(byId("run-mode"));
+    // While it runs: one session more, or every one left.
+    var every = byId("run-every");
+    every.hidden = !running;
+    every.disabled = byId("run-mode").disabled;
+    every.classList.toggle("on", byId("run-mode").value === "1");
+    every.setAttribute("aria-pressed", byId("run-mode").value === "1");
+    every.title = running && !g.auto ? "Started from the terminal: it plays as started there." : "";
   }
 
   function renderRuns() {
@@ -2374,10 +2396,33 @@
     }
   });
 
-  byId("run-start").addEventListener("click", function () {
+  // Run opens its menu; Stop and Dismiss act at once.
+  byId("run-start").addEventListener("click", function (e) {
+    var g = selectedGame();
+    if (!g || g.running || g.finished || this.classList.contains("is-disabled")) e.preventDefault();
+    if (g && (g.running || g.finished)) runAction(g.running ? "stop" : "dismiss", g.name);
+  });
+  byId("run-go").addEventListener("click", function () {
     var g = selectedGame();
     if (!g) return;
-    runAction(g.running ? "stop" : g.finished ? "dismiss" : "run", g.name);
+    byId("run-menu").open = false;
+    runAction("run", g.name);
+  });
+  // A chip picks in its select, as if picked there.
+  [["run-delay-chips", "run-delay"], ["run-mode-chips", "run-mode"]].forEach(function (pair) {
+    byId(pair[0]).addEventListener("click", function (e) {
+      var chip = e.target.closest("[data-value]");
+      if (!chip) return;
+      var select = byId(pair[1]);
+      select.value = chip.getAttribute("data-value");
+      select.dispatchEvent(new Event("change"));
+      renderRunBar(runsData ? runsData.games : []);
+    });
+  });
+  byId("run-every").addEventListener("click", function () {
+    var select = byId("run-mode");
+    select.value = select.value === "1" ? "0" : "1";
+    select.dispatchEvent(new Event("change"));
   });
   setRunMode(runOpts.every, false);
   byId("run-delay").addEventListener("change", function () {

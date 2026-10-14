@@ -977,6 +977,21 @@
   .run-options input[type="text"] { width: 9.5rem; }
   /* One width for Run, Continue, Stop and Dismiss: switching games keeps the bar still. */
   .run-options .run-start { padding: 0 0.5rem; width: 6.5rem; justify-content: center; white-space: nowrap; }
+  .run-menu summary.run-start { list-style: none; cursor: pointer; }
+  .run-menu summary.run-start::-webkit-details-marker { display: none; }
+  .run-start.is-disabled { opacity: 0.4; cursor: not-allowed; }
+  /* Run's menu: when it starts, how much it plays, then Run. */
+  .run-pop { display: flex; flex-direction: column; gap: 0.4rem; min-width: 19rem; }
+  .run-pop .filter-list + .filter-list { margin: 0; padding: 0; border: 0; }
+  .run-pop-label { margin-top: 0.2rem; font-size: 0.72rem; font-weight: 600; color: var(--text-dim); }
+  .run-pop input[type="text"] { width: 100%; }
+  .run-pop-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; margin-top: 0.5rem; }
+  .run-pop .run-go { height: 28px; padding: 0 1.2rem; }
+  .run-pop .run-go:disabled { opacity: 0.4; cursor: not-allowed; }
+  .run-every.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); background: var(--accent-tint); }
+  .run-every:disabled { opacity: 0.5; cursor: not-allowed; }
+  :root[data-desktop] .topbar .run-pop input[type="text"] { width: 100%; }
+  :root[data-desktop] .topbar .run-every { height: 28px; padding: 0 0.75rem; font-size: 0.78rem; border-radius: 7px; }
   .run-options :disabled { cursor: not-allowed; }
   /* Details tab: label / value rows. */
   .run-details { flex: 1; min-height: 0; overflow-y: auto; }

@@ -84,8 +84,25 @@
       <span class="folder-status" id="folder-status"></span>
     </div>
     <div class="pa pa-runs">
+      <!-- Run opens a menu: when it starts and how much it plays, then Run.
+           Stop and Dismiss act at once; while a game runs, All sessions
+           switches how much that run plays. The two selects hold the
+           choices the menu's chips show. -->
       <div class="run-options" id="run-options">
-        <select id="run-delay" aria-label="Start" title="When the first session starts. It never starts before its break is over.">
+        <button class="btn-ghost run-every" id="run-every" type="button" aria-pressed="false" hidden>All sessions</button>
+        <details class="filters-menu run-menu" id="run-menu">
+          <summary class="btn-hero primary run-start" id="run-start">Run</summary>
+          <div class="filters-pop run-pop">
+            <div class="run-pop-label">Start</div>
+            <div class="filter-list" id="run-delay-chips"></div>
+            <input type="text" id="run-delay-custom" placeholder="1h30m or 23:30" aria-label="Start in or at" spellcheck="false" hidden>
+            <div class="run-pop-label">Play</div>
+            <div class="filter-list" id="run-mode-chips"></div>
+            <div class="run-pop-foot"><span class="filters-hint" id="run-why"></span>
+              <button class="btn-hero primary run-go" id="run-go" type="button">Run</button></div>
+          </div>
+        </details>
+        <select id="run-delay" aria-label="Start" hidden>
           <option value="0">When ready</option>
           <option value="30">In 30 min</option>
           <option value="60">In 1 hour</option>
@@ -93,16 +110,14 @@
           <option value="240">In 4 hours</option>
           <option value="custom">Other…</option>
         </select>
-        <input type="text" id="run-delay-custom" placeholder="1h30m or 23:30" aria-label="Start in or at" spellcheck="false" hidden>
-        <select id="run-mode" aria-label="How much to play" title="Just the next session, or every remaining one back to back, waiting out the breaks.">
+        <select id="run-mode" aria-label="How much to play" hidden>
           <option value="0">1 session</option>
           <option value="1">All sessions</option>
         </select>
-        <button class="btn-primary run-start" id="run-start" type="button" disabled>Run</button>
       </div>
     </div>
     <div class="pa pa-unlocks">
-      <button class="btn-ghost page-action" id="unlocks-refresh" type="button" title="Ask Steam again">Refresh</button>
+      <button class="btn-hero primary page-action" id="unlocks-refresh" type="button" title="Ask Steam again">Refresh</button>
     </div>
   </div>
 </div>
