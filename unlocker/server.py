@@ -288,6 +288,12 @@ def start_run(name, every=False, delay=None):
         raise AppError(f"There's no config for {name}.", 404)
     if _running_pid(name):
         raise AppError(f"{name} is already running.", 409)
+    # A session that ended has its break to wait out first (a stopped one
+    # can carry on, waiting only for its next unlock).
+    state = _game_state(name, None)
+    if state.get("ready_in") and not state.get("cut_short"):
+        raise AppError(f"{state.get('title') or name} isn't playable yet: the break after its last "
+                       "session isn't over.", 409)
     other = lock_info(GAME_LOCK)
     if other:
         raise AppError(f"{other[1] or 'Another game'} is running. Only one game runs "

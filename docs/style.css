@@ -988,12 +988,10 @@
   .run-pop-label { margin-top: 0.2rem; font-size: 0.72rem; font-weight: 600; color: var(--text-dim); }
   /* Other…'s box, in its place among the chips, their size. */
   .run-pop input[type="text"] { width: 8rem; }
+  #run-delay-chips [data-value="custom"] { box-sizing: border-box; width: 8rem; text-align: center; }
   /* Under the title bar's coloured line, not across it. */
   :root[data-desktop] .topbar .run-pop { top: calc(100% + 20px); }
-  .run-every.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); background: var(--accent-tint); }
-  .run-every:disabled { opacity: 0.5; cursor: not-allowed; }
-  :root[data-desktop] .topbar .run-pop input[type="text"] { width: 8rem; height: 27px; border-radius: 7px; }
-  :root[data-desktop] .topbar .run-every { height: 28px; padding: 0 0.75rem; font-size: 0.78rem; border-radius: 7px; }
+  :root[data-desktop] .topbar .run-options .run-pop input[type="text"] { width: 8rem; height: 27px; border-radius: 7px; }
   .run-options :disabled { cursor: not-allowed; }
   /* Details tab: label / value rows. */
   .run-details { flex: 1; min-height: 0; overflow-y: auto; }

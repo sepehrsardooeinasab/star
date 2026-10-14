@@ -1895,8 +1895,7 @@
   }
 
   // The bar acts on the selected game: Run or Continue it (a menu: when
-  // it starts, how much it plays), or while it's running, Stop it, with
-  // All sessions switching how much it plays.
+  // it starts, how much it plays), or while it's running, Stop it.
   function selectedGame() {
     return (runsData ? runsData.games : []).filter(function (x) { return x.name === selectedRun; })[0];
   }
@@ -1953,6 +1952,12 @@
       else if (g.state === "invalid") why = gameTitle(g) + "'s config has a problem.";
       else if (g.config_changed) why = "The achievement order changed. Run it once from the terminal to confirm.";
       else if (other) why = "Only one game runs at a time. Stop " + gameTitle(other) + " first.";
+      else if (g.session && !g.cut_short && waitLeft(g) > 0) {
+        // A session that ended: its break first. (One stopped partway can
+        // carry on.)
+        var at = fmtAt(waitLeft(g));
+        why = "Playable " + (/^\d/.test(at) ? "at " + at : at.replace(/^Tomorrow/, "tomorrow"));
+      }
       blocked = !!why;  // the menu doesn't open
       if (blocked) byId("run-menu").open = false;
       // Open, it confirms what the menu says (not while the time is unclear).
@@ -1969,13 +1974,6 @@
     delay.disabled = custom.disabled = running || done;
     setRunMode(mode, done || (running && !g.auto));
     drawRunChips();
-    // While it runs: one session more, or every one left.
-    var every = byId("run-every");
-    every.hidden = !running;
-    every.disabled = byId("run-mode").disabled;
-    every.classList.toggle("on", byId("run-mode").value === "1");
-    every.setAttribute("aria-pressed", byId("run-mode").value === "1");
-    every.title = running && !g.auto ? "Started from the terminal: it plays as started there." : "";
   }
 
   var runsDone = null;  // achievements the runs have unlocked, all told
@@ -2441,11 +2439,6 @@
       select.dispatchEvent(new Event("change"));
       renderRunBar(runsData ? runsData.games : []);
     });
-  });
-  byId("run-every").addEventListener("click", function () {
-    var select = byId("run-mode");
-    select.value = select.value === "1" ? "0" : "1";
-    select.dispatchEvent(new Event("change"));
   });
   setRunMode(runOpts.every, false);
   byId("run-delay").addEventListener("change", function () {
