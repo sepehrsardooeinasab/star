@@ -1620,17 +1620,20 @@
 
   // A card says just enough to pick a game: its session and when it can
   // play. The Details tab has the rest.
+  // Stopped partway through a session (the card's badge).
+  var STOP_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="4" width="8" height="8" rx="1.5" fill="currentColor"/></svg>';
   function runCardHtml(g) {
     // A game still in its break says when it can play, and looks it;
     // one that can play now just shows its session.
     var wait = g.session ? waitLeft(g) : 0;
-    // Stopped partway through a session: marked, with how far it got.
+    // Stopped partway through a session: a stop icon (how far it got on
+    // hover) and its bar.
     var cut = !g.running && g.state === "idle" && g.cut_short;
     var resting = !g.running && g.state === "idle" && wait > 0 && !cut;
     var badge = g.state === "in_session" ? ["live", "Playing"]
       : g.running ? ["wait", "Waiting"]
       : g.state === "invalid" ? ["bad", "Problem"]
-      : cut ? ["cut", "Stopped"]
+      : cut ? ["cut", STOP_ICON, "Stopped at " + cut.played + " of " + cut.of]
       : g.finished || g.state === "completed" ? ["", "Done"] : null;
     var meta;
     if (g.state === "invalid") meta = "The config has a problem.";
@@ -1638,8 +1641,7 @@
     else if (!g.session) meta = g.total ? g.done + " / " + g.total + " achievements" : "";
     // Just the session: Playing / Waiting is the badge, and the next
     // unlock or start is in the selected game's summary.
-    else meta = "Session " + g.session + " of " + g.sessions +
-      (cut ? ' · <span class="warn">stopped at ' + cut.played + " of " + cut.of + "</span>" : "");
+    else meta = "Session " + g.session + " of " + g.sessions;
     // On a break: dimmed, with a clock; when it can play is on hover and
     // in the line over its sessions.
     var clock = resting ? '<span class="run-rest-mark" data-tip="' + escapeHtml(playableAt(wait)) + '"><svg class="run-rest" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" ' +
@@ -1649,7 +1651,8 @@
       '" data-name="' + escapeHtml(g.name) + '"' +
       (g.appid > 0 ? ' style="--card-hero: ' + escapeHtml(heroUrl(g)) + '"' : "") + ">" +
       '<div class="run-head">' + gameIconHtml(g) + '<span class="run-name">' + escapeHtml(gameTitle(g)) + "</span>" + counterMark(g) + clock +
-      (badge ? '<span class="run-badge ' + badge[0] + '">' + badge[1] + "</span>" : "") + "</div>" +
+      (badge ? '<span class="run-badge ' + badge[0] + '"' + (badge[2] ? ' data-tip="' + escapeHtml(badge[2]) + '" aria-label="' + escapeHtml(badge[2]) + '"' : "") +
+        ">" + badge[1] + "</span>" : "") + "</div>" +
       (meta ? '<div class="run-meta">' + meta + "</div>" : "") +
       (cut ? '<div class="run-progress"><span style="width:' + Math.round(100 * cut.played / cut.of) + '%"></span></div>' : "") +
       "</div>";
@@ -1675,6 +1678,7 @@
     }
     if (g.finished || g.state === "completed") return title + '<div class="run-summary-line">All achievements unlocked' + more + "</div>";
     var parts = [];
+    var cut = !g.running && g.state === "idle" && g.cut_short;
     function part(label, value) {
       parts.push('<div class="summary-part"><span class="summary-label">' + label + '</span><span class="summary-value">' +
         value + "</span></div>");
@@ -1683,8 +1687,11 @@
       part(g.state === "in_session" ? "Playing session" : "Session", g.session + " of " + g.sessions +
         (g.running ? ' <span class="summary-note">· ' + (g.stop_after ? "this one only" : "all sessions") + "</span>" : ""));
       // While it plays, how long it has left; otherwise how long it lasts.
-      part("This session", g.count + " achievement" + (g.count === 1 ? "" : "s") + " · " +
-        (g.state === "in_session" && g.session_left != null ? fmtDur(left(g.session_left)) + " left" : fmtDur(g.duration)));
+      var size = g.count + " achievement" + (g.count === 1 ? "" : "s") + " · " +
+        (g.state === "in_session" && g.session_left != null ? fmtDur(left(g.session_left)) + " left" : fmtDur(g.duration));
+      // Stopped partway: what's left of it, in yellow, why on hover.
+      part("This session", cut ? '<span class="warn" data-tip="Session ' + g.session + " stopped after " + cut.played + " of its " + cut.of +
+        ' achievements; Continue picks up here">' + size + "</span>" : size);
     }
     if (g.total) part("Unlocked", g.done + " / " + g.total);
     if (g.state === "in_session") {
@@ -1694,10 +1701,7 @@
       part(g.running ? "Starts" : "Playable", wait > 0 ? escapeHtml(fmtAt(wait)) : g.running ? "Starting…" : "Now");
     }
     parts[parts.length - 1] = parts[parts.length - 1].replace(/<\/div>$/, more + "</div>");
-    var cut = !g.running && g.state === "idle" && g.cut_short;
     return title + '<div class="summary-bar">' + parts.join("") + "</div>" +
-      (cut ? '<div class="run-summary-line"><span class="warn">Session ' + g.session + " stopped partway, after " + cut.played +
-        " of its " + cut.of + " achievements. Run it to pick up where it left off.</span></div>" : "") +
       (g.config_changed ? '<div class="run-summary-line"><span class="warn">The achievement order changed: run it once from the terminal to confirm.</span></div>' : "");
   }
 

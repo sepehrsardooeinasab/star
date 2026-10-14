@@ -832,7 +832,8 @@
   }
   .run-badge.wait { --badge-bg: var(--info-bg); color: var(--info); }
   .run-badge.bad { --badge-bg: var(--danger-bg); color: var(--danger); }
-  .run-badge.cut { --badge-bg: var(--warn-bg); color: var(--warn); }
+  .run-badge.cut { --badge-bg: var(--warn-bg); color: var(--warn); padding: 0.25rem; }
+  .run-badge.cut svg { width: 11px; height: 11px; }
   /* Stopped partway through a session: a warm edge and how far it got. */
   .run-card.cut { box-shadow: inset 3px 0 0 var(--warn); }
   .run-card.cut .run-progress span { background: var(--warn); }
@@ -1644,7 +1645,7 @@
   .run-summary-title { font-size: 1.05rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .run-summary-line { margin-top: 0.15rem; font-size: 0.8rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
   .run-summary-line b { color: var(--text); font-weight: 500; }
-  .run-summary-line .warn { color: var(--warn); }
+  .run-summary-line .warn, .summary-value .warn { color: var(--warn); }
   .run-summary-line .bad { color: var(--danger); }
   .bar-btn {
     flex: none;
