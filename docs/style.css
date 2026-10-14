@@ -1715,7 +1715,7 @@
   .bar-popover #reset-btn { height: 30px; padding: 0; font-size: 0.78rem; }
 
   /* Schedule after a clean paste: a line saying what it gave, then the
-     result, with the paste narrowed beside it. */
+     result, beside the paste (the same width as before it). */
   .paste-summary { display: none; }
   body.local .box.has-timeline .paste-summary {
     grid-column: 1 / -1;
@@ -1731,7 +1731,6 @@
   .paste-summary #sched-full-btn { justify-content: center; text-align: center; }
   .paste-summary .bar-btn[aria-pressed="true"] { color: var(--accent); background: var(--accent-tint); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
   body.local .box.has-timeline .view-pane[data-view="input"].active { grid-template-rows: auto minmax(0, 1fr); }
-  body.local .box.has-timeline .view-pane[data-view="input"].active { grid-template-columns: minmax(0, 1fr) minmax(0, 2.4fr); }
   /* Its warnings show under the timeline, so not twice. */
   body.local .box.has-timeline #input-alert-slot { display: none; }
 
