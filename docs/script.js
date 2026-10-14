@@ -189,8 +189,12 @@
     return (gameSlug(title) || (title && appid > 0 ? "app" + appid : "")).slice(0, 60);
   }
 
+  // A link's achievements, read once. If Steam couldn't be reached (a
+  // passing hiccup), it's asked again every few seconds; Steam's own
+  // answers (a private profile, no such player) stay.
   function loadLink(url) {
-    if (linkSources[url]) return linkSources[url];
+    var known = linkSources[url];
+    if (known && !(known.retry && Date.now() - known.at >= 5000)) return known;
     linkSources[url] = {status: "loading"};
     api("/api/achievements/link", {url: url}).then(function (d) {
       linkSources[url] = {status: "ok", data: d};
@@ -200,7 +204,9 @@
         if (!els.copiedFrom.value && d.player) els.copiedFrom.value = d.player;
       }
     }).catch(function (err) {
-      linkSources[url] = {status: "error", message: err.message, title: (err.data || {}).title};
+      var title = (err.data || {}).title, retry = !title || title === "Couldn't reach Steam";
+      linkSources[url] = {status: "error", message: err.message, title: title, retry: retry, at: Date.now()};
+      if (retry) setTimeout(scheduleRecompute, 5000);
     }).then(scheduleRecompute);
     return linkSources[url];
   }
