@@ -22,11 +22,6 @@
     // first screen is picked (script.js: shown()); without the server (the
     // website) it goes to the website instead.
     document.documentElement.setAttribute("data-booting", "");
-    // The website's fonts; the app uses the system's own and loads none.
-    if (!desktop) {
-      document.write('<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' +
-        '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap">');
-    }
     // A dev build of the app: text can be copied and inspected.
     if (desktop && params.get("dev") === "1") document.documentElement.setAttribute("data-dev", "");
   })();
@@ -289,7 +284,7 @@
         <div class="tab-group output">
           <span class="tab-group-label">Output</span>
           <button class="tab" id="nav-json" type="button" title="Schedule (config.json)">
-            <span class="icon"><svg viewBox="0 0 20 20"><text x="10" y="14.5" text-anchor="middle" font-size="12" font-family="'JetBrains Mono',monospace" fill="currentColor">{ }</text></svg></span>
+            <span class="icon"><svg viewBox="0 0 20 20"><text x="10" y="14.5" text-anchor="middle" font-size="12" font-family="ui-monospace,monospace" fill="currentColor">{ }</text></svg></span>
             <span class="label">Schedule</span>
           </button>
           <button class="tab" id="nav-csv" type="button" title="Timeline (csv)">

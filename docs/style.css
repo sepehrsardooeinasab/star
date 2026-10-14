@@ -24,8 +24,9 @@
     --warn-bg: rgba(224, 173, 95, 0.1);
     --shadow: rgba(0, 0, 0, 0.55);
     --max-width: 1240px;
-    --font: "Inter", system-ui, sans-serif;
-    --mono: "JetBrains Mono", ui-monospace, monospace;
+    /* The system's own fonts (on a Mac, San Francisco and SF Mono). */
+    --font: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
     /* Height of each tab's main box (paste box, JSON preview, Timeline
        table), so switching tabs keeps them the same size and place. */
     --pane-box-h: clamp(280px, 50vh, 600px);
@@ -1170,10 +1171,6 @@
   table.csv-table tr.gap-row td {
     background: var(--info-bg);
     color: var(--info);
-    font-style: italic;
-  }
-  table.csv-table tr.meta-row td {
-    color: var(--text-dim);
     font-style: italic;
   }
   table.csv-table tr.session-row td {

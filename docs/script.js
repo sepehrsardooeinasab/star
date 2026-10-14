@@ -546,13 +546,13 @@
   //                    before an edit, when it was edited)
   //   gapButton(ri, r) the + / − after a row's number or break label
   function timelineTable(rows, hooks) {
-    var pretty = combined;  // the app: friendlier columns (see prettyTime)
+    // Friendly columns (see prettyTime), not the CSV's own.
     var achievement = -1;
-    var html = '<div class="table-wrap"><table class="csv-table' + (pretty ? " pretty" : "") + '"><thead><tr>' +
-      (pretty ? ["#", "Achievement", "Player's time", "After"] : rows[0]).map(function (h) {
+    var html = '<div class="table-wrap"><table class="csv-table pretty"><thead><tr>' +
+      ["#", "Achievement", "Player's time", "After"].map(function (h) {
         return "<th>" + escapeHtml(h) + "</th>";
       }).join("") + "</tr></thead><tbody>";
-    var shown = function (seconds) { return pretty ? exactDuration(seconds) : String(seconds); };
+    var shown = exactDuration;
     function gap(ri, r) { return hooks.gapButton ? hooks.gapButton(ri, r) : ""; }
     // Jump to achievement: with the game's appid (hooks.achLink), the name
     // (only its text) opens it in Library.
@@ -572,30 +572,17 @@
     }
     rows.slice(1).forEach(function (r, i) {
       var ri = i + 1;
-      if (pretty) {
-        if (/^Copied from:/.test(r[0])) return;
-        if (isLabelRow(r)) {
-          var kind = /^Gap/.test(r[0]) ? "gap-row" : "session-row";
-          html += '<tr class="' + kind + '"><td colspan="3"><span class="cell-line">' + escapeHtml(prettyLabel(r)) + gap(ri, r) + "</span></td>" +
-            (kind === "gap-row" ? delayCell(r, ri) : "<td></td>") + "</tr>";
-          return;
-        }
-        var rc = hooks.rowClass ? hooks.rowClass(++achievement) : "";
-        html += "<tr" + (rc ? ' class="' + rc + '"' : "") + '><td><span class="cell-line"><span class="row-num">' + escapeHtml(r[1]) + "</span>" +
-          gap(ri, r) + "</span></td><td>" + achCell(r[2]) + "</td><td>" + escapeHtml(prettyTime(r[4])) + "</td>" +
-          delayCell(r, ri) + "</tr>";
-        return;
-      }
+      if (/^Copied from:/.test(r[0])) return;
       if (isLabelRow(r)) {
-        var cls = /^Gap/.test(r[0]) ? "gap-row" : /^Copied from:/.test(r[0]) ? "meta-row" : "session-row";
-        html += '<tr class="' + cls + '"><td colspan="' + CSV_DELAY_COL + '">' + escapeHtml(r[0]) + gap(ri, r) + "</td>" +
-          "<td>" + escapeHtml(r[CSV_DELAY_COL]) + "</td>" + delayCell(r, ri) + "</tr>";
+        var kind = /^Gap/.test(r[0]) ? "gap-row" : "session-row";
+        html += '<tr class="' + kind + '"><td colspan="3"><span class="cell-line">' + escapeHtml(prettyLabel(r)) + gap(ri, r) + "</span></td>" +
+          (kind === "gap-row" ? delayCell(r, ri) : "<td></td>") + "</tr>";
         return;
       }
-      var rowClass = hooks.rowClass ? hooks.rowClass(++achievement) : "";
-      html += "<tr" + (rowClass ? ' class="' + rowClass + '"' : "") + "><td>" + escapeHtml(r[0]) + gap(ri, r) + "</td>" +
-        r.slice(1, CSV_DELAY_COL).map(function (c) { return "<td>" + escapeHtml(c) + "</td>"; }).join("") +
-        "<td>" + escapeHtml(r[CSV_DELAY_COL]) + "</td>" + delayCell(r, ri) + "</tr>";
+      var rc = hooks.rowClass ? hooks.rowClass(++achievement) : "";
+      html += "<tr" + (rc ? ' class="' + rc + '"' : "") + '><td><span class="cell-line"><span class="row-num">' + escapeHtml(r[1]) + "</span>" +
+        gap(ri, r) + "</span></td><td>" + achCell(r[2]) + "</td><td>" + escapeHtml(prettyTime(r[4])) + "</td>" +
+        delayCell(r, ri) + "</tr>";
     });
     return html + "</tbody></table></div>";
   }
@@ -836,13 +823,9 @@
     var cumLimitSec = (parseFloat(els.cumLimit.value) || 0) * 3600;
     var minGapSec = (parseFloat(els.minGap.value) || 0) * 3600;
 
-    // A link: the player's achievements come from Steam (app only).
+    // A link: the player's achievements come from Steam.
     var link = pastedLink(els.exportText.value);
     var linked = null;
-    if (link && !local) {
-      latest = {errors: ["Links work in the STAR app. Here, copy the page's text and paste it instead."], inputNotice: "danger"};
-      return;
-    }
     if (link) {
       var source = loadLink(link);
       if (source.status === "loading") {
@@ -857,9 +840,8 @@
     }
 
     var errors = [];
-    // In the app the fields sit in the bar above; on the website, on the
-    // Settings tab.
-    var where = combined ? " above." : " in Settings.";
+    // The fields sit in the bar above.
+    var where = " above.";
     if (!appidVal || appidVal <= 0) errors.push("Enter the game's App ID" + where);
     if (!gameName) errors.push("Enter a game name" + where);
 
@@ -1311,8 +1293,8 @@
     var input = document.createElement("input");
     input.type = "text";
     input.className = "delay-input";
-    input.value = combined ? exactDuration(currentDelay(id)) : currentDelay(id);
-    input.placeholder = combined ? "1h 20m" : "seconds";
+    input.value = exactDuration(currentDelay(id));
+    input.placeholder = "1h 20m";
     cell.textContent = "";
     cell.appendChild(input);
     input.focus();
@@ -1325,7 +1307,7 @@
       if (!save) { render(); return; }
       var seconds = parseDelayInput(input.value);
       if (seconds === null) {
-        showToast(combined ? "Enter a time like 1h 20m, 45m or 90s." : "Enter a whole number of seconds, e.g. 90");
+        showToast("Enter a time like 1h 20m, 45m or 90s.");
         render();
         return;
       }
@@ -2135,7 +2117,7 @@
     var input = document.createElement("input");
     input.type = "text";
     input.className = "delay-input";
-    input.value = local ? exactDuration(runEdit.rows[ri][CSV_DELAY_COL + 1]) : runEdit.rows[ri][CSV_DELAY_COL + 1];
+    input.value = exactDuration(runEdit.rows[ri][CSV_DELAY_COL + 1]);
     cell.textContent = "";
     cell.appendChild(input);
     input.focus();
