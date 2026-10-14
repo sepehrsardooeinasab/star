@@ -411,7 +411,8 @@
   .page-actions .btn-hero { padding: 0 1.2rem; height: 2.5rem; font-size: 0.78rem; justify-content: center; }
   .page-actions .btn-hero:disabled { opacity: 0.4; cursor: not-allowed; }
   .page-actions .pa-schedule .btn-ghost { height: 2.5rem; padding: 0 1rem; font-size: 0.8rem; }
-  .btn-hero.btn-danger {
+  /* Red (Save with a warning, …): over the primary's gradient border too. */
+  :is(button, summary).btn-hero.btn-danger {
     color: var(--danger);
     border: 1.5px solid var(--danger);
     background: var(--danger-bg);

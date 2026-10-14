@@ -1086,7 +1086,8 @@
     els.downloadBtn.classList.toggle("btn-danger", dangers.length > 0);
     var replacing = local && isArmed("overwrite");
     els.downloadBtn.classList.toggle("armed", replacing);
-    els.downloadBtn.textContent = replacing ? "Confirm" : dangers.length ? "Save anyway" : "Save";
+    // A warning makes it red, not longer.
+    els.downloadBtn.textContent = replacing ? "Confirm" : "Save";
     els.downloadBtn.title = dangers.join("\n");
 
     var fileKey = fileKeyForView(currentView);
