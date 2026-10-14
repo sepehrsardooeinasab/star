@@ -53,8 +53,9 @@ DEFAULTS = {
     # A Steam Web API key (steamcommunity.com/dev/apikey), so the app's
     # Library covers every game played, not just the games in STAR.
     "steam_api_key": None,
-    # How the app writes clock times: "system" (the computer's way),
-    # "12h" (2:30 PM) or "24h" (14:30).
+    # How the app writes clock times: "12h" (2:30 PM) or "24h" (14:30);
+    # "system" until one's picked: the usual one for the computer's
+    # language.
     "clock": "system",
     # The app's look (its Appearance menu).
     "theme": "dark",

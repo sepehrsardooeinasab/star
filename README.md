@@ -154,7 +154,7 @@ In the app, **Settings** has the keep-awake and update switches and **Advanced r
 | `keep_awake` | `true` | Keeps the computer from sleeping while a run waits or plays. |
 | `show_finished` | `false` | Lists finished games in the app's Runs (at the bottom). |
 | `steam_api_key` | `null` | A [Steam Web API key](https://steamcommunity.com/dev/apikey), so the app's **Library** covers every game you play, not just the games in STAR. Set it in Settings → Library. |
-| `clock` | `"system"` | How the app writes times: `"system"` (the computer's way), `"12h"` (2:30 PM) or `"24h"` (14:30). Set it in Settings → Clock. |
+| `clock` | `"system"` | How the app writes times: `"12h"` (2:30 PM) or `"24h"` (14:30). Until one's set (`"system"`), the usual one for the computer's language. Set it in Settings → Clock. |
 | `theme`, `accent` | `"dark"`, `"violet"` | The app's look, from its Appearance menu: `"dark"` or `"light"`; `"violet"`, `"wine"`, `"blue"`, `"teal"` or `"amber"`. |
 | `unlocks_range` | `"month"` | How far back the app's **Library** lists achievements: `"day"`, `"week"`, `"month"`, `"year"` or `"all"`. Set it in Settings → Library. |
 | `library_tab` | `"achievements"` | Which section **Library** opens on: `"achievements"` or `"games"`. |

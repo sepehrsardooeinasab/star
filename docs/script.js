@@ -532,12 +532,18 @@
     return parts.join(" ") || "0s";
   }
 
-  // Clock times as Settings → Clock says: the computer's way, 12-hour
-  // ("2:30 PM") or 24-hour ("14:30").
-  var clockPref = "system";
+  // Clock times as Settings → Clock says: 12-hour ("2:30 PM") or 24-hour
+  // ("14:30"). Until one's picked, the usual one for the computer's
+  // language (the web view can't read the Mac's own 12/24-hour switch).
+  var CLOCK_GUESS = "12h";
+  try {
+    var hourCycle = new Intl.DateTimeFormat([], {hour: "numeric"}).resolvedOptions().hourCycle;
+    if (hourCycle === "h23" || hourCycle === "h24") CLOCK_GUESS = "24h";
+  } catch (e) {}
+  var clockPref = CLOCK_GUESS;
   function clockOpts(opts) {
     if (clockPref === "12h") { opts.hour = "numeric"; opts.hour12 = true; }
-    else { opts.hour = "2-digit"; if (clockPref === "24h") opts.hourCycle = "h23"; }
+    else { opts.hour = "2-digit"; opts.hourCycle = "h23"; }
     opts.minute = "2-digit";
     return opts;
   }
@@ -2834,9 +2840,10 @@
       }
     }
     var clock = (runSettings || []).filter(function (x) { return x.key === "clock"; })[0];
-    if (clock && clock.value !== clockPref) {
-      clockPref = clock.value;
-      byId("clock-format").value = clockPref;
+    var wanted = clock && (clock.value === "system" ? CLOCK_GUESS : clock.value);  // "system": not picked yet
+    byId("clock-format").value = wanted || clockPref;
+    if (wanted && wanted !== clockPref) {
+      clockPref = wanted;
       renderRuns();
       if (unlocksData) renderUnlocks();
     }
