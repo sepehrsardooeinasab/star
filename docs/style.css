@@ -2105,6 +2105,8 @@
   .ach-right { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; }
   .ach-apply { display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; color: var(--text-dim); white-space: nowrap; }
   .ach-apply > span { margin-right: 0.25rem; }
+  /* What Apply will do: Unlock n over Lock n. */
+  .ach-what { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.25; }
   /* Clear and Apply: like the timeline's Save in Runs, beside the lock. */
   .games-sort .ach-apply .btn-ghost { width: auto; height: auto; padding: 0.25rem 0.75rem; font-size: 0.76rem; }
   .ach-apply .primary-ghost { border-color: var(--accent); color: var(--accent); }

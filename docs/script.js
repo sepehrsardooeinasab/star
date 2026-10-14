@@ -3421,17 +3421,17 @@
     achEdit = false; achPicks = []; achDrops = {}; achError = null;
     delete armedUntil["ach-apply"];
   }
-  // What's marked, with Clear and Apply, in the sort's bar before the
+  // What's marked, with Apply, in the sort's bar before the
   // lock (so marking moves nothing); empty when nothing is.
   function achApplyHtml() {
     var n = achPicks.length, m = Object.keys(achDrops).length;
     if (achRunning()) return '<span class="ach-apply"><span>' + escapeHtml("Playing it, sending to Steam\u2026") + "</span></span>";
     if (!achEdit) return "";
     if (!n && !m) return "";
-    var what = [n ? "Unlock " + n : "", m ? "Lock " + m : ""].filter(Boolean).join(" \u00b7 ");
+    // Locking again drops the marks (as for a timeline), so there's no Clear.
+    var what = [n ? "Unlock " + n : "", m ? "Lock " + m : ""].filter(Boolean).map(function (t) { return "<span>" + t + "</span>"; }).join("");
     var armed = isArmed("ach-apply");
-    return '<span class="ach-apply"><span>' + escapeHtml(what) + "</span>" +
-      '<button class="btn-ghost" type="button" data-ach-cancel>Clear</button>' +
+    return '<span class="ach-apply"><span class="ach-what">' + what + "</span>" +
       '<button class="btn-ghost primary-ghost' + (armed ? " armed" : "") + '" type="button" data-ach-apply>' +
       (armed ? "Confirm" : "Apply") + "</button></span>";
   }
@@ -3572,7 +3572,6 @@
       renderGamePage();
       return;
     }
-    if (e.target.closest("[data-ach-cancel]")) { achPicks = []; achDrops = {}; achError = null; delete armedUntil["ach-apply"]; renderGamePage(); return; }
     if (e.target.closest("[data-ach-apply]") && gamePage) {
       if (!isArmed("ach-apply")) {
         armedUntil["ach-apply"] = Date.now() + ARM_MS;
