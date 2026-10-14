@@ -1030,7 +1030,7 @@
     return (armedUntil[key] || 0) > Date.now();
   }
 
-  // First click arms `key` (render shows a "click again" label); a second
+  // First click arms `key` (render shows Confirm, in red); a second
   // click within ARM_MS returns true. Unclicked, it disarms itself.
   function confirmTwice(key) {
     if (isArmed(key)) { delete armedUntil[key]; return true; }
@@ -1043,9 +1043,7 @@
   function editsBannerHtml() {
     var n = editCount();
     if (!n || !showLockNotice) return "";
-    var label = isArmed("discard")
-      ? "Click again to discard " + n + " edit" + (n === 1 ? "" : "s")
-      : "Discard edits";
+    var label = isArmed("discard") ? "Confirm" : "Discard edits";
     return '<div class="notice info edits-banner"><span>' + n + " Timeline edit" + (n === 1 ? "" : "s") +
       ", so the pasted text is locked until you download or discard " + (n === 1 ? "it" : "them") + ".</span>" +
       '<button class="btn-ghost discard-edits' + (isArmed("discard") ? " armed" : "") + '" type="button">' + label + "</button></div>";
@@ -1057,8 +1055,7 @@
     var locked = editCount() > 0;
     els.exportText.readOnly = locked;
     els.exportText.classList.toggle("locked", locked);
-    els.resetBtn.textContent = locked && isArmed("reset")
-      ? "Click again to reset (discards edits)" : "Reset all fields";
+    els.resetBtn.textContent = locked && isArmed("reset") ? "Confirm" : "Reset all fields";
     els.resetBtn.classList.toggle("armed", locked && isArmed("reset"));
 
     // nav "has content" dots
@@ -1096,7 +1093,9 @@
       ? latest.errors.map(function (m) { return problemHtml(latest.inputNotice, latest.errorTitle, m); }).join("") : "";
     els.inputAlertSlot.innerHTML = dangerHtml + inputHtml + editsBannerHtml();
     els.downloadBtn.classList.toggle("btn-danger", dangers.length > 0);
-    els.downloadBtn.textContent = local
+    var replacing = local && isArmed("overwrite");
+    els.downloadBtn.classList.toggle("armed", replacing);
+    els.downloadBtn.textContent = replacing ? "Confirm" : local
       ? (dangers.length ? "Save anyway" : "Save")
       : (dangers.length ? "Download anyway" : "Download All");
     els.downloadBtn.title = dangers.join("\n");
@@ -1650,7 +1649,9 @@
         // desktop app's window may not show.
         if (err.data && err.data.exists) {
           armedUntil["overwrite"] = Date.now() + ARM_MS;
-          showToast(err.message + " Click Save again within 4 seconds to replace it (its progress is kept).");
+          setTimeout(render, ARM_MS + 50);
+          render();
+          showToast(err.message + " Confirm to replace it (its progress is kept).");
           return;
         }
         showToast("Couldn't save: " + err.message);
@@ -1939,7 +1940,7 @@
     custom.classList.toggle("invalid", !custom.hidden && custom.value.trim() !== "" && minutes === null);
     if (running) {
       var armed = isArmed("stop:" + g.name);
-      button.textContent = armed ? "Stop?" : "Stop";
+      button.textContent = armed ? "Confirm" : "Stop";
       button.className = "btn-hero run-start" + (armed ? " armed" : "");
       mode = !g.stop_after;
     } else if (done && g.finished) {
@@ -2479,7 +2480,7 @@
     });
   }
 
-  // render() redraws the cards for the "click again" labels too.
+  // render() redraws the cards for the Confirm labels too.
   var baseRender = render;
   render = function () { baseRender(); if (local) renderRuns(); };
 

@@ -427,7 +427,7 @@
     border: 1.5px solid var(--danger);
     background: var(--danger-bg);
   }
-  .btn-hero.armed { color: var(--danger); border-color: var(--danger); }
+  .btn-hero.armed { color: var(--danger); border: 1.5px solid var(--danger); background: var(--danger-bg); }
 
   /* A thin colored line along the top edge of the window. */
   body::before {
@@ -1331,9 +1331,11 @@
     flex-wrap: wrap;
   }
   .edits-banner .discard-edits { flex: none; }
-  button.armed {
+  /* Clicked once, waiting for a second click: Confirm, in red. */
+  :is(button, summary).armed {
     border-color: var(--danger) !important;
     color: var(--danger) !important;
+    background: var(--danger-bg) !important;
   }
   textarea.locked {
     opacity: 0.6;
