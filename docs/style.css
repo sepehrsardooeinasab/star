@@ -248,6 +248,8 @@
      type, the generated files (Schedule, Timeline), the run output and
      commands to copy can. */
   :root[data-desktop] body { -webkit-user-select: none; user-select: none; cursor: default; }
+  /* Nor can its pictures and links be dragged out (to the desktop, say). */
+  :root[data-desktop] :is(img, a) { -webkit-user-drag: none; }
   :root[data-desktop] :is(input, textarea, .file-preview, .csv-table:not(.sessions-summary), code) {
     -webkit-user-select: text;
     user-select: text;
