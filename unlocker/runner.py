@@ -569,6 +569,15 @@ def _run(game_name, force=False, time_only=False, delay=None, wait_ready=False):
             send_command(f"play {appid}")
             time.sleep(RECONNECT_SETTLE_DELAY)
 
+        def not_kept(ids):
+            """The ids alist still shows locked (all of them if ASF didn't
+            answer), keeping unlocked up to date for the skips below."""
+            statuses, _ = send_alist(appid)
+            if statuses is None:
+                return list(ids)
+            unlocked.update(statuses)
+            return [a for a in ids if not statuses.get(a, False)]
+
         def advance(i, issued_at):
             """Record achievement i as done and schedule (or end) what's next."""
             nonlocal playing
@@ -676,6 +685,26 @@ def _run(game_name, force=False, time_only=False, delay=None, wait_ready=False):
                 if status == "already_unlocked":
                     print(f"Already unlocked, skipping: {label}")
                 else:
+                    # "Success!" only means ASF sent it: Steam has dropped one
+                    # (right as ASF reset the game), so check alist. The next
+                    # unlock counts from issued_at, so the check comes out of
+                    # its wait instead of adding to it.
+                    missing = not_kept(to_unlock)
+                    if missing:
+                        print(f"Steam didn't keep {', '.join(map(str, missing))}, trying again...")
+                        send_command(f"play {appid}")
+                        time.sleep(WARM_SETTLE_DELAY)
+                        # The retry is the real unlock, so the next gap counts from it.
+                        issued_at = datetime.now()
+                        status, result = send_aset(appid, missing)
+                        missing = not_kept(missing)
+                    if missing:
+                        print(f"ERROR: Steam didn't keep {', '.join(map(str, missing))}. "
+                              f"ArchiSteamFarm's answer: {result.strip()}")
+                        progress["next_unlock_at"] = datetime.now().isoformat()
+                        save_progress(progress_path, progress)
+                        schedule_asf_kill()
+                        return "error"
                     print(f"Unlocked: {label} at [{issued_at:%H:%M:%S}]")
 
             for gi in range(i, group_end):
