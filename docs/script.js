@@ -2843,8 +2843,9 @@
     if (FILTERS.every(function (f) { return lib[f[2]]; })) {
       var fromSettings = {};
       FILTERS.forEach(function (f) { fromSettings[f[0]] = lib[f[2]]; });
+      fromSettings.match = lib.library_match || "all";
       renderFilterList("lib-filters", fromSettings);
-      var filterKey = FILTERS.map(function (f) { return lib[f[2]]; }).join(" ");
+      var filterKey = FILTERS.map(function (f) { return lib[f[2]]; }).join(" ") + " " + fromSettings.match;
       if (filterKey !== appliedLib.filter) {
         appliedLib.filter = filterKey;
         libFilter = fromSettings;
@@ -3206,12 +3207,18 @@
       '<span class="lib-count"><span class="lib-got">' + unlocked + '</span><span class="lib-of">/</span><span class="lib-all">' + total + "</span></span>") +
       '<span class="lib-state">' + Math.min(pct, 100) + "%</span>";
   }
-  // Which games show: groups, each shown (on) or hidden; a game shows
-  // when any group it's in is on. Active: in none of the others. Chips in
-  // Games' Filters menu (for a while) and in Settings → Library (the
-  // defaults).
-  var FILTERS = [["active", "Active", "library_active"], ["finished", "Finished", "library_finished"],
-    ["private", "Private", "library_private"], ["noAch", "No ach.", "library_no_achievements", "No achievements"]];
+  // Which games show: a chip per group, each "show" (either way), "only"
+  // (games in it) or "hide" (games not in it, the chip struck through);
+  // a game shows when it fits every chip. Active: in none of the others.
+  // Chips in Games' Filters menu (for a while) and in Settings → Library
+  // (the defaults).
+  // Each with what it says on hover: either way, only, not.
+  var FILTERS = [
+    ["active", "Active", "library_active", "", "Only active games", "No active games"],
+    ["finished", "Finished", "library_finished", "", "Only finished games", "Only unfinished games"],
+    ["private", "Private", "library_private", "", "Only private games", "Only public games"],
+    ["noAch", "No ach.", "library_no_achievements", "No achievements",
+      "Only games without achievements", "Only games with achievements"]];
   function gameGroups(g) {
     var groups = {finished: !!g.finished, private: !!g.private, noAch: !g.stats};
     groups.active = !(groups.finished || groups.private || groups.noAch);
@@ -3219,22 +3226,20 @@
   }
   function renderFilterList(id, values) {
     byId(id).innerHTML = FILTERS.map(function (f) {
-      var on = values[f[0]] !== "hide";
-      return '<button class="filter-chip' + (on ? " on" : "") + '" type="button" data-filter="' + f[0] + '" aria-pressed="' + on + '"' +
-        (f[3] ? ' data-tip="' + f[3] + '"' : "") + ">" + f[1] + "</button>";
-    }).join("");
+      var v = values[f[0]], tip = v === "only" ? f[4] : v === "hide" ? f[5] : f[3];
+      return '<button class="filter-chip' + (v === "only" ? " on" : v === "hide" ? " not" : "") + '" type="button" data-filter="' + f[0] +
+        '" aria-pressed="' + (v === "only" || v === "hide") + '"' + (tip ? ' data-tip="' + tip + '"' : "") + ">" + f[1] + "</button>";
+    }).join("") + (values.match === "any"
+      ? '<button class="filter-chip match-chip" type="button" data-filter="match" data-tip="Games in any blue group">∪ Match any</button>'
+      : '<button class="filter-chip match-chip" type="button" data-filter="match" data-tip="Games in every blue group">∩ Match all</button>');
   }
-  // A click shows or hides a group; right-click (or Option-click) shows
-  // only it, or every group again when it's already the only one.
-  function nextFilters(values, key, only) {
-    var next = {};
-    FILTERS.forEach(function (f) { next[f[0]] = values[f[0]] === "hide" ? "hide" : "show"; });
-    if (!only) {
-      next[key] = next[key] === "hide" ? "show" : "hide";
-      return next;
-    }
-    var alone = FILTERS.every(function (f) { return (next[f[0]] === "show") === (f[0] === key); });
-    FILTERS.forEach(function (f) { next[f[0]] = alone || f[0] === key ? "show" : "hide"; });
+  // A click goes either way → only → not → either way; right-click (or
+  // Option-click) goes back to either way. Match switches all/any.
+  function nextFilters(values, key, clear) {
+    var next = {match: values.match === "any" ? "any" : "all"};
+    FILTERS.forEach(function (f) { next[f[0]] = values[f[0]] === "only" || values[f[0]] === "hide" ? values[f[0]] : "show"; });
+    if (key === "match") next.match = clear || next.match === "any" ? "all" : "any";
+    else next[key] = clear ? "show" : {show: "only", only: "hide", hide: "show"}[next[key]];
     return next;
   }
   function onFilterList(id, then) {
@@ -3247,11 +3252,15 @@
     byId(id).addEventListener("click", function (e) { pick(e, e.altKey); });
     byId(id).addEventListener("contextmenu", function (e) { pick(e, true); });
   }
-  var libFilter = {active: "show", finished: "show", private: "show", noAch: "show"};
+  var libFilter = {active: "show", finished: "show", private: "show", noAch: "show", match: "all"};
+  // Red chips always take games out; blue ones keep games in all of them
+  // (Match all) or in any (Match any).
   function filterGames(games) {
+    var only = FILTERS.filter(function (f) { return libFilter[f[0]] === "only"; });
     return games.filter(function (g) {
-      var groups = gameGroups(g);
-      return FILTERS.some(function (f) { return groups[f[0]] && libFilter[f[0]] !== "hide"; });
+      var groups = gameGroups(g), inIt = function (f) { return groups[f[0]]; };
+      if (FILTERS.some(function (f) { return libFilter[f[0]] === "hide" && groups[f[0]]; })) return false;
+      return !only.length || (libFilter.match === "any" ? only.some(inIt) : only.every(inIt));
     });
   }
   // Marked finished (done with, for good) on its page.
@@ -3278,7 +3287,7 @@
     byId("games-sort-label").innerHTML = sortLabel(SORTS.games, gamesSort, gamesOrder);
     byId("games-sort-pop").innerHTML = sortRowsHtml(SORTS.games, gamesSort, gamesOrder);
     renderFilterList("games-filter-list", libFilter);
-    var off = FILTERS.filter(function (f) { return libFilter[f[0]] === "hide"; }).length;
+    var off = FILTERS.filter(function (f) { return libFilter[f[0]] === "only" || libFilter[f[0]] === "hide"; }).length;
     byId("games-filters-label").textContent = off ? "Filters \u00b7 " + off : "Filters";
     byId("games-filters-label").classList.toggle("on", !!off);
     byId("games-filters-all").hidden = !off;
@@ -3842,8 +3851,10 @@
     var values = {}, now = {}, change = {};
     (runSettings || []).forEach(function (x) { values[x.key] = x.value; });
     FILTERS.forEach(function (f) { now[f[0]] = values[f[2]]; });
+    now.match = values.library_match;
     var next = nextFilters(now, key, only);
     FILTERS.forEach(function (f) { change[f[2]] = next[f[0]]; });
+    change.library_match = next.match;
     saveSetting(change);
   });
   byId("library-check").addEventListener("change", function () { saveSetting({library_check: this.value}); });

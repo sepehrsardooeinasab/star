@@ -2072,6 +2072,8 @@
   }
   .filter-chip:hover { color: var(--text); border-color: color-mix(in srgb, var(--accent) 50%, var(--border-strong)); }
   .filter-chip.on { color: #fff; background: var(--accent); border-color: var(--accent); }
+  /* A Library filter set to games not in its group: struck through. */
+  .filter-chip.not { color: #fff; background: var(--danger-solid); border-color: var(--danger-solid); text-decoration: line-through; }
   .filter-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .filters-hint { font-size: 0.72rem; color: var(--placeholder); }
   /* A sort menu's rows (sort, order, group), parted by a line. */
