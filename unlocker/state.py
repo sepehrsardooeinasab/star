@@ -4,6 +4,7 @@ import os
 import sys
 import json
 import shutil
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -148,15 +149,20 @@ def acquire_lock(path, label, block=False, keep=False):
     """Takes an exclusive lock on path, recording label and this PID in it.
     Returns True once held — until this process exits, even if it's killed,
     since the OS drops the lock with the process. Without block, returns
-    False straight away when another process holds it. keep: survive
-    release_locks(), for a lock held across several runs in one process."""
+    False when another process holds it. keep: survive release_locks(), for
+    a lock held across several runs in one process."""
     path.parent.mkdir(parents=True, exist_ok=True)
     f = open(path, "a+")
-    try:
-        fcntl.flock(f, fcntl.LOCK_EX | (0 if block else fcntl.LOCK_NB))
-    except BlockingIOError:
-        f.close()
-        return False
+    # A few tries: a lock_info() looking right then holds it for a moment.
+    for attempt in range(5):
+        try:
+            fcntl.flock(f, fcntl.LOCK_EX | (0 if block else fcntl.LOCK_NB))
+            break
+        except BlockingIOError:
+            if attempt == 4:
+                f.close()
+                return False
+            time.sleep(0.02)
     f.seek(0)
     f.truncate()
     f.write(f"{os.getpid()} {label}\n")
@@ -173,13 +179,13 @@ def release_locks():
 
 def lock_info(path):
     """(pid or None, label) of the process holding path's lock, or None if
-    nobody holds it. Read-only: never takes the lock for longer than the
-    check itself."""
+    nobody holds it. Read-only: a shared lock for the check itself, so two
+    checks at once don't each see the other as the holder."""
     if not path.exists():
         return None
     with open(path, "a+") as f:
         try:
-            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(f, fcntl.LOCK_SH | fcntl.LOCK_NB)
         except BlockingIOError:
             f.seek(0)
             pid, _, label = f.read().strip().partition(" ")

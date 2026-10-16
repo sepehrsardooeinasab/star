@@ -152,7 +152,7 @@ except (OSError, ValueError):
     pass
 try:
     with open({str(SESSION_LOCK)!r}) as f:
-        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        fcntl.flock(f, fcntl.LOCK_SH | fcntl.LOCK_NB)
 except BlockingIOError:
     raise SystemExit  # a session is playing: it closes ASF itself, after
 except OSError:
