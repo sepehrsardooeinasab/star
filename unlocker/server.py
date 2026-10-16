@@ -41,12 +41,14 @@ from unlocker.state import (
     acquire_lock,
     auto_lock_path,
     auto_log_path,
+    config_fingerprint,
     config_problems,
     list_profiles,
     load_progress,
     lock_info,
     profile_lock_path,
     profile_paths,
+    save_progress,
     stop_after_path)
 
 PORT = SETTINGS["ui_port"]
@@ -261,6 +263,29 @@ def _running_pid(name):
     return info[0] if info else None
 
 
+def _move_break(name, old_config, config):
+    """A game in its break waits until progress' session_ends_at, set from
+    the break's length when the session ended. Saving a new length for that
+    break moves it by the difference (keeping any randomness it got), and a
+    break of 0 makes the game playable now."""
+    _, progress_path = profile_paths(name)
+    progress = load_progress(progress_path)
+    if (old_config is None or progress["session_ends_at"] is None
+            or progress["appid"] != config["appid"]
+            or config_fingerprint(old_config) != config_fingerprint(config)):
+        return
+    i = progress["last_completed"] + 1
+    if not 0 < i < len(config["achievements"]):
+        return
+    old, new = old_config["achievements"][i]["delay"], config["achievements"][i]["delay"]
+    if old == new:
+        return
+    ends = (datetime.now() if new == 0 else
+            datetime.fromisoformat(progress["session_ends_at"]) + timedelta(seconds=new - old))
+    progress["session_ends_at"] = ends.isoformat()
+    save_progress(progress_path, progress)
+
+
 def save_game(name, config, csv_text, overwrite=False):
     name = _check_name(name)
     problems = config_problems(config)
@@ -274,9 +299,11 @@ def save_game(name, config, csv_text, overwrite=False):
         raise AppError(f"{title} is running. Stop it before replacing its schedule.", 409)
     if config_path.exists() and not overwrite:
         raise AppError(f"{title} is already saved (as {name}).", 409, exists=True)
+    old_config = json.loads(config_path.read_text()) if config_path.exists() else None
     JSONS_DIR.mkdir(parents=True, exist_ok=True)
     CSVS_DIR.mkdir(parents=True, exist_ok=True)
     config_path.write_text(json.dumps(config, indent=2) + "\n")
+    _move_break(name, old_config, config)
     (CSVS_DIR / f"{name}.csv").write_text(csv_text)
     achievements.keep_asf_open()  # a Start often follows
     return {"saved": name}
