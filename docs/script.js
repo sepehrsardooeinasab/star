@@ -2321,9 +2321,14 @@
     api("/api/log?name=" + encodeURIComponent(name)).then(function (data) {
       if (name !== selectedRun) return;
       var pre = els.runsLog;
-      var atBottom = pre.scrollHeight - pre.scrollTop - pre.clientHeight < 40;
-      pre.textContent = data.text || "No activity yet. When this game runs, what it does shows up here.";
-      if (atBottom) pre.scrollTop = pre.scrollHeight;
+      // Newest run first; each run's own lines stay in the order they happened.
+      var text = (data.text || "").split(/\n*(?=^── Started )/m)
+        .map(function (run) { return run.trim(); }).filter(Boolean).reverse().join("\n\n");
+      text = text || "No activity yet. When this game runs, what it does shows up here.";
+      // Replacing the text drops a selection, so it waits while one is in it.
+      var sel = window.getSelection();
+      if (pre.textContent === text || (sel && !sel.isCollapsed && pre.contains(sel.anchorNode))) return;
+      pre.textContent = text;
     }).catch(function () {});
   }
 
