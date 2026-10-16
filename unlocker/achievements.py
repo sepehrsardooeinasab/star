@@ -304,6 +304,7 @@ def change(appid, unlock, lock):
             to_lock = [(name, find(name)) for name in lock]
             send_command(f"play {appid}")
             playing = True
+            keep_asf_open()  # an earlier close timer would exit ASF mid-change
             time.sleep(EDIT_PLAY)
             done = {"unlocked": [], "locked": []}
             for i, (name, number) in enumerate(to_unlock):
@@ -326,7 +327,7 @@ def change(appid, unlock, lock):
             # its own game).
             if playing and not lock_info(SESSION_LOCK):
                 try:
-                    send_command("resume")
+                    send_command("reset")
                 except Exception:  # noqa: BLE001 - the changes are made; ASF stops it when idle
                     pass
             _cache.pop(appid, None)  # the numbers' unlocked marks changed
