@@ -195,6 +195,15 @@ def _extract(archive, dest, keep_existing=()):
                 os.chmod(target, mode & 0o777)
 
 
+def _no_farming(bot):
+    """Card farming paused from the start (FarmingPreferences' first flag,
+    FarmingPausedByDefault): the bot is only there to play games and unlock
+    achievements, and a farming check right after it signs in resets the
+    game it's playing. FarmingEnabled was ASF's old name; ASF ignores it."""
+    bot.pop("FarmingEnabled", None)
+    bot["FarmingPreferences"] = bot.get("FarmingPreferences", 0) | 1
+
+
 def write_configs():
     """ASF.json, IPC.config and the bot's settings the unlocker relies on,
     merged into whatever is there already."""
@@ -212,6 +221,10 @@ def write_configs():
     asf.update({"Headless": True, "AutoRestart": False, "UpdatePeriod": 0, "UpdateChannel": 0,
                 "Rudokhvist.AchievementsCulture": "en-US"})
     asf_json.write_text(json.dumps(asf, indent=2) + "\n")
+    if BOT_CONFIG.exists():
+        bot = json.loads(BOT_CONFIG.read_text())
+        _no_farming(bot)
+        BOT_CONFIG.write_text(json.dumps(bot, indent=2) + "\n")
 
     port = SETTINGS["asf_port"]
     ipc = {"Kestrel": {"Endpoints": {
@@ -301,12 +314,13 @@ def install(report=print, versions=None):
 
 
 def save_login(username, password):
-    """Writes the bot's config with this Steam account. Card farming is
-    off: the bot is only there to play games and unlock achievements."""
+    """Writes the bot's config with this Steam account, card farming off
+    (see _no_farming)."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     bot = json.loads(BOT_CONFIG.read_text()) if BOT_CONFIG.exists() else {}
     bot.update({"Enabled": True, "SteamLogin": username, "SteamPassword": password,
-                "FarmingEnabled": False, "RemoteCommunication": 0})
+                "RemoteCommunication": 0})
+    _no_farming(bot)
     BOT_CONFIG.write_text(json.dumps(bot, indent=2) + "\n")
     BOT_CONFIG.chmod(0o600)
 
