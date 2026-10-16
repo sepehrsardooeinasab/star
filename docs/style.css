@@ -248,7 +248,7 @@
      type, the generated files (Schedule, Timeline), the run output and
      commands to copy can. */
   :root[data-desktop] body { -webkit-user-select: none; user-select: none; cursor: default; }
-  :root[data-desktop] :is(input, textarea, .file-preview, .csv-table, code) {
+  :root[data-desktop] :is(input, textarea, .file-preview, .csv-table:not(.sessions-summary), code) {
     -webkit-user-select: text;
     user-select: text;
   }
