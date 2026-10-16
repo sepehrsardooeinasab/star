@@ -2074,6 +2074,15 @@
   .filter-chip.on { color: #fff; background: var(--accent); border-color: var(--accent); }
   /* A Library filter set to games not in its group: struck through. */
   .filter-chip.not { color: #fff; background: var(--danger-solid); border-color: var(--danger-solid); text-decoration: line-through; }
+  /* Match all / any: the picked one filled like a chip that's on. */
+  .filter-break { flex-basis: 100%; height: 0; }
+  .match-row { display: flex; align-items: center; gap: 0.35rem; }
+  .filters-foot { align-items: center; }
+  .filters-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+  .filters-top .link-btn { flex: none; margin-top: 0.3rem; font-size: 0.78rem; }
+  .link-btn:disabled { color: var(--placeholder); cursor: default; text-decoration: none; }
+  .match-label { font-size: 0.78rem; color: var(--text-dim); margin-right: 0.15rem; }
+  .set-sign { display: inline-block; margin-right: 0.3em; font-size: 1.35em; line-height: 0; vertical-align: -0.06em; }
   .filter-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .filters-hint { font-size: 0.72rem; color: var(--placeholder); }
   /* A sort menu's rows (sort, order, group), parted by a line. */

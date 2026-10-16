@@ -3224,21 +3224,34 @@
     groups.active = !(groups.finished || groups.private || groups.noAch);
     return groups;
   }
-  function renderFilterList(id, values) {
+  // matchId: where Match goes, when not on a row of its own under the chips.
+  function renderFilterList(id, values, matchId) {
+    if (matchId) byId(matchId).innerHTML = matchChipHtml(values);
     byId(id).innerHTML = FILTERS.map(function (f) {
       var v = values[f[0]], tip = v === "only" ? f[4] : v === "hide" ? f[5] : f[3];
       return '<button class="filter-chip' + (v === "only" ? " on" : v === "hide" ? " not" : "") + '" type="button" data-filter="' + f[0] +
         '" aria-pressed="' + (v === "only" || v === "hide") + '"' + (tip ? ' data-tip="' + tip + '"' : "") + ">" + f[1] + "</button>";
-    }).join("") + (values.match === "any"
-      ? '<button class="filter-chip match-chip" type="button" data-filter="match" data-tip="Games in any blue group">∪ Match any</button>'
-      : '<button class="filter-chip match-chip" type="button" data-filter="match" data-tip="Games in every blue group">∩ Match all</button>');
+    }).join("") + (matchId ? "" : '<span class="filter-break"></span>' + matchChipHtml(values));
+  }
+  // Whether a game has to fit every chip set (blue or red) or just one.
+  // It only matters with two or more set, as its hover says.
+  function matchChipHtml(values) {
+    var set = FILTERS.filter(function (f) { return values[f[0]] === "only" || values[f[0]] === "hide"; }).length;
+    var chip = function (value, sign, text, tip) {
+      var on = (values.match === "any" ? "any" : "all") === value;
+      return '<button class="filter-chip match-chip' + (on ? " on" : "") + '" type="button" data-filter="match-' + value +
+        '" aria-pressed="' + on + '" data-tip="' + tip + (set < 2 ? " (with two or more set)" : "") + '">' +
+        '<span class="set-sign" aria-hidden="true">' + sign + "</span>" + text + "</button>";
+    };
+    return '<span class="match-row"><span class="match-label">Match</span>' +
+      chip("all", "∩", "All", "Games that fit every chip") + chip("any", "∪", "Any", "Games that fit any chip") + "</span>";
   }
   // A click goes either way → only → not → either way; right-click (or
-  // Option-click) goes back to either way. Match switches all/any.
+  // Option-click) goes back to either way. match-all / match-any pick that.
   function nextFilters(values, key, clear) {
     var next = {match: values.match === "any" ? "any" : "all"};
     FILTERS.forEach(function (f) { next[f[0]] = values[f[0]] === "only" || values[f[0]] === "hide" ? values[f[0]] : "show"; });
-    if (key === "match") next.match = clear || next.match === "any" ? "all" : "any";
+    if (key.indexOf("match-") === 0) next.match = clear ? "all" : key.slice(6);
     else next[key] = clear ? "show" : {show: "only", only: "hide", hide: "show"}[next[key]];
     return next;
   }
@@ -3253,14 +3266,14 @@
     byId(id).addEventListener("contextmenu", function (e) { pick(e, true); });
   }
   var libFilter = {active: "show", finished: "show", private: "show", noAch: "show", match: "all"};
-  // Red chips always take games out; blue ones keep games in all of them
-  // (Match all) or in any (Match any).
+  // A game fits a blue chip when it's in the group and a red one when it
+  // isn't; it shows when it fits every chip set (Match all) or any (Match any).
   function filterGames(games) {
-    var only = FILTERS.filter(function (f) { return libFilter[f[0]] === "only"; });
+    var set = FILTERS.filter(function (f) { return libFilter[f[0]] === "only" || libFilter[f[0]] === "hide"; });
     return games.filter(function (g) {
-      var groups = gameGroups(g), inIt = function (f) { return groups[f[0]]; };
-      if (FILTERS.some(function (f) { return libFilter[f[0]] === "hide" && groups[f[0]]; })) return false;
-      return !only.length || (libFilter.match === "any" ? only.some(inIt) : only.every(inIt));
+      var groups = gameGroups(g);
+      var fits = function (f) { return libFilter[f[0]] === "only" ? groups[f[0]] : !groups[f[0]]; };
+      return !set.length || (libFilter.match === "any" ? set.some(fits) : set.every(fits));
     });
   }
   // Marked finished (done with, for good) on its page.
@@ -3286,11 +3299,11 @@
     var games = sortGames(d && !unlocksError ? d.games_list || [] : []);
     byId("games-sort-label").innerHTML = sortLabel(SORTS.games, gamesSort, gamesOrder);
     byId("games-sort-pop").innerHTML = sortRowsHtml(SORTS.games, gamesSort, gamesOrder);
-    renderFilterList("games-filter-list", libFilter);
+    renderFilterList("games-filter-list", libFilter, "games-match");
     var off = FILTERS.filter(function (f) { return libFilter[f[0]] === "only" || libFilter[f[0]] === "hide"; }).length;
     byId("games-filters-label").textContent = off ? "Filters \u00b7 " + off : "Filters";
     byId("games-filters-label").classList.toggle("on", !!off);
-    byId("games-filters-all").hidden = !off;
+    byId("games-filters-all").disabled = !off;
     // Which games show, as the filters and the search say; what's counted
     // is just those.
     var kept = searchGames(filterGames(games));
@@ -3820,9 +3833,11 @@
     renderUnlocks();
   });
   // Filters, here for a while (the defaults are in Settings → Library).
-  onFilterList("games-filter-list", function (key, only) {
-    libFilter = nextFilters(libFilter, key, only);
-    renderGames(unlocksData);
+  ["games-filter-list", "games-match"].forEach(function (id) {
+    onFilterList(id, function (key, only) {
+      libFilter = nextFilters(libFilter, key, only);
+      renderGames(unlocksData);
+    });
   });
   byId("games-filters-all").addEventListener("click", function () {
     FILTERS.forEach(function (f) { libFilter[f[0]] = "show"; });

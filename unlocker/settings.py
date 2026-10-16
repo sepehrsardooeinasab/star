@@ -79,9 +79,8 @@ DEFAULTS = {
     # Which games the Library's Games list shows, by group, each "show",
     # "only" (just games in it) or "hide" (games not in it): those marked
     # Private in Steam, those marked finished, those without achievements,
-    # and the rest ("active"). Hidden groups always leave games out; the
-    # "only" ones keep games in all of them, or with library_match "any",
-    # in any of them.
+    # and the rest ("active"). A game shows when it fits every group set
+    # to "only" or "hide", or with library_match "any", one of them.
     "library_active": "show",
     "library_private": "show",
     "library_no_achievements": "show",
