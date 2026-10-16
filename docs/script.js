@@ -1851,16 +1851,28 @@
   // The Run menu's chips, from the two selects' choices; Other…, picked,
   // is the box for a time in its place. Drawn again only when a choice
   // changes, so the box keeps its focus while typing.
-  var runChipsDrawn = "";
+  // Enter in the box makes it a chip like the others ("In 2h", "At 23:30");
+  // clicking that chip opens the box again.
+  var runChipsDrawn = "", customDone = false;
+  function customLabel() {
+    var text = byId("run-delay-custom").value.trim();
+    if (/:/.test(text)) return "At " + text;
+    var minutes = runDelayMinutes(), h = Math.floor(minutes / 60), m = minutes % 60;
+    return "In " + [h ? h + "h" : "", m || !h ? m + "m" : ""].filter(Boolean).join(" ");
+  }
   function runChips(select) {
     return [].map.call(select.options, function (o) {
-      var on = o.value === select.value;
-      if (on && o.value === "custom") return '<span data-custom-slot></span>';
-      return '<button class="filter-chip' + (on ? " on" : "") + '" type="button" data-value="' + o.value + '" aria-pressed="' + on + '">' + o.text + "</button>";
+      var on = o.value === select.value, text = o.text;
+      if (on && o.value === "custom") {
+        if (!customDone) return '<span data-custom-slot></span>';
+        text = escapeHtml(customLabel());
+      }
+      return '<button class="filter-chip' + (on ? " on" : "") + '" type="button" data-value="' + o.value + '" aria-pressed="' + on + '">' + text + "</button>";
     }).join("");
   }
   function drawRunChips() {
-    var delay = byId("run-delay"), mode = byId("run-mode"), key = delay.value + " " + mode.value;
+    var delay = byId("run-delay"), mode = byId("run-mode");
+    var key = delay.value + " " + mode.value + " " + (customDone ? customLabel() : "");
     if (key === runChipsDrawn) return;
     runChipsDrawn = key;
     var custom = byId("run-delay-custom");
@@ -2399,7 +2411,13 @@
   });
   byId("run-menu").addEventListener("toggle", function () { renderRunBar(runsData ? runsData.games : []); });
   byId("run-delay-custom").addEventListener("keydown", function (e) {
-    if (e.key === "Enter") { e.preventDefault(); byId("run-start").click(); }
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    if (runDelayMinutes() === null) return;
+    customDone = true;
+    renderRunBar(runsData ? runsData.games : []);
+    var chip = byId("run-delay-chips").querySelector('[data-value="custom"]');
+    if (chip) chip.focus();
   });
   // A chip picks in its select, as if picked there.
   [["run-delay-chips", "run-delay"], ["run-mode-chips", "run-mode"]].forEach(function (pair) {
@@ -2407,6 +2425,7 @@
       var chip = e.target.closest("[data-value]");
       if (!chip) return;
       var select = byId(pair[1]);
+      if (select.id === "run-delay") customDone = false;
       select.value = chip.getAttribute("data-value");
       select.dispatchEvent(new Event("change"));
       renderRunBar(runsData ? runsData.games : []);
