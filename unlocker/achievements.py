@@ -30,7 +30,7 @@ from unlocker.state import JSONS_DIR, SESSION_LOCK, lock_info
 # A player's achievements for a game, from a SteamHunters or Steam link.
 LINK_RES = [
     re.compile(r"steamhunters\.com/(id|profiles)/([^/?#]+)/apps/(\d+)", re.I),
-    re.compile(r"steamcommunity\.com/(id|profiles)/([^/?#]+)/stats/([^/?#]+)", re.I),
+    re.compile(r"steamcommunity\.com/(id|profiles)/([^/?#]+)/(?:achievements|stats)/([^/?#]+)", re.I),
 ]
 ALIST_ROW = re.compile(r"\s*(\d+)\s*\[(✅|❌)\]\s*(⚠️\s*)?(.*)$")
 CACHE_FOR = 300  # seconds a game's numbers are reused
@@ -62,6 +62,8 @@ def _steam_stats(kind, who, app):
     """A player's achievements for a game from Steam's public stats page:
     {"appid", "game", "player", "steamid", "achievements": [...]}, in
     Steam's order (unlocked first, then locked)."""
+    # The public /achievements/<appid> page serves HTML even with xml=1.
+    # Keep /stats/<appid> for XML and its exact achievement timestamps.
     # A new address each minute: Steam caches the page, for up to an hour.
     query = f"?xml=1&l=english&t={int(time.time()) // 60}"
     url = f"https://steamcommunity.com/{kind}/{who}/stats/{app}/{query}"
@@ -136,7 +138,7 @@ def from_link(url):
     else:
         raise Problem("That isn't a link to a player's achievements", "Use a SteamHunters link "
                       "(steamhunters.com/id/<player>/apps/<appid>/achievements) or a Steam one "
-                      "(steamcommunity.com/id/<player>/stats/<appid>/achievements).")
+                      "(steamcommunity.com/id/<player>/achievements/<appid>).")
     unlocked = [a for a in stats["achievements"] if a["unlocked"] and a["unlock_time"]]
     if not unlocked:
         raise Problem("Nothing to copy", "This player hasn't unlocked any achievements in this game.")

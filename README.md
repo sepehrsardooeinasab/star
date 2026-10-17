@@ -27,7 +27,7 @@ Open STAR and sign in to Steam. The title bar switches between **Schedule**, **R
 
 Paste into **Schedule** either:
 
-- **A link** to a player's achievements for the game, from SteamHunters (`steamhunters.com/id/<player>/apps/<appid>/achievements`) or Steam (`steamcommunity.com/id/<player>/stats/<appid>/achievements`). The exact unlock times come straight from Steam, so the player's profile must be public.
+- **A link** to a player's achievements for the game, from SteamHunters (`steamhunters.com/id/<player>/apps/<appid>/achievements`) or Steam (`steamcommunity.com/id/<player>/achievements/<appid>`). Older Steam `/stats/<appid>` links also work. The exact unlock times come straight from Steam, so the player's profile must be public.
 - **The page itself**: on SteamHunters, open the player's achievements for the game, select the whole page (⌘A / Ctrl+A), copy and paste. Turn on **Show hidden achievements** in SteamHunters' settings first, or hidden ones come without a name. Any sort or grouping works.
 
 The game's name and App ID fill themselves in where they can. The sessions table beside the paste shows each session's achievements, length and the break before it; **Full timeline** shows every achievement, where breaks can be added or removed and delays changed. **Options** holds the session rules. Then **Save**.

@@ -3544,8 +3544,9 @@
     var done = p.total && p.unlocked >= p.total;
     // Yours on Steam and SteamHunters (by Steam ID, as for a custom URL), else the game's.
     var mine = p.steamid ? "profiles/" + encodeURIComponent(p.steamid) + "/" : "";
+    var steamPath = p.steamid ? mine + "achievements/" + p.appid : "stats/" + p.appid + "/achievements/";
     var links = '<a class="btn-ghost game-site" target="_blank" rel="noopener" data-tip="Steam" aria-label="Steam" href="https://steamcommunity.com/' +
-        mine + "stats/" + p.appid + '/achievements/">' + STEAM_ICON + "</a>" +
+        steamPath + '">' + STEAM_ICON + "</a>" +
       '<a class="btn-ghost game-site" target="_blank" rel="noopener" data-tip="SteamHunters" aria-label="SteamHunters" href="https://steamhunters.com/' +
         mine + "apps/" + p.appid + '/achievements">' + STEAMHUNTERS_ICON + "</a>" +
       '<button class="btn-ghost game-site game-finish' + (p.finished ? " on" : "") + '" type="button" data-game-finish aria-pressed="' + !!p.finished +
