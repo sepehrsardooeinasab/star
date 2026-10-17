@@ -93,6 +93,15 @@
       : "<p><b style='color:var(--text)'>Couldn't start the reinstall</b></p><p>Run this in Terminal:</p><code></code>";
     if (!ok) main.querySelector("code").textContent = INSTALL_CMD;
   }
+  // The installer finished but didn't close this copy of STAR (and it
+  // couldn't open the new one itself): say what happened.
+  function showReinstalled(ok) {
+    var main = document.getElementById("main");
+    main.innerHTML = ok
+      ? "<p><b style='color:var(--text)'>STAR is reinstalled</b></p><p>Quit this window and open STAR from Applications.</p>"
+      : "<p><b style='color:var(--text)'>The reinstall didn't finish</b></p><p>What it did is in jsons/.update.log in STAR's data folder. Or run this in Terminal:</p><code></code>";
+    if (!ok) main.querySelector("code").textContent = INSTALL_CMD;
+  }
 
   // STAR › Reinstall STAR… opens this page with ?reinstall.
   if (location.search === "?reinstall") {
