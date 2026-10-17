@@ -321,11 +321,20 @@
             <button class="bar-btn" id="sched-full-btn" type="button" aria-pressed="false">Full timeline</button>
           </div>
           <div class="field">
-            <label for="export-text" class="visually-hidden">Paste export</label>
+            <div class="import-intro app-only">
+              <h2>Paste a player’s achievement link</h2>
+              <p>Import from Steam or SteamHunters to build a schedule.</p>
+            </div>
+            <label for="export-text" class="visually-hidden">Achievement link or copied SteamHunters page</label>
             <textarea id="export-text" spellcheck="false" placeholder="Paste the copied SteamHunters achievements page here…"></textarea>
             <div id="input-alert-slot"></div>
+            <div class="import-actions app-only"><span>Or paste a copied SteamHunters page.</span>
+              <button class="link-btn" id="manual-details" type="button" aria-expanded="false" aria-controls="schedule-bar">Enter game details</button>
+            </div>
           </div>
-          <div class="hint settings-help input-help">
+          <details class="hint settings-help input-help">
+            <summary>How to import achievements</summary>
+            <div class="import-help-body">
             <div class="help-title app-only">A link</div>
             <ul class="app-only">
               <li>A link to the player's achievements for a game, from SteamHunters or Steam:
@@ -343,7 +352,8 @@
               <li>Achievements the player hasn't unlocked are skipped.</li>
               <li class="app-only">Steam's own page can't be pasted; use its link.</li>
             </ul>
-          </div>
+            </div>
+          </details>
         </div>
 
         <div class="view-pane" data-view="settings">

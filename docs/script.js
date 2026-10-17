@@ -1107,9 +1107,7 @@
           : "<span>len <b>" + latest.stats.sessionLen + "</b></span>" +
             "<span>gap <b>" + latest.stats.gapRange + "</b></span>");
     } else if (combined) {
-      // Dashes until there's a timeline, so the line isn't empty.
-      els.statsStrip.innerHTML = "<span><b>—</b> achievements</span><span><b>—</b> sessions</span>" +
-        "<span>sessions <b>—</b></span><span>breaks <b>—</b></span>";
+      els.statsStrip.innerHTML = "<span>Import achievements to preview sessions and breaks.</span>";
     } else {
       // Kept (with a hint) so the bar doesn't change height on paste.
       els.statsStrip.innerHTML = "<span>" + escapeHtml(latest && latest.pending ? latest.errors[0]
@@ -1164,7 +1162,7 @@
         // The timeline's frame is there already, these inside it at the
         // bottom, so it doesn't shrink when they come and go.
         var missing = latest && !latest.inputNotice && els.exportText.value.trim() ? latest.errors : [];
-        slot.innerHTML = emptyHtml("☰", "The timeline shows up here once the paste reads cleanly.") +
+        slot.innerHTML = emptyHtml("☰", "Your schedule preview will appear here.") +
           '<div class="notices-below in-frame">' + (latest && latest.pending ? stepsHtml(latest.errors[0], latest.steps)
             : missing.map(function (m) { return noticeHtml("info", m); }).join("")) + "</div>";
         return;
@@ -2607,7 +2605,7 @@
         var input = byId(f[0]), unit = document.createElement("span");
         document.querySelector('label[for="' + f[0] + '"]').textContent = f[1];
         unit.className = "bar-unit";
-        unit.textContent = "h";
+        unit.textContent = "hours";
         input.parentNode.insertBefore(unit, input.nextSibling);
       });
     // It opens centered under Options, moved in from the window's edge if
@@ -2640,11 +2638,17 @@
     byId("paste-summary").querySelector('[data-slot="stats"]').appendChild(els.statsStrip);
     // No How to edit in the app: the timeline's tooltips say it.
     document.querySelector(".hover-help").remove();
-    // The how-to sits inside the empty paste box, like a placeholder; the
-    // timeline takes the right side.
+    // Keep the input actionable; detailed import instructions are optional.
     var help = document.querySelector(".input-help");
-    els.exportText.parentNode.insertBefore(help, els.exportText.nextSibling);
-    els.exportText.placeholder = "";
+    els.exportText.parentNode.appendChild(help);
+    els.exportText.placeholder = "Paste a Steam or SteamHunters link here…";
+    byId("manual-details").addEventListener("click", function () {
+      var box = document.querySelector(".box");
+      var open = box.classList.toggle("show-details");
+      this.setAttribute("aria-expanded", String(open));
+      this.textContent = open ? "Hide game details" : "Enter game details";
+      if (open) els.gameName.focus();
+    });
     document.querySelector('.view-pane[data-view="input"]').appendChild(els.csvSlot);
     // It opens on Runs (Settings takes over while setup isn't done; see
     // refreshSetup).
