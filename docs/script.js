@@ -1456,9 +1456,10 @@
   appearanceMenu.addEventListener("click", function (e) {
     var b = e.target.closest("button");
     if (!b) return;
-    var theme = b.getAttribute("data-theme-choice"), accent = b.getAttribute("data-accent-choice");
-    if (theme) applyAppearance("theme", theme, true);
-    if (accent) applyAppearance("accent", accent, true);
+    ["theme", "accent", "banners", "gradient"].forEach(function (key) {
+      var value = b.getAttribute("data-" + key + "-choice");
+      if (value) applyAppearance(key, value, true);
+    });
   });
   // The look is kept in settings.json in the app (so an update doesn't
   // reset it), and in this window's storage too, so the page paints in it
@@ -1523,6 +1524,11 @@
           throw err;
         }
         return data;
+      });
+    });
+    ["banners", "gradient"].forEach(function (key) {
+      appearanceMenu.querySelectorAll("[data-" + key + "-choice]").forEach(function (b) {
+        b.setAttribute("aria-pressed", String(b.getAttribute("data-" + key + "-choice") === root.getAttribute("data-" + key)));
       });
     });
   }
@@ -2917,7 +2923,7 @@
       box.disabled = !s || !extrasTools[key];
       box.checked = !!(s && s.value && extrasTools[key]);
     });
-    ["theme", "accent"].forEach(function (key) {
+    ["theme", "accent", "banners", "gradient"].forEach(function (key) {
       var s = (runSettings || []).filter(function (x) { return x.key === key; })[0];
       if (s && document.documentElement.getAttribute("data-" + key) !== s.value) applyAppearance(key, s.value, false);
     });

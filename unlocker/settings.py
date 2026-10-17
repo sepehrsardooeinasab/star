@@ -63,6 +63,10 @@ DEFAULTS = {
     # The app's look (its Appearance menu).
     "theme": "dark",
     "accent": "violet",
+    # Games' art behind run cards and a game page's header: "off", "normal"
+    # or "blur"; and the colour glows behind a game: "off" or "on".
+    "banners": "off",
+    "gradient": "off",
     # How far back the app's Library lists achievements: day, week, month, year or all.
     "unlocks_range": "month",
     # How the Library's Games are sorted: by when last played, the last
@@ -120,6 +124,8 @@ _TYPES = {
     "clock": (str,),
     "theme": (str,),
     "accent": (str,),
+    "banners": (str,),
+    "gradient": (str,),
     "unlocks_range": (str,),
     "library_sort": (str,),
     "library_order": (str,),
@@ -151,8 +157,10 @@ APP_TOGGLES = ["keep_awake", "show_finished"]
 # Choices the app shows on their own, with what each can be.
 APP_CHOICES = {"clock": ["system", "12h", "24h"], "theme": ["dark", "light"],
                "accent": ["violet", "wine", "blue", "teal", "amber"],
+               "banners": ["off", "normal", "blur"],
+               "gradient": ["off", "on"],
                "unlocks_range": ["day", "week", "month", "year", "all"],
-               "library_sort": ["played", "achievement", "name", "progress", "playtime"],
+               "library_sort": ["played", "achievement", "name", "progress", "playtime", "duration"],
                "library_order": ["desc", "asc"],
                "achievement_sort": ["default", "date", "name"],
                "achievement_order": ["desc", "asc"],
@@ -168,7 +176,9 @@ APP_CHOICES = {"clock": ["system", "12h", "24h"], "theme": ["dark", "light"],
 
 # Settings older versions had, ignored (and dropped on the next save from
 # the app) rather than refused as unknown.
-RETIRED = {"notifications", "library_hidden", "auto_update"}
+RETIRED = {"notifications", "library_hidden", "auto_update",
+           # Artwork on/off, briefly, before Banners and Gradient replaced it.
+           "art"}
 
 
 def problems(overrides):

@@ -10,8 +10,13 @@
   // Apply the saved theme and accent (default dark / violet) before the page paints.
   // With none saved here, the app's (window.starTheme, from settings.json).
   (function () {
-    var theme = null, accent = null;
-    try { theme = localStorage.getItem("unlock-scheduler-theme"); accent = localStorage.getItem("unlock-scheduler-accent"); } catch (e) {}
+    var theme = null, accent = null, banners = null, gradient = null;
+    try {
+      theme = localStorage.getItem("unlock-scheduler-theme"); accent = localStorage.getItem("unlock-scheduler-accent");
+      banners = localStorage.getItem("unlock-scheduler-banners"); gradient = localStorage.getItem("unlock-scheduler-gradient");
+    } catch (e) {}
+    document.documentElement.setAttribute("data-banners", banners || "off");
+    document.documentElement.setAttribute("data-gradient", gradient || "off");
     document.documentElement.setAttribute("data-theme", theme || window.starTheme || "dark");
     document.documentElement.setAttribute("data-accent", accent || "violet");
     // In the desktop app (it adds ?desktop=macos|linux), the top bar is
@@ -51,6 +56,19 @@
         <div class="segmented" role="group" aria-label="Theme">
           <button type="button" data-theme-choice="dark">Dark</button>
           <button type="button" data-theme-choice="light">Light</button>
+        </div>
+        <!-- Games' art behind their cards and a game page's header. -->
+        <div class="menu-label">Banners</div>
+        <div class="segmented" role="group" aria-label="Banners">
+          <button type="button" data-banners-choice="off">Off</button>
+          <button type="button" data-banners-choice="normal">Normal</button>
+          <button type="button" data-banners-choice="blur">Blur</button>
+        </div>
+        <!-- Colour glows behind a game, in its art's colours. -->
+        <div class="menu-label">Gradient</div>
+        <div class="segmented" role="group" aria-label="Gradient">
+          <button type="button" data-gradient-choice="off">Off</button>
+          <button type="button" data-gradient-choice="on">On</button>
         </div>
         <div class="menu-label">Accent</div>
         <div class="swatches" role="group" aria-label="Accent color">
