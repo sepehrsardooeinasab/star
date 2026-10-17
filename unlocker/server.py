@@ -458,11 +458,28 @@ def start_run(name, every=False, delay=None):
             + ([] if every else ["--once"]) + (["-in", str(delay)] if delay else []),
             cwd=str(PROJECT_DIR), stdin=subprocess.DEVNULL, stdout=log,
             stderr=subprocess.STDOUT, start_new_session=True)
-    # Wait until it holds its lock, so the next status already shows it
-    # running and a second click can't start (and wipe the log of) another.
-    deadline = time.monotonic() + 5
+    # Started once it holds its lock (the first thing a run does), so the
+    # next status already shows it running and a second click can't start
+    # (and wipe the log of) another. One that ends first, or doesn't get
+    # there in time (it's stopped then), didn't start: that's the answer,
+    # with the last thing it printed.
+    deadline = time.monotonic() + 15
     while not lock_info(auto_lock_path(name)) and proc.poll() is None and time.monotonic() < deadline:
         time.sleep(0.1)
+    if not lock_info(auto_lock_path(name)):
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+        said = [line for line in log_path.read_text(errors="replace").splitlines()[-20:]
+                if line.strip() and not line.startswith(RUN_HEADER)]
+        title = state.get("title") or name
+        last = said[-1].strip() if said else ""
+        if last and last[-1] not in ".!?":
+            last += "."
+        raise AppError(f"{title} didn't start" + (f": {last}" if last else ".") + " Its log in Runs has the rest.", 500)
     return {"started": name}
 
 
