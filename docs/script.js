@@ -1070,7 +1070,7 @@
     if (imported) setSchedulePanel("preview", byId("schedule-workspace").contains(document.activeElement));
     else if (!ok && schedulePanel === "preview") setSchedulePanel("import");
     var source = els.copiedFrom.value.trim();
-    byId("schedule-source-note").textContent = source ? "Achievements from " + source : "Steam or SteamHunters";
+    byId("schedule-source-note").textContent = source ? "Achievements from " + source : "";
     if (els.exportText.value.trim() && latest && !latest.pending && !latest.inputNotice &&
         (!els.appid.value || !els.gameName.value.trim())) {
       setSchedulePanel("details");
