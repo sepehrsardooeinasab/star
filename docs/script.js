@@ -1858,7 +1858,8 @@
     var text = byId("run-delay-custom").value.trim();
     if (/:/.test(text)) return "At " + text;
     var minutes = runDelayMinutes(), h = Math.floor(minutes / 60), m = minutes % 60;
-    return "In " + [h ? h + "h" : "", m || !h ? m + "m" : ""].filter(Boolean).join(" ");
+    // Worded like the other chips: "In 30 min", "In 1 hour".
+    return "In " + [h ? h + (h === 1 ? " hour" : " hours") : "", m || !h ? m + " min" : ""].filter(Boolean).join(" ");
   }
   function runChips(select) {
     return [].map.call(select.options, function (o) {
