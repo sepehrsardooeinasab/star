@@ -123,15 +123,23 @@ fn start_server(code: Option<PathBuf>, home: &Path) -> Result<String, String> {
 /// can still be undone, since this part and the starting page are built into
 /// the app. The script closes the app and opens the new one. Logs to the
 /// same file as Check for Updates, so a failure shows there next time.
-fn reinstall(home: &Path) -> bool {
+/// What starting the reinstall did: started it (the installer, to wait
+/// for), found it already started, or couldn't start it.
+enum Reinstall {
+    Started(std::process::Child),
+    Running,
+    Failed,
+}
+
+fn reinstall(home: &Path) -> Reinstall {
     static STARTED: AtomicBool = AtomicBool::new(false);
     if STARTED.swap(true, Ordering::SeqCst) {
-        return true;
+        return Reinstall::Running;
     }
     let script = r#"tmp=$(mktemp) && curl -fsSL "$0" -o "$tmp" && sh "$tmp" "$@"; status=$?; rm -f "$tmp"; exit $status"#;
     let _ = std::fs::create_dir_all(home.join("jsons"));
-    let Ok(log) = std::fs::File::create(home.join("jsons/.update.log")) else { return false };
-    let Ok(log2) = log.try_clone() else { return false };
+    let Ok(log) = std::fs::File::create(home.join("jsons/.update.log")) else { return Reinstall::Failed };
+    let Ok(log2) = log.try_clone() else { return Reinstall::Failed };
     // Apps opened from the Dock get a minimal PATH; the script needs the
     // Python the app uses.
     let python = python(home);
@@ -147,9 +155,13 @@ fn reinstall(home: &Path) -> bool {
     // Its own process group, so it outlives the app it closes.
     #[cfg(unix)]
     std::os::unix::process::CommandExt::process_group(&mut command, 0);
-    let ok = command.spawn().is_ok();
-    STARTED.store(ok, Ordering::SeqCst);
-    ok
+    match command.spawn() {
+        Ok(child) => Reinstall::Started(child),
+        Err(_) => {
+            STARTED.store(false, Ordering::SeqCst);
+            Reinstall::Failed
+        }
+    }
 }
 
 /// The server's URL once it's up, to stop it when the window closes.
@@ -414,9 +426,25 @@ fn main() {
                     }
                     let (handle, home) = (handle.clone(), reinstall_home.clone());
                     thread::spawn(move || {
-                        let ok = reinstall(&home);
+                        let started = reinstall(&home);
+                        let ok = !matches!(started, Reinstall::Failed);
                         if let Some(window) = handle.get_webview_window("main") {
                             let _ = window.eval(&format!("showReinstalling({ok})"));
+                        }
+                        // The installer closes the installed app and opens it again.
+                        // Still here once it's done means it didn't close this one (a
+                        // build run from elsewhere, like a dev build): open the new
+                        // app and close this one, or say what went wrong.
+                        if let Reinstall::Started(mut child) = started {
+                            let done = child.wait().map(|s| s.success()).unwrap_or(false);
+                            #[cfg(target_os = "macos")]
+                            if done && Command::new("open").args(["-a", "STAR"]).status().map(|s| s.success()).unwrap_or(false) {
+                                handle.exit(0);
+                                return;
+                            }
+                            if let Some(window) = handle.get_webview_window("main") {
+                                let _ = window.eval(&format!("showReinstalled({done})"));
+                            }
                         }
                     });
                     false
