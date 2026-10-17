@@ -160,6 +160,7 @@
   .swatches:last-child { margin-bottom: 0; }
   .segmented { display: flex; gap: 2px; padding: 2px; border: 1px solid var(--border-strong); border-radius: 8px; }
   .segmented button {
+    min-height: 28px;
     flex: 1;
     padding: 0.3rem 0;
     border: 0;
@@ -239,7 +240,6 @@
   :root[data-desktop] .page > .hero,
   :root[data-desktop] .page > .shell { width: 100%; margin-top: auto; margin-bottom: auto; }
   :root[data-desktop] .page > .hero { padding-top: 2.5rem; padding-bottom: 2.5rem; }
-  :root[data-desktop] body[data-screen="work"] .page > .shell { padding-top: 0; padding-bottom: 1.5rem; }
   /* Schedule, Runs and Settings: the page header and the box stay
      together, centered as one, however tall the window. */
   :root[data-desktop] body:is([data-screen="work"], [data-screen="guide"]) .page > .page-head { margin-top: auto; }
@@ -297,7 +297,6 @@
   body[data-screen="guide"] #setup-close { display: none !important; }
   /* Laid out like the Schedule and Runs box: same width and height, a
      title bar, the settings in two columns, the app's version as footer. */
-  body[data-screen="guide"] .hero { max-width: var(--max-width); padding: 1.5rem 1rem; }
   body[data-screen="guide"] #hero-setup {
     display: flex;
     flex-direction: column;
@@ -310,7 +309,7 @@
     overflow: hidden;
   }
   body[data-screen="guide"] #hero-setup .panel-head { display: none; }
-  body[data-screen="guide"] .hero { padding-top: 0; }
+  body[data-screen="guide"] .hero { max-width: var(--max-width); padding: 0 1rem 1.5rem; }
   /* Sections name themselves like the eyebrow; no step marks. */
   body[data-screen="guide"] .step-mark { display: none; }
   body[data-screen="guide"] .step-head b {
@@ -433,14 +432,14 @@
   }
   .btn-hero.armed { color: var(--danger); border: 1.5px solid var(--danger); background: var(--danger-bg); }
 
-  /* A thin colored line along the top edge of the window. */
+  /* A thin line in the selected accent color along the top edge of the window. */
   body::before {
     content: "";
     position: fixed;
     inset: 0 0 auto;
     height: 2px;
     z-index: 30;
-    background: linear-gradient(90deg, var(--hero-a), var(--hero-b), var(--hero-c));
+    background: var(--accent);
   }
   :root { --hero-a: #f2c14e; --hero-b: #f0609e; --hero-c: #9b7bff; }
 
@@ -541,22 +540,6 @@
   #run-settings-save { box-sizing: border-box; min-width: 4.8rem; padding: 0 0.8rem; font-size: 0.78rem; border-radius: 999px; border-color: var(--accent); color: var(--accent); }
   /* Library's display options: the rows straight under the summary. */
   .lib-defaults-box .lib-defaults { margin-top: 0.8rem; padding-top: 0; border-top: 0; }
-  .lock-toggle {
-    flex: none;
-    display: inline-flex;
-    align-items: center;
-    /* As wide locked as unlocked, so nothing beside it moves; the icon
-       stays put on the left. */
-    box-sizing: border-box;
-    min-width: 6.5rem;
-    gap: 0.4rem;
-    padding: 0.35rem 0.75rem;
-    font-size: 0.78rem;
-    color: var(--text-dim);
-    background: var(--surface);
-    border: 1px solid var(--border-strong);
-    border-radius: 999px;
-  }
   .lock-toggle svg { flex: none; width: 14px; height: 14px; }
   /* The label centred in the room beside the icon. */
   .lock-toggle > span { flex: 1; text-align: center; }
@@ -573,7 +556,6 @@
   .setting-reset:hover { color: var(--text); }
   .setting-reset[hidden] { display: none; }
   .setting-group-title { margin-top: 0.5rem; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); }
-  .run-settings .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; margin-top: 0.55rem; font-size: 0.82rem; }
   .run-settings .setting-row label { margin: 0; font-size: 0.82rem; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--text); }
   .run-settings .setting-row span { flex: none; display: flex; align-items: center; gap: 0.5rem; color: var(--text-dim); font-size: 0.78rem; }
   .run-settings .setting-unit { width: 3.6rem; }
@@ -806,14 +788,6 @@
   }
   .runs-list { display: flex; flex-direction: column; gap: 0.6rem; min-height: 0; flex: 1 1 auto; overflow-y: auto; }
   .runs-list .empty-hint, .runs-list .notice { margin: 0; }
-  .run-card {
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 0.8rem 0.9rem;
-    cursor: pointer;
-    transition: border-color 0.12s ease;
-  }
   .run-card:hover { border-color: var(--border-strong); }
   .run-card.selected { border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
   .run-head { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
@@ -822,7 +796,6 @@
   .game-icon { flex: none; width: 22px; height: 22px; border-radius: 5px; background: var(--surface-3); }
   .run-head .game-icon { margin-right: -0.15rem; }
   .run-card:is(.resting, .over) .game-icon { opacity: 0.5; }
-  .run-summary-title { display: flex; align-items: center; gap: 0.6rem; }
   .run-summary-title .game-icon { width: 28px; height: 28px; border-radius: 6px; }
   .run-summary-title > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .run-badge {
@@ -971,17 +944,20 @@
   body.local .view-pane[data-view="input"]::before {
     content: "";
     position: absolute;
-    inset: 0;
+    inset: 0 0 auto;
+    height: 11rem;
     z-index: -1;
     pointer-events: none;
     /* Its two colours (see tintFor), one from each top corner. */
     background: radial-gradient(85% 90% at 15% 0%, rgba(var(--run-tint, 0, 0, 0), 0.3), rgba(var(--run-tint, 0, 0, 0), 0.06) 60%, transparent), radial-gradient(85% 90% at 85% 0%, rgba(var(--run-tint-2, var(--run-tint, 0, 0, 0)), 0.3), rgba(var(--run-tint-2, var(--run-tint, 0, 0, 0)), 0.06) 60%, transparent);
     opacity: 0;
+    -webkit-mask-image: linear-gradient(#000, transparent);
+    mask-image: linear-gradient(#000, transparent);
     transition: opacity 0.3s ease;
   }
   /* Schedule's runs out over the space around it (its box's padding), to
      the window's edges as Runs' does. */
-  body.local .view-pane[data-view="input"]::before { inset: -1rem -1.2rem; }
+  body.local .view-pane[data-view="input"]::before { inset: -1rem -1.2rem auto; height: 9rem; }
   :is(.runs-log, body.local .view-pane[data-view="input"])[style*="--run-tint"]::before { opacity: 1; }
   :root[data-theme="light"] :is(.runs-log, body.local .view-pane[data-view="input"])[style*="--run-tint"]::before { opacity: 0.45; }
   /* The table sits on the glow on its own background, like the bar over
@@ -993,7 +969,21 @@
   :root[data-theme="light"] body.local #csv-slot table.csv-table th { background: #eeeeee; }
   /* Each game's card in the list: its art too, stronger towards the right
      (the name stays on a quieter part), brighter when selected. */
-  .run-card { position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; justify-content: center; min-height: 5.2rem; }
+  .run-card {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.8rem 0.9rem;
+    cursor: pointer;
+    transition: border-color 0.12s ease;
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 5.2rem;
+  }
   .run-card::before {
     content: "";
     position: absolute;
@@ -1012,27 +1002,13 @@
   .run-card.selected::before { opacity: 0.34; }
   .run-card:is(.resting, .over)::before { opacity: 0.1; }
   /* Light: art fades into white, so it needs more to read. */
-  :root[data-theme="light"] .run-card::before { opacity: 0.55; }
   :root[data-theme="light"] .run-card.selected::before { opacity: 0.7; }
   :root[data-theme="light"] .run-card:is(.resting, .over)::before { opacity: 0.28; }
   /* …faded more where the text is, which keeps a soft white halo. */
-  :root[data-theme="light"] .run-card::before {
-    -webkit-mask-image: linear-gradient(to left, #000 25%, rgba(0, 0, 0, 0.15));
-    mask-image: linear-gradient(to left, #000 25%, rgba(0, 0, 0, 0.15));
-  }
+  :root[data-theme="light"] .run-card::before { opacity: 0.55; -webkit-mask-image: linear-gradient(to left, #000 25%, rgba(0, 0, 0, 0.15)); mask-image: linear-gradient(to left, #000 25%, rgba(0, 0, 0, 0.15)); }
   :root[data-theme="light"] .run-card :is(.run-name, .run-meta) { text-shadow: 0 0 6px rgba(255, 255, 255, 0.9), 0 0 2px rgba(255, 255, 255, 0.9); }
-  .runs-log-head {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 0.75rem;
-    font-size: 0.78rem;
-    color: var(--text-dim);
-    margin-bottom: 0.9rem;
-  }
-  .runs-pane-switch { flex: none; }
   /* Same look as the Schedule tabs. */
-  .runs-pane-switch { padding: 2px; border-radius: 9px; background: var(--surface); }
+  .runs-pane-switch { flex: none; padding: 2px; border-radius: 9px; background: var(--surface); }
   .runs-pane-switch button { padding: 0.42rem 0.8rem; border-radius: 7px; font-size: 0.82rem; font-weight: 500; }
   .runs-pane-switch button[aria-pressed="true"] { background: var(--accent-tint); color: var(--accent); }
   .runs-log [hidden] { display: none !important; }
@@ -1323,7 +1299,6 @@
   .btn-ghost { background: var(--surface); border-color: var(--border-strong); color: var(--text); }
   .btn-ghost:hover:not(:disabled) { border-color: var(--text-dim); background: var(--surface-2); }
 
-
   .hint { font-size: 0.82rem; color: var(--text-dim); }
   .hint ul { margin: 0.5rem 0 0; padding-left: 1.2rem; line-height: 1.5; }
   .hint li + li { margin-top: 0.35rem; }
@@ -1354,15 +1329,8 @@
 
   /* Help that opens on hover (or keyboard focus / tap), floating above its
      label so it never changes the layout. */
-  .hover-help {
-    position: relative;
-    flex: none;
-    margin-left: auto;
-    border-radius: 6px;
-    outline: none;
-  }
   /* Only the open tab's help is shown. */
-  .hover-help { display: none; }
+  .hover-help { position: relative; flex: none; margin-left: auto; border-radius: 6px; outline: none; display: none; }
   .box[data-view="csv"] .hover-help[data-for="csv"] { display: block; }
   .hover-help-label {
     display: inline-flex;
@@ -1470,14 +1438,7 @@
 
   /* The work area fills the window under the title bar. */
   :root[data-desktop] body:is([data-screen="work"], [data-screen="guide"]) .page { overflow: hidden; }
-  :root[data-desktop] body[data-screen="work"] .page > .shell {
-    flex: 1;
-    display: flex;
-    max-width: none;
-    margin: 0;
-    padding: 0 !important;
-    min-height: 0;
-  }
+  :root[data-desktop] body[data-screen="work"] .page > .shell { flex: 1; display: flex; max-width: none; margin: 0; padding: 0 !important; min-height: 0; }
   :root[data-desktop] body[data-screen="work"] .stage { flex: 1; display: flex; min-width: 0; min-height: 0; }
   :root[data-desktop] .box,
   :root[data-desktop] .box[data-view="runs"] {
@@ -1582,27 +1543,17 @@
     grid-column: 2; grid-row: 1 / span 2; justify-self: end; margin-top: 0;
   }
   :root[data-desktop] body[data-screen="guide"] #step-about .update-row span { color: var(--text); font-size: 0.82rem; }
-  :root[data-desktop] body[data-screen="guide"] #hero-setup .run-settings { grid-template-columns: minmax(0, 1fr); gap: 1.1rem; }
   /* Every row the same height, checkbox or number, evenly spaced. */
-  .run-settings .setting-row { min-height: 2rem; margin-top: 0.4rem; }
+  .run-settings .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; font-size: 0.82rem; min-height: 2rem; margin-top: 0.4rem; }
   .run-settings .setting-group-title { margin: 0 0 0.1rem; }
   /* The first group as far from the note above as the groups are apart. */
-  :root[data-desktop] body[data-screen="guide"] #hero-setup .run-settings { margin-top: 1.1rem; }
+  :root[data-desktop] body[data-screen="guide"] #hero-setup .run-settings { grid-template-columns: minmax(0, 1fr); gap: 1.1rem; margin-top: 1.1rem; }
 
   /* The app's one-screen Schedule: a bar with the game, its App ID and
      the options, then the paste beside its timeline (the how-to until
      something's pasted). The website keeps its tabs. */
   .schedule-bar { display: none; }
   body.local .box:not([data-view="runs"]) .box-header { display: none; }
-  body.local .box:not([data-view="runs"]) .schedule-bar {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem 1rem;
-    flex-wrap: wrap;
-    padding: 0.6rem 1.2rem;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-  }
   .bar-field {
     display: flex;
     align-items: center;
@@ -1650,7 +1601,6 @@
   /* Fields whose input moved into the bar leave nothing behind. */
   .bar-popover .settings-form .row2:not(:has(input)) { display: none; }
   .bar-popover .settings-form .field:not(:has(input, button)) { display: none; }
-  .bar-stats { margin-left: auto; }
   .bar-stats .stats-strip { gap: 0.2rem 1.1rem; font-size: 0.76rem; }
   /* Nothing shows in it, so it takes no gap either: Reset all fields
      ends where Full timeline does, below it. */
@@ -1678,7 +1628,7 @@
   .bar-reset #reset-btn { box-sizing: border-box; height: 28px; min-width: 7rem; padding: 0 0.7rem; font-size: 0.76rem; white-space: nowrap; }
   /* One line at any window width: the name and Copied from give up room
      first, down to a usable width. */
-  body.local .box:not([data-view="runs"]) .schedule-bar { flex-wrap: nowrap; }
+  body.local .box:not([data-view="runs"]) .schedule-bar { display: flex; align-items: center; gap: 0.6rem 1rem; padding: 0.6rem 1.2rem; background: var(--surface); border-bottom: 1px solid var(--border); flex-wrap: nowrap; }
   .schedule-bar > * { flex: none; white-space: nowrap; }
   .schedule-bar .bar-field[data-slot="game-name"] { flex: 0 1 auto; min-width: 0; }
   .schedule-bar .bar-field[data-slot="game-name"] input { width: 15rem; min-width: 7rem; flex: 0 1 auto; }
@@ -1691,10 +1641,6 @@
 
   /* Runs, beside the list: the game in one line, Info and Log a click
      away, and its timeline filling the rest. */
-  .runs-log-head { align-items: center; gap: 0.5rem; }
-  .run-summary { flex: 1; min-width: 0; }
-  .run-summary-title { font-size: 1.05rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .run-summary-line { margin-top: 0.15rem; font-size: 0.8rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
   .run-summary-line b { color: var(--text); font-weight: 500; }
   .run-summary-line .warn, .summary-value .warn { color: var(--warn); }
   .run-summary-line .bad { color: var(--danger); }
@@ -1734,8 +1680,6 @@
   :is(table.sessions-summary, table.csv-table.pretty) th:nth-child(3) { width: 24%; }
   :is(table.sessions-summary, table.csv-table.pretty) th:nth-child(4) { width: 20%; }
   table.sessions-summary tr.next-row td { color: var(--accent); font-weight: 600; }
-  .run-activity { flex: 1; min-height: 6rem; display: flex; margin-top: 0.7rem; }
-  .run-activity #runs-log { flex: 1; margin: 0; }
 
   .details-list { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.4rem 1.2rem; font-size: 0.8rem; }
   .details-list dt { color: var(--text-dim); }
@@ -1805,16 +1749,13 @@
   .runs-log:not(.full) .runs-timeline,
   .runs-log:not(.full) .timeline-table,
   .runs-log:not(.full) .runs-timeline .table-wrap { flex: 0 1 auto; min-height: 0; }
-  .runs-log:not(.full) .runs-timeline .empty-hint { margin: 0; padding: 0.7rem 0 0.2rem; flex-direction: row; gap: 0.5rem; font-size: 0.8rem; }
   .runs-log:not(.full) .runs-timeline .empty-hint .glyph { display: none; }
   .runs-log:not(.full) .runs-timeline .empty-hint p { margin: 0; }
-  .run-activity { flex: 0 1 auto; min-height: 0; }
-  .run-activity #runs-log { flex: 0 1 auto; min-height: 2.6rem; max-height: 100%; overflow: auto; }
-  .run-activity { flex-direction: column; }
-  .runs-log:not(.full) .runs-timeline .empty-hint { justify-content: flex-start; text-align: left; }
+  .run-activity #runs-log { margin: 0; flex: 0 1 auto; min-height: 2.6rem; max-height: 100%; overflow: auto; }
+  .run-activity { display: flex; margin-top: 0.7rem; flex: 0 1 auto; min-height: 0; flex-direction: column; }
+  .runs-log:not(.full) .runs-timeline .empty-hint { margin: 0; padding: 0.7rem 0 0.2rem; flex-direction: row; gap: 0.5rem; font-size: 0.8rem; justify-content: flex-start; text-align: left; }
   /* The app's full timeline: the normal font, times written for people. */
   table.csv-table.pretty td, table.csv-table.pretty th { font-family: var(--font); font-size: 0.82rem; }
-  table.csv-table.pretty td:first-child { color: var(--text-dim); width: 3rem; }
   table.csv-table.pretty tr.session-row td { font-weight: 600; }
   table.csv-table.pretty tr.gap-row td { font-style: normal; }
   /* Durations on the left, like the sessions table's. */
@@ -1826,7 +1767,7 @@
     width: 1rem; height: 1rem; padding: 0; margin: -0.5rem 0 -0.5rem 0.45rem; font-size: 0.72rem; font-weight: 400; line-height: 1; }
   /* Numbers take a fixed width, so the + buttons after them line up. */
   table.csv-table.pretty .row-num { display: inline-block; min-width: 1.6em; }
-  table.csv-table.pretty td:first-child { width: 4.5rem; white-space: nowrap; }
+  table.csv-table.pretty td:first-child { color: var(--text-dim); width: 4.5rem; white-space: nowrap; }
   /* On a break: name and session dimmed, a small clock beside the name. */
   .run-card.resting .run-name, .run-card.resting .run-meta { color: var(--placeholder); }
   /* Finished: dimmed the same way, its Done badge too. */
@@ -1835,10 +1776,8 @@
   .run-rest-mark { flex: none; display: inline-flex; cursor: help; }
   .run-rest { flex: none; width: 14px; height: 14px; color: var(--placeholder); }
   /* The selected game's line, under its name. */
-  .run-summary-title { font-size: 1.2rem; }
-  .run-summary-line { margin-top: 0.25rem; font-size: 0.92rem; }
+  .run-summary-line { color: var(--text-dim); font-variant-numeric: tabular-nums; margin-top: 0.25rem; font-size: 0.92rem; }
   /* The selected game: its name, then a bar of four parts. */
-  .run-summary-title { font-size: 1.05rem; }
   .summary-bar {
     display: grid;
     /* Set shares, the same for every game (not sized to what's in them);
@@ -1877,12 +1816,11 @@
   .summary-label { font-size: 0.7rem; font-weight: 500; color: var(--text-dim); }
   .summary-value { font-size: 0.86rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
   .summary-note { font-weight: 400; color: var(--text-dim); }
-  .runs-log-head { align-items: flex-start; }
   /* The name shares its row with the buttons; the bar spans the width
      under them. */
-  .runs-log-head { flex-wrap: wrap; align-items: center; }
-  .run-summary { display: contents; }
-  .run-summary-title { flex: 1; min-width: 0; }
+  .runs-log-head { display: flex; justify-content: flex-start; font-size: 0.78rem; color: var(--text-dim); margin-bottom: 0.9rem; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+  .run-summary { flex: 1; min-width: 0; display: contents; }
+  .run-summary-title { display: flex; align-items: center; gap: 0.6rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 1.05rem; flex: 1; min-width: 0; }
   .summary-bar, .runs-log-head .run-summary-line { order: 10; flex-basis: 100%; }
   /* A narrow window: the bar's four parts fold into two rows. */
   @media (max-width: 1000px) {
@@ -2119,13 +2057,12 @@
   .link-btn:disabled { color: var(--placeholder); cursor: default; text-decoration: none; }
   .filter-break { flex-basis: 100%; height: 0; }
   .filters-match, .filter-list .match-text { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
-  .filters-match { margin-top: 0.8rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
   .match-text { display: flex; flex-direction: column; gap: 0.15rem; }
   .filter-list .match-text { flex-direction: row; align-items: baseline; gap: 0.6rem; margin-top: 0.35rem; }
-  .match-desc { font-size: 0.74rem; color: var(--placeholder); }
   .seg-switch { display: inline-flex; flex: none; padding: 2px; border: 1px solid var(--border-strong); border-radius: 8px; }
   .filter-list .seg-switch { margin-top: 0.35rem; }
   .seg-switch button {
+    min-height: 28px;
     padding: 0.25rem 0.7rem; font: inherit; font-size: 0.78rem; font-weight: 500; color: var(--text-dim);
     background: none; border: 0; border-radius: 6px; cursor: pointer;
   }
@@ -2206,7 +2143,6 @@
   .lib-of { padding: 0 0.35em; color: var(--placeholder); }
   .lib-all { min-width: 3ch; }
   .lib-state { margin-left: 0.8rem; }
-  .lib-game .lib-state { margin-left: 0.2rem; }
   :is(.lib-game, .game-head).complete .lib-bar span { background: var(--warn); }
   :is(.lib-game, .game-head).complete :is(.lib-count, .lib-of, .lib-state) { color: var(--warn); }
   .lib-dim { color: var(--placeholder); }
@@ -2223,7 +2159,23 @@
   .bar-counters:empty { display: none; }
   .bar-counters .mark-counters { margin-left: -0.5rem; }
   .bar-counters .mark-counters svg { width: 16px; height: 16px; }
-  .tip-box { position: fixed; z-index: 1000; max-width: calc(100vw - 16px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0.4rem 0.6rem; font-size: 0.75rem; line-height: 1.4; color: var(--text); background: var(--surface-3); border: 1px solid var(--border-strong); border-radius: 7px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25); pointer-events: none; }
+  .tip-box {
+    position: fixed;
+    z-index: 1000;
+    max-width: calc(100vw - 16px);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: var(--text);
+    background: var(--surface-3);
+    border: 1px solid var(--border-strong);
+    border-radius: 7px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    pointer-events: none;
+  }
   .tip-box[hidden] { display: none; }
   .tag { display: inline-block; padding: 0 0.4rem; font-size: 0.66rem; font-weight: 600; line-height: 1.5; letter-spacing: 0.02em; color: var(--text-dim); border: 1px solid var(--border-strong); border-radius: 4px; vertical-align: 1px; }
   /* Back to top: bottom right, over the list. */
@@ -2314,8 +2266,68 @@
   /* A game's page: the glow Runs has, in its colour (see .runs-log::before),
      staying at the top as the page scrolls. */
   :root[data-desktop] body[data-screen="unlocks"] .unlocks[style*="--run-tint"] {
+    background-size: 100% 15rem;
+    background-repeat: no-repeat;
     background-image: radial-gradient(85% 90% at 15% 0%, rgba(var(--run-tint, 0, 0, 0), 0.3), rgba(var(--run-tint, 0, 0, 0), 0.06) 60%, transparent), radial-gradient(85% 90% at 85% 0%, rgba(var(--run-tint-2, var(--run-tint, 0, 0, 0)), 0.3), rgba(var(--run-tint-2, var(--run-tint, 0, 0, 0)), 0.06) 60%, transparent);
   }
   :root[data-desktop][data-theme="light"] body[data-screen="unlocks"] .unlocks[style*="--run-tint"] {
+    background-size: 100% 15rem;
+    background-repeat: no-repeat;
     background-image: radial-gradient(85% 90% at 15% 0%, rgba(var(--run-tint, 0, 0, 0), 0.14), rgba(var(--run-tint, 0, 0, 0), 0.03) 60%, transparent), radial-gradient(85% 90% at 85% 0%, rgba(var(--run-tint-2, var(--run-tint, 0, 0, 0)), 0.14), rgba(var(--run-tint-2, var(--run-tint, 0, 0, 0)), 0.03) 60%, transparent);
+  }
+
+  /* Shared app controls: the same sizing, states and keyboard focus on every screen. */
+  body.local :is(button, summary, select, a.btn-ghost) { -webkit-tap-highlight-color: transparent; }
+  body.local :is(button, summary, select, [role="button"], a):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  body.local .btn-hero.primary { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+  body.local .btn-hero.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 85%, var(--text)); }
+  body.local .btn-hero:disabled { opacity: 0.4; cursor: not-allowed; }
+  /* Run and Refresh share the same momentary press feedback. */
+  body.local .btn-hero.primary:active:not(:disabled):not(.is-disabled) {
+    background: color-mix(in srgb, var(--accent) 75%, var(--bg));
+    box-shadow: inset 0 1px 3px var(--shadow);
+    transform: translateY(1px);
+  }
+  .filters-match { margin-top: 0.8rem; padding-top: 0.75rem; border-top: 1px solid var(--border); gap: 0.75rem; }
+  .match-desc { font-size: 0.74rem; color: var(--text-dim); line-height: 1.45; }
+  .lib-game .lib-bar { flex-basis: 10rem; }
+  .lib-count, .lib-state { flex: none; }
+  .lib-game .lib-count { font-size: 0.74rem; }
+  .lib-game .lib-got, .lib-game .lib-all { min-width: 0; }
+  .lib-game .lib-state { margin-left: 0; }
+  .lock-toggle {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    box-sizing: border-box;
+    gap: 0.4rem;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    min-width: 8.2rem;
+    justify-content: center;
+    white-space: nowrap;
+  }
+  .ach-lock { min-width: 10rem; }
+  .run-card:focus-visible { outline-offset: -3px; }
+  table.csv-table.pretty th { white-space: normal; line-height: 1.4; }
+  :is(.runs-log, body.local #csv-slot) table.csv-table { background: var(--surface); }
+  @media (max-width: 1050px) {
+    body.local .view-pane[data-view="input"].active { grid-template-columns: minmax(16rem, 1fr) minmax(0, 1.7fr); }
+    body.local .box:not([data-view="runs"]) .schedule-bar { flex-wrap: wrap; }
+    .schedule-bar .bar-from { flex: 1; }
+    .paste-summary .stats-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    :root[data-desktop] .view-pane[data-view="runs"].active { grid-template-columns: 14rem minmax(0, 1fr); }
+  }
+  @media (max-width: 720px) {
+    body.local .view-pane[data-view="input"].active { display: flex; overflow-y: auto; gap: 1rem; }
+    body.local .view-pane[data-view="input"] > .field { min-height: 18rem; flex: none; }
+    body.local #csv-slot { min-height: 20rem; flex: none; }
+    .summary-value { white-space: normal; }
+    .ach-sort { flex-wrap: wrap; }
+    .ach-right { margin-left: auto; }
+    .run-pop .filter-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
