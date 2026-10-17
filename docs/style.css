@@ -2094,16 +2094,23 @@
   .games-search::-webkit-search-decoration { -webkit-appearance: none; }
   .games-search:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .games-sort { display: flex; align-items: center; gap: 0.5rem; }
-  /* Which games show: a chip per group, filled when it's shown. */
+  /* Which games show: a chip per group, tinted when included or excluded. */
   .filter-list { display: flex; flex-wrap: wrap; gap: 0.35rem; }
   .filter-chip {
+    min-height: 28px;
     padding: 0.3rem 0.7rem; font: inherit; font-size: 0.78rem; font-weight: 500; color: var(--text-dim);
     background: none; border: 1px solid var(--border-strong); border-radius: 7px; cursor: pointer;
   }
   .filter-chip:hover { color: var(--text); border-color: color-mix(in srgb, var(--accent) 50%, var(--border-strong)); }
-  .filter-chip.on { color: #fff; background: var(--accent); border-color: var(--accent); }
+  /* Include and exclude share a soft tint, with their semantic color. */
+  .filter-chip.on, .filter-chip.not {
+    color: var(--filter-color);
+    background: color-mix(in srgb, var(--filter-color) 14%, transparent);
+    border-color: color-mix(in srgb, var(--filter-color) 50%, var(--border));
+  }
+  .filter-chip.on { --filter-color: var(--accent); }
   /* A Library filter set to games not in its group: struck through. */
-  .filter-chip.not { color: #fff; background: var(--danger-solid); border-color: var(--danger-solid); text-decoration: line-through; }
+  .filter-chip.not { --filter-color: var(--danger); text-decoration: line-through; }
   /* The Filters menu: Status (with Reset) over its chips, then a line,
      then Match, what it means, and All | Any as one switch. */
   .filters-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 0.5rem; }
@@ -2123,7 +2130,7 @@
     background: none; border: 0; border-radius: 6px; cursor: pointer;
   }
   .seg-switch button:hover { color: var(--text); }
-  .seg-switch button.on { color: #fff; background: var(--accent); }
+  .seg-switch button.on { color: var(--accent); background: var(--accent-tint); }
   .filter-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   /* A sort menu's rows (sort, order, group), parted by a line. */
   .filters-pop .filter-list + .filter-list { margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--border); }

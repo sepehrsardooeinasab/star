@@ -3308,23 +3308,23 @@
   }
   // A game's progress: its bar, then (on its own page) "unlocked / total"
   // with the slash in the same place, then the percentage (gold at 100%).
-  function progressHtml(unlocked, total, short) {
+  function progressHtml(unlocked, total) {
     var pct = total ? Math.round(100 * unlocked / total) : 0;
-    return '<span class="lib-bar"><span style="width:' + pct + '%"></span></span>' + (short ? "" :
-      '<span class="lib-count"><span class="lib-got">' + unlocked + '</span><span class="lib-of">/</span><span class="lib-all">' + total + "</span></span>") +
+    return '<span class="lib-bar" aria-hidden="true"><span style="width:' + Math.min(pct, 100) + '%"></span></span>' +
+      '<span class="lib-count"><span class="lib-got">' + unlocked + '</span><span class="lib-of">/</span><span class="lib-all">' + total + "</span></span>" +
       '<span class="lib-state">' + Math.min(pct, 100) + "%</span>";
   }
   // Which games show: a chip per group, each "show" (either way), "only"
-  // (games in it) or "hide" (games not in it, the chip struck through);
-  // a game shows when it fits every chip. Active: in none of the others.
-  // Chips in Games' Filters menu (for a while) and in Settings → Library
-  // (the defaults).
-  // Each with what it says on hover: either way, only, not.
+  // (games in it) or "hide" (games not in it, the chip struck through).
+  // A game shows when it fits every chip set, or with Match any, one of
+  // them. Active: in none of the others. Chips in Games' Filters menu (for
+  // a while) and in Settings → Library (the defaults). Each with what it
+  // says on hover: either way, only, not.
   var FILTERS = [
-    ["active", "Active", "library_active", "", "Only active games", "No active games"],
-    ["finished", "Finished", "library_finished", "", "Only finished games", "Only unfinished games"],
-    ["private", "Private", "library_private", "", "Only private games", "Only public games"],
-    ["noAch", "No achievements", "library_no_achievements", "",
+    ["active", "Active", "library_active", "Active / Inactive", "Only active games", "No active games"],
+    ["finished", "Finished", "library_finished", "Finished / Unfinished", "Only finished games", "Only unfinished games"],
+    ["private", "Private", "library_private", "Private / Public", "Only private games", "Only public games"],
+    ["noAch", "No achievements", "library_no_achievements", "With / Without achievements",
       "Only games without achievements", "Only games with achievements"]];
   function gameGroups(g) {
     var groups = {finished: !!g.finished, private: !!g.private, noAch: !g.stats};
@@ -3335,12 +3335,14 @@
   // Each chip's hover says what it does, or unset, what a click makes it.
   function renderFilterList(id, values, matchId) {
     if (matchId) byId(matchId).innerHTML = matchHtml(values);
+    var focused = byId(id).contains(document.activeElement) ? document.activeElement.getAttribute("data-filter") : null;
     byId(id).innerHTML = FILTERS.map(function (f) {
       var v = values[f[0]];
-      var tip = v === "only" ? f[4] : v === "hide" ? f[5] : "Click: " + f[4].toLowerCase();
+      var tip = v === "only" ? f[4] : v === "hide" ? f[5] : f[3];
       return '<button class="filter-chip' + (v === "only" ? " on" : v === "hide" ? " not" : "") + '" type="button" data-filter="' + f[0] +
-        '" aria-pressed="' + (v === "only" || v === "hide") + '" data-tip="' + tip + '">' + f[1] + "</button>";
+        '" aria-pressed="' + (v === "only" || v === "hide") + '" data-tip="' + tip + '">' + escapeHtml(f[1]) + "</button>";
     }).join("") + (matchId ? "" : '<span class="filter-break"></span>' + matchHtml(values));
+    if (focused) byId(id).querySelector('[data-filter="' + focused + '"]').focus({preventScroll: true});
   }
   // Match: whether a game has to fit every status set (blue or red) or
   // just one, saying which under its name; All | Any as one switch.
@@ -3375,8 +3377,7 @@
     byId(id).addEventListener("contextmenu", function (e) { pick(e, true); });
   }
   var libFilter = {active: "show", finished: "show", private: "show", noAch: "show", match: "all"};
-  // A game fits a blue chip when it's in the group and a red one when it
-  // isn't; it shows when it fits every chip set (Match all) or any (Match any).
+  // Match all / any applies only to explicit include or exclude rules.
   function filterGames(games) {
     var set = FILTERS.filter(function (f) { return libFilter[f[0]] === "only" || libFilter[f[0]] === "hide"; });
     return games.filter(function (g) {
@@ -3410,33 +3411,22 @@
     byId("games-sort-pop").innerHTML = SORT_TITLE + sortRowsHtml(SORTS.games, gamesSort, gamesOrder);
     renderFilterList("games-filter-list", libFilter, "games-match");
     var off = FILTERS.filter(function (f) { return libFilter[f[0]] === "only" || libFilter[f[0]] === "hide"; }).length;
-    byId("games-filters-label").textContent = off ? "Filters \u00b7 " + off : "Filters";
+    byId("games-filters-label").textContent = "Filters";
     byId("games-filters-label").classList.toggle("on", !!off);
-    byId("games-filters-all").disabled = !off;
+    byId("games-filters-all").disabled = !off && libFilter.match === "all";
     // Which games show, as the filters and the search say; what's counted
     // is just those.
     var kept = searchGames(filterGames(games));
-    var count = function (is) { return kept.filter(is).length; };
-    var withAch = count(function (g) { return g.stats; });
-    var complete = count(function (g) { return g.total && g.unlocked >= g.total; });
-    var privateCount = count(function (g) { return g.private; });
-    var finishedCount = count(function (g) { return g.finished; });
+    var complete = kept.filter(function (g) { return g.total && g.unlocked >= g.total; }).length;
     var unshown = kept.filter(function (g) { return g.unreadable && !g.private; });
     var parts = [];
     var query = gamesQuery.trim();
     if (d && !unlocksError && query && !kept.length) {
       parts.push("No games match \u201c" + escapeHtml(query) + "\u201d");
     } else if (d && !unlocksError) {
-      parts.push("<b>" + kept.length.toLocaleString() + "</b>" + (kept.length < games.length ? " of " + games.length.toLocaleString() : "") +
+      parts.push((kept.length < games.length ? "Showing " : "") + "<b>" + kept.length.toLocaleString() + "</b>" + (kept.length < games.length ? " of " + games.length.toLocaleString() : "") +
         " game" + (games.length === 1 ? "" : "s"));
-      // A count of some of them; none, or all (say with only Private
-      // shown), says nothing.
-      var some = function (n, label) { if (n && n < kept.length) parts.push(n.toLocaleString() + " " + label); };
-      some(withAch, "with achievements");
-      some(kept.length - withAch, "without");
-      some(complete, "complete");
-      some(finishedCount, "finished");
-      some(privateCount, "private");
+      if (complete) parts.push(complete.toLocaleString() + " with 100% achievements");
       if (unshown.length) {
         parts.push('<button class="link-btn" type="button" id="games-unshown-btn" aria-expanded="' + unshownOpen + '">' +
           unshown.length + " not shown by Steam</button>");
@@ -3463,7 +3453,7 @@
       if (!g.stats) progress = '<span class="lib-dim">No achievements</span>';
       else if (g.unreadable) progress = '<span class="lib-dim">' + (g.private ? "Not shown while Private" : "Not shown by Steam") + "</span>";
       else if (!g.read) progress = '<span class="lib-dim">' + (neverPlayed(g) ? "Never played" : "Not read yet") + "</span>";
-      else progress = progressHtml(g.unlocked, g.total, true);
+      else progress = progressHtml(g.unlocked, g.total);
       var done = g.total && g.unlocked >= g.total;
       return '<div class="lib-game' + (g.private ? " private-game" : "") + (done ? " complete" : "") +
         '" data-appid="' + g.appid + '" role="button" tabindex="0">' +
@@ -3951,6 +3941,7 @@
   });
   byId("games-filters-all").addEventListener("click", function () {
     FILTERS.forEach(function (f) { libFilter[f[0]] = "show"; });
+    libFilter.match = "all";
     renderGames(unlocksData);
   });
   // A menu (Filters, a sort) closes on a click outside it. (composedPath:
