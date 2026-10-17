@@ -400,9 +400,9 @@
     return config;
   }
 
-  function exactRange(list) {
+  function exactRange(list, instant) {
     var lo = Math.min.apply(null, list), hi = Math.max.apply(null, list);
-    var fmt = function (x) { return x >= 60 ? fmtDur(x) : Math.round(x) + "s"; };
+    var fmt = function (x) { return instant && x === 0 ? "Instant" : x >= 60 ? fmtDur(x) : Math.round(x) + "s"; };
     return lo === hi ? fmt(lo) : fmt(lo) + " – " + fmt(hi);
   }
 
@@ -558,7 +558,7 @@
     var secs = Number(r[CSV_DELAY_COL + 1]) || 0, m;
     if ((m = /^Gap before session (\d+)/.exec(r[0]))) return "Break before session " + m[1];
     if ((m = /^Session (\d+) \((\d+ achievements?)\)/.exec(r[0]))) {
-      return "Session " + m[1] + " · " + m[2] + " · " + fmtDur(secs);
+      return "Session " + m[1] + " · " + m[2] + " · " + sessionDuration(secs);
     }
     return r[0];
   }
@@ -580,7 +580,7 @@
     // Friendly columns (see prettyTime), not the CSV's own.
     var achievement = -1;
     var html = '<div class="table-wrap"><table class="csv-table pretty"><thead><tr>' +
-      ["#", "Achievement", "Player's time", "After"].map(function (h) {
+      ["#", "Achievement", "Player's time", "Delay since previous"].map(function (h) {
         return "<th>" + escapeHtml(h) + "</th>";
       }).join("") + "</tr></thead><tbody>";
     var shown = exactDuration;
@@ -1031,7 +1031,7 @@
         sessionLen: split.durations.length ? roughDuration(Math.min.apply(null, split.durations)) + " – " + roughDuration(Math.max.apply(null, split.durations)) : "—",
         gapRange: split.gaps.length ? roughDuration(Math.min.apply(null, split.gaps)) + " – " + roughDuration(Math.max.apply(null, split.gaps)) : "—",
         // Exact, for the app: "38m – 6h 2m".
-        sessionLenExact: split.durations.length ? exactRange(split.durations) : "—",
+        sessionLenExact: split.durations.length ? exactRange(split.durations, true) : "—",
         gapRangeExact: split.gaps.length ? exactRange(split.gaps) : "—"
       }
     };
@@ -1712,6 +1712,8 @@
     return Math.max(left(g.ready_in || 0), g.running && g.starts_in ? left(g.starts_in) : 0);
   }
 
+  function sessionDuration(seconds) { return Number(seconds) === 0 ? "Instant" : fmtDur(seconds); }
+
   // A card says just enough to pick a game: its session and when it can
   // play. The Details tab has the rest.
   // The card's badge, as an icon (its word on hover): playing, waiting to
@@ -1786,7 +1788,7 @@
         (g.running ? ' <span class="summary-note">· ' + (g.stop_after ? "this one only" : "all sessions") + "</span>" : ""));
       // While it plays, how long it has left; otherwise how long it lasts.
       var size = g.count + " achievement" + (g.count === 1 ? "" : "s") + " · " +
-        (g.state === "in_session" && g.session_left != null ? fmtDur(left(g.session_left)) + " left" : fmtDur(g.duration));
+        (g.state === "in_session" && g.session_left != null ? fmtDur(left(g.session_left)) + " left" : sessionDuration(g.duration));
       // Stopped partway: what's left of it, in yellow, why on hover.
       part("This session", cut ? '<span class="warn" data-tip="Session ' + g.session + " stopped after " + cut.played + " of its " + cut.of +
         ' achievements; Continue picks up here">' + size + "</span>" : size);
@@ -2083,7 +2085,7 @@
       sessions.map(function (x) {
         var cls = current && x.n < current ? "done-row" : x.n === current ? "next-row" : "";
         return "<tr" + (cls ? ' class="' + cls + '"' : "") + "><td>" + x.n + "</td><td>" + x.count + "</td><td>" +
-          dur(x.length) + "</td><td>" + (x.gap == null ? "—" : dur(x.gap)) + "</td></tr>";
+          sessionDuration(x.length) + "</td><td>" + (x.gap == null ? "—" : dur(x.gap)) + "</td></tr>";
       }).join("") + "</tbody></table></div>";
   }
 
@@ -2142,8 +2144,8 @@
     lock.setAttribute("aria-pressed", String(!!runEdit));
     lock.disabled = !!game.running && !runEdit;
     lock.setAttribute("data-tip", game.running ? "Stop the game to change its timeline"
-      : runEdit ? "Lock again: changes you haven't saved are discarded" : "Unlock to change the delays and breaks still ahead");
-    byId("timeline-lock-label").textContent = runEdit ? "Unlocked" : "Locked";
+      : runEdit ? "Cancel editing: changes you haven't saved are discarded" : "Edit the delays and breaks still ahead");
+    byId("timeline-lock-label").textContent = runEdit ? "Cancel editing" : "Edit timeline";
     byId("timeline-save").hidden = !runEdit;
     byId("timeline-save").disabled = !runEdit || JSON.stringify(runEdit.config) === JSON.stringify(runEdit.base);
     byId("timeline-bar-text").textContent = "";  // the lock's tooltip says it
@@ -2784,8 +2786,8 @@
     });
     var lock = byId("run-settings-lock");
     lock.setAttribute("aria-pressed", String(editingSettings));
-    lock.setAttribute("data-tip", editingSettings ? "Lock again: changes you haven't saved are discarded" : "Unlock to change these");
-    byId("run-settings-lock-label").textContent = editingSettings ? "Unlocked" : "Locked";
+    lock.setAttribute("data-tip", editingSettings ? "Cancel editing: changes you haven't saved are discarded" : "Edit advanced run settings");
+    byId("run-settings-lock-label").textContent = editingSettings ? "Cancel editing" : "Edit settings";
     byId("run-settings-save").hidden = !editingSettings || !changed;
   }
 
@@ -3329,7 +3331,7 @@
   var CHECK_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
     '<circle cx="8" cy="8" r="6.2"/><path d="M5.3 8.2l1.8 1.8 3.6-3.8"/></svg>';
   function finishedMark(g) {
-    return g.finished ? '<span class="mark-off mark-finished" data-tip="Finished" aria-label="Finished">' + CHECK_ICON + "</span>" : "";
+    return g.finished ? '<span class="mark-off mark-finished" data-tip="Marked finished" aria-label="Marked finished">' + CHECK_ICON + "</span>" : "";
   }
   // When a game was last played comes from Steam with a key; without one
   // it isn't known, so a game isn't called never played.
@@ -3578,8 +3580,8 @@
         (achGroup === "status") + '" data-tip="Show unlocked and locked achievements in separate lists">Split by status</button>' +
         '<span class="ach-right">' + achApplyHtml() +
         '<button class="lock-toggle ach-lock" type="button" data-ach-lock aria-pressed="' + achEdit + '"' + (achRunning() ? " disabled" : "") +
-        ' data-tip="' + (achEdit ? "Lock again: changes you haven't applied are discarded" : "Unlock to mark achievements to unlock or lock") + '">' + LOCK_ICON +
-        "<span>" + (achEdit ? "Unlocked" : "Locked") + "</span></button></span></div>" +
+        ' data-tip="' + (achEdit ? "Discard changes you haven't applied" : "Choose achievements to unlock or lock again") + '">' + LOCK_ICON +
+        "<span>" + (achEdit ? "Cancel editing" : "Edit achievements") + "</span></button></span></div>" +
         (achEdit && achError ? problemHtml("warn", (achError.data || {}).title, achError.message) : "");
       var tag = function (list, kind) { return list.map(function (a) { return Object.assign({kind: kind}, a); }); };
       if (achGroup === "none") {
