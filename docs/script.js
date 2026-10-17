@@ -3245,34 +3245,36 @@
     ["active", "Active", "library_active", "", "Only active games", "No active games"],
     ["finished", "Finished", "library_finished", "", "Only finished games", "Only unfinished games"],
     ["private", "Private", "library_private", "", "Only private games", "Only public games"],
-    ["noAch", "No ach.", "library_no_achievements", "No achievements",
+    ["noAch", "No achievements", "library_no_achievements", "",
       "Only games without achievements", "Only games with achievements"]];
   function gameGroups(g) {
     var groups = {finished: !!g.finished, private: !!g.private, noAch: !g.stats};
     groups.active = !(groups.finished || groups.private || groups.noAch);
     return groups;
   }
-  // matchId: where Match goes, when not on a row of its own under the chips.
+  // matchId: where Match goes, when not under the chips in the same list.
+  // Each chip's hover says what it does, or unset, what a click makes it.
   function renderFilterList(id, values, matchId) {
-    if (matchId) byId(matchId).innerHTML = matchChipHtml(values);
+    if (matchId) byId(matchId).innerHTML = matchHtml(values);
     byId(id).innerHTML = FILTERS.map(function (f) {
-      var v = values[f[0]], tip = v === "only" ? f[4] : v === "hide" ? f[5] : f[3];
+      var v = values[f[0]];
+      var tip = v === "only" ? f[4] : v === "hide" ? f[5] : "Click: " + f[4].toLowerCase();
       return '<button class="filter-chip' + (v === "only" ? " on" : v === "hide" ? " not" : "") + '" type="button" data-filter="' + f[0] +
-        '" aria-pressed="' + (v === "only" || v === "hide") + '"' + (tip ? ' data-tip="' + tip + '"' : "") + ">" + f[1] + "</button>";
-    }).join("") + (matchId ? "" : '<span class="filter-break"></span>' + matchChipHtml(values));
+        '" aria-pressed="' + (v === "only" || v === "hide") + '" data-tip="' + tip + '">' + f[1] + "</button>";
+    }).join("") + (matchId ? "" : '<span class="filter-break"></span>' + matchHtml(values));
   }
-  // Whether a game has to fit every chip set (blue or red) or just one.
-  // It only matters with two or more set, as its hover says.
-  function matchChipHtml(values) {
-    var set = FILTERS.filter(function (f) { return values[f[0]] === "only" || values[f[0]] === "hide"; }).length;
-    var chip = function (value, sign, text, tip) {
-      var on = (values.match === "any" ? "any" : "all") === value;
-      return '<button class="filter-chip match-chip' + (on ? " on" : "") + '" type="button" data-filter="match-' + value +
-        '" aria-pressed="' + on + '" data-tip="' + tip + (set < 2 ? " (with two or more set)" : "") + '">' +
-        '<span class="set-sign" aria-hidden="true">' + sign + "</span>" + text + "</button>";
+  // Match: whether a game has to fit every status set (blue or red) or
+  // just one, saying which under its name; All | Any as one switch.
+  function matchHtml(values) {
+    var any = values.match === "any";
+    var side = function (value, text) {
+      var on = any === (value === "any");
+      return '<button class="' + (on ? "on" : "") + '" type="button" data-filter="match-' + value + '" aria-pressed="' + on + '">' +
+        text + "</button>";
     };
-    return '<span class="match-row"><span class="match-label">Match</span>' +
-      chip("all", "∩", "All", "Games that fit every chip") + chip("any", "∪", "Any", "Games that fit any chip") + "</span>";
+    return '<span class="match-text"><span class="filters-title">Match</span><span class="match-desc">' +
+      (any ? "Games that fit any status set" : "Games that fit every status set") + "</span></span>" +
+      '<span class="seg-switch" role="group" aria-label="Match">' + side("all", "All") + side("any", "Any") + "</span>";
   }
   // A click goes either way → only → not → either way; right-click (or
   // Option-click) goes back to either way. match-all / match-any pick that.

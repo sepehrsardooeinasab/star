@@ -2089,17 +2089,27 @@
   .filter-chip.on { color: #fff; background: var(--accent); border-color: var(--accent); }
   /* A Library filter set to games not in its group: struck through. */
   .filter-chip.not { color: #fff; background: var(--danger-solid); border-color: var(--danger-solid); text-decoration: line-through; }
-  /* Match all / any: the picked one filled like a chip that's on. */
-  .filter-break { flex-basis: 100%; height: 0; }
-  .match-row { display: flex; align-items: center; gap: 0.35rem; }
-  .filters-foot { align-items: center; }
-  .filters-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
-  .filters-top .link-btn { flex: none; margin-top: 0.3rem; font-size: 0.78rem; }
+  /* The Filters menu: Status (with Reset) over its chips, then a line,
+     then Match, what it means, and All | Any as one switch. */
+  .filters-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 0.5rem; }
+  .filters-title { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); }
+  .filters-head .link-btn { font-size: 0.78rem; }
   .link-btn:disabled { color: var(--placeholder); cursor: default; text-decoration: none; }
-  .match-label { font-size: 0.78rem; color: var(--text-dim); margin-right: 0.15rem; }
-  .set-sign { display: inline-block; margin-right: 0.3em; font-size: 1.35em; line-height: 0; vertical-align: -0.06em; }
+  .filter-break { flex-basis: 100%; height: 0; }
+  .filters-match, .filter-list .match-text { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
+  .filters-match { margin-top: 0.8rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
+  .match-text { display: flex; flex-direction: column; gap: 0.15rem; }
+  .filter-list .match-text { flex-direction: row; align-items: baseline; gap: 0.6rem; margin-top: 0.35rem; }
+  .match-desc { font-size: 0.74rem; color: var(--placeholder); }
+  .seg-switch { display: inline-flex; flex: none; padding: 2px; border: 1px solid var(--border-strong); border-radius: 8px; }
+  .filter-list .seg-switch { margin-top: 0.35rem; }
+  .seg-switch button {
+    padding: 0.25rem 0.7rem; font: inherit; font-size: 0.78rem; font-weight: 500; color: var(--text-dim);
+    background: none; border: 0; border-radius: 6px; cursor: pointer;
+  }
+  .seg-switch button:hover { color: var(--text); }
+  .seg-switch button.on { color: #fff; background: var(--accent); }
   .filter-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .filters-hint { font-size: 0.72rem; color: var(--placeholder); }
   /* A sort menu's rows (sort, order, group), parted by a line. */
   .filters-pop .filter-list + .filter-list { margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--border); }
   .chip-rows { display: flex; flex-direction: column; gap: 0.45rem; }
@@ -2117,7 +2127,6 @@
   /* On a game's page, beside its sort: on when grouped. */
   .games-sort .btn-ghost.ach-group { width: auto; height: 1.95rem; padding: 0 0.75rem; font-size: 0.78rem; font-weight: 500; }
   .ach-group.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); background: var(--accent-tint); }
-  .filters-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-top: 0.55rem; font-size: 0.74rem; }
   .lib-default.lib-filters { align-items: flex-start; }
   .lib-default.lib-filters > span { padding-top: 0.3rem; }
   /* Games: the list in a menu by the sort. */
