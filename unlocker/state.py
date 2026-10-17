@@ -8,7 +8,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from unlocker.paths import DATA_DIR
+from unlocker.paths import DATA_DIR, write_atomic
 
 PROJECT_DIR = DATA_DIR
 JSONS_DIR = PROJECT_DIR / "jsons"
@@ -123,22 +123,57 @@ def config_fingerprint(config):
     return hashlib.sha256(json.dumps([config["appid"], ids]).encode()).hexdigest()[:16]
 
 
+class DamagedProgress(ValueError):
+    """A progress file with invalid JSON, shape or field values."""
+
+
 def load_progress(path):
+    """The game's progress, or a new game's without a file. Raises
+    DamagedProgress when the file isn't progress."""
     if not path.exists():
         return dict(DEFAULT_PROGRESS)
-    return {**DEFAULT_PROGRESS, **json.loads(path.read_text())}
+    try:
+        progress = json.loads(path.read_text())
+    except ValueError as e:
+        raise DamagedProgress(f"isn't valid JSON ({e})") from e
+    if not isinstance(progress, dict):
+        raise DamagedProgress("isn't a JSON object")
+    progress = {**DEFAULT_PROGRESS, **progress}
+    for key, minimum in (("appid", 0), ("last_completed", -1)):
+        value = progress[key]
+        if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+            raise DamagedProgress(f"has an invalid {key} (expected a whole number of {minimum} or more)")
+    for key in ("next_unlock_at", "session_ends_at"):
+        value = progress[key]
+        if value is None:
+            continue
+        try:
+            if not isinstance(value, str):
+                raise ValueError("not a string")
+            stamp = datetime.fromisoformat(value)
+            # Run timers use local, naive datetimes; an offset would make
+            # their subtraction fail even though the ISO text parses.
+            if stamp.tzinfo is not None:
+                raise ValueError("has a timezone offset")
+        except ValueError as e:
+            raise DamagedProgress(f"has an invalid {key} (expected a local ISO timestamp or null)") from e
+    if progress["config_hash"] is not None and not isinstance(progress["config_hash"], str):
+        raise DamagedProgress("has an invalid config_hash (expected text or null)")
+    return progress
+
+
+def reset_progress(path):
+    """Moves a game's progress file aside (as .damaged, the latest one
+    kept), so it starts again from its first session. Achievements Steam
+    already has are skipped when it runs, so none is unlocked twice."""
+    if path.exists():
+        os.replace(path, path.with_name(path.name + ".damaged"))
 
 
 def save_progress(path, progress):
-    """Writes to a temp file and renames it over the real one, which is
-    atomic: a signal or crash mid-write leaves the old file intact instead
-    of a truncated one that can't be parsed."""
-    tmp = path.with_name(path.name + ".tmp")
-    with open(tmp, "w") as f:
-        f.write(json.dumps(progress, indent=2))
-        f.flush()
-        os.fsync(f.fileno())
-    os.replace(tmp, path)
+    """Written atomically (see write_atomic), so a signal or crash
+    mid-write leaves the old file instead of one that can't be parsed."""
+    write_atomic(path, json.dumps(progress, indent=2))
 
 
 _held_locks = []  # open lock files, kept referenced so they stay locked

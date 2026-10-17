@@ -690,20 +690,19 @@ def save_key(key):
     """Checks a Steam Web API key against Steam, then saves it as
     steam_api_key in settings.json; an empty one removes it."""
     key = (key or "").strip()
-    overrides = settings_module.read_overrides()
     if key:
         if not KEY_RE.fullmatch(key):
             raise Problem("That isn't a Steam Web API key", "A key is 32 letters and numbers, from steamcommunity.com/dev/apikey.")
         sid = steamid()
         if sid:
             _owned_games(key, sid)  # raises when Steam refuses it
-        overrides["steam_api_key"] = key
-    else:
-        overrides.pop("steam_api_key", None)
-    if overrides:
-        settings_module.SETTINGS_PATH.write_text(json.dumps(overrides, indent=2) + "\n")
-    else:
-        settings_module.SETTINGS_PATH.unlink(missing_ok=True)
+    # Checked with Steam first, so the settings aren't held while it answers.
+    def change(overrides):
+        if key:
+            overrides["steam_api_key"] = key
+        else:
+            overrides.pop("steam_api_key", None)
+    settings_module.update_overrides(change)
     # Check again on the next look, with the library now in or out.
     try:
         store = json.loads(STORE_PATH.read_text())

@@ -1,6 +1,7 @@
 import json
 import sys
-from unlocker.paths import DATA_DIR
+import threading
+from unlocker.paths import DATA_DIR, write_atomic
 
 SETTINGS_PATH = DATA_DIR / "settings.json"
 
@@ -224,6 +225,31 @@ def read_overrides(path=SETTINGS_PATH):
     if isinstance(overrides, dict):
         overrides = {k: v for k, v in overrides.items() if k not in RETIRED}
     return overrides
+
+
+# The app's server writes settings.json from request threads (the Settings
+# tab, Appearance, Library's choices, the Steam key): each write reads the
+# file, changes it and writes it back under this lock, so two at once can't
+# lose one another's changes.
+WRITE_LOCK = threading.Lock()
+
+
+def update_overrides(change):
+    """Reads settings.json's own keys, has change(overrides) edit them (or
+    return the ones to keep instead), and writes the result atomically, or
+    removes the file when none are left, all under WRITE_LOCK. Returns
+    what was written. Raises ValueError when settings.json isn't valid JSON,
+    and whatever change raises, writing nothing then."""
+    with WRITE_LOCK:
+        overrides = read_overrides()
+        kept = change(overrides)
+        if kept is not None:
+            overrides = kept
+        if overrides:
+            write_atomic(SETTINGS_PATH, json.dumps(overrides, indent=2) + "\n")
+        else:
+            SETTINGS_PATH.unlink(missing_ok=True)
+        return overrides
 
 
 def _fail(message):

@@ -54,7 +54,10 @@ def asf_tag_for(sha):
     for line in out.splitlines():
         commit, ref = line.split("\t")
         if commit == sha:
-            return ref.removeprefix("refs/tags/").removesuffix("^{}")
+            # (Not str.removeprefix / removesuffix: STAR supports Python 3.8.)
+            if ref.startswith("refs/tags/"):
+                ref = ref[len("refs/tags/"):]
+            return ref[:-3] if ref.endswith("^{}") else ref
     return None
 
 

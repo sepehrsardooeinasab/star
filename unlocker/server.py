@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from unlocker import achievements, asf_setup, extras, unlocks, updates
 from unlocker import settings as settings_module
-from unlocker.paths import CODE_DIR, DATA_DIR
+from unlocker.paths import CODE_DIR, DATA_DIR, write_atomic
 from unlocker.runner import _session_bounds, _session_status, config_changed
 from unlocker.settings import SETTINGS, SETTINGS_PATH
 from unlocker.state import (
@@ -46,9 +46,9 @@ from unlocker.state import (
     list_profiles,
     load_progress,
     lock_info,
+    reset_progress,
     profile_lock_path,
     profile_paths,
-    save_progress,
     stop_after_path)
 
 PORT = SETTINGS["ui_port"]
@@ -146,7 +146,16 @@ def _game_state(name, session_label):
         game.update(state="invalid", error=problems[0])
         return game
 
-    progress = load_progress(progress_path)
+    try:
+        progress = load_progress(progress_path)
+    except (OSError, ValueError) as e:
+        # Damaged (a crash, a hand edit): this game needs its progress
+        # reset (Reset progress); the others still show.
+        game.update(state="invalid", progress_damaged=True, appid=config["appid"], title=_title(config),
+                    icon=achievements.app_icon(config["appid"]),
+                    error=f"Its progress file {e}. Reset it to start again from its first session; "
+                          "achievements Steam already has are skipped.")
+        return game
     if progress["appid"] != 0 and progress["appid"] != config["appid"]:
         progress = dict(DEFAULT_PROGRESS)
     total = len(config["achievements"])
@@ -232,20 +241,17 @@ def save_run_settings(values):
     editable = settings_module.APP_EDITABLE + settings_module.APP_TOGGLES + list(settings_module.APP_CHOICES)
     if not isinstance(values, dict) or any(k not in editable for k in values):
         raise AppError("Unknown setting.")
+    def change(overrides):
+        overrides.update(values)
+        found = settings_module.problems(overrides)
+        if found:
+            raise AppError(found[0][0].upper() + found[0][1:] + ".")
+        return {k: v for k, v in overrides.items()
+                if k not in editable or v != settings_module.DEFAULTS[k]}
     try:
-        overrides = settings_module.read_overrides()
+        settings_module.update_overrides(change)
     except ValueError as e:
         raise AppError(f"settings.json is {e}. Fix it or delete it.")
-    overrides.update(values)
-    found = settings_module.problems(overrides)
-    if found:
-        raise AppError(found[0][0].upper() + found[0][1:] + ".")
-    kept = {k: v for k, v in overrides.items()
-            if k not in editable or v != settings_module.DEFAULTS[k]}
-    if kept:
-        SETTINGS_PATH.write_text(json.dumps(kept, indent=2) + "\n")
-    else:
-        SETTINGS_PATH.unlink(missing_ok=True)
     return run_settings()
 
 
@@ -267,26 +273,92 @@ def _move_break(name, old_config, config):
     """A game in its break waits until progress' session_ends_at, set from
     the break's length when the session ended. Saving a new length for that
     break moves it by the difference (keeping any randomness it got), and a
-    break of 0 makes the game playable now."""
+    break of 0 makes the game playable now. Returns the progress with it
+    moved, for save_game to write with the rest, or None when it stays."""
     _, progress_path = profile_paths(name)
-    progress = load_progress(progress_path)
+    try:
+        progress = load_progress(progress_path)
+    except (OSError, ValueError):
+        return None  # damaged: Reset progress first
     if (old_config is None or progress["session_ends_at"] is None
             or progress["appid"] != config["appid"]
             or config_fingerprint(old_config) != config_fingerprint(config)):
-        return
+        return None
     i = progress["last_completed"] + 1
     if not 0 < i < len(config["achievements"]):
-        return
+        return None
     old, new = old_config["achievements"][i]["delay"], config["achievements"][i]["delay"]
     if old == new:
-        return
+        return None
     ends = (datetime.now() if new == 0 else
             datetime.fromisoformat(progress["session_ends_at"]) + timedelta(seconds=new - old))
     progress["session_ends_at"] = ends.isoformat()
-    save_progress(progress_path, progress)
+    return progress
+
+
+# Saving a game's schedule: one save of a game at a time (two at once, say a
+# double-clicked Save, can't mix their files or undo each other's), and a
+# journal of what its files were, written before any is replaced and
+# removed once all are. A save that fails puts them back from it; one cut
+# off by a crash (the journal still there) is put back when the server
+# next starts (recover_saves), or before that game's next save.
+_save_locks, _save_locks_lock = {}, threading.Lock()
+
+
+def _save_lock(name):
+    with _save_locks_lock:
+        return _save_locks.setdefault(name, threading.Lock())
+
+
+def _journal_path(name):
+    return JSONS_DIR / f".saving_{name}.json"
+
+
+def _undo_save(journal, written=None):
+    """Puts the files a save's journal lists back as they were before it
+    (with written, just those it got to replace), then removes the
+    journal. False if one couldn't be (the journal stays, to try again)."""
+    restored = True
+    for entry in reversed(json.loads(journal.read_text())["files"]):
+        path = Path(entry["path"])
+        if written is not None and path not in written:
+            continue
+        try:
+            if entry["old"] is None:
+                path.unlink(missing_ok=True)
+            else:
+                write_atomic(path, entry["old"])
+        except OSError:
+            restored = False
+    if restored:
+        journal.unlink(missing_ok=True)
+    return restored
+
+
+def recover_saves():
+    """Undoes saves a crash cut off (their journals), and removes temp files
+    older than a minute that an interrupted write left (newer ones may be a
+    run's write going on now)."""
+    for journal in JSONS_DIR.glob(".saving_*.json"):
+        try:
+            _undo_save(journal)
+        except (OSError, ValueError, KeyError, TypeError):
+            pass
+    for folder in (JSONS_DIR, CSVS_DIR):
+        for tmp in folder.glob("*.tmp"):
+            try:
+                if time.time() - tmp.stat().st_mtime > 60:
+                    tmp.unlink()
+            except OSError:
+                pass
 
 
 def save_game(name, config, csv_text, overwrite=False):
+    with _save_lock(_check_name(name)):
+        return _save_game(name, config, csv_text, overwrite)
+
+
+def _save_game(name, config, csv_text, overwrite):
     name = _check_name(name)
     problems = config_problems(config)
     if problems:
@@ -297,14 +369,46 @@ def save_game(name, config, csv_text, overwrite=False):
     title = config.get("game") if isinstance(config.get("game"), str) and config.get("game") else name
     if _running_pid(name):
         raise AppError(f"{title} is running. Stop it before replacing its schedule.", 409)
+    journal = _journal_path(name)
+    if journal.exists():
+        recovery_error = (f"Couldn't recover {title}'s previous save. Its recovery data was kept in "
+                          f"{_shown_path(journal)}. Fix the file-access problem (or move that file away "
+                          "to keep the files as they are now), then save again.")
+        try:
+            recovered = _undo_save(journal)
+        except (OSError, ValueError, KeyError, TypeError) as e:
+            raise AppError(recovery_error, 500) from e
+        if not recovered:
+            raise AppError(recovery_error, 500)
     if config_path.exists() and not overwrite:
         raise AppError(f"{title} is already saved (as {name}).", 409, exists=True)
     old_config = json.loads(config_path.read_text()) if config_path.exists() else None
     JSONS_DIR.mkdir(parents=True, exist_ok=True)
     CSVS_DIR.mkdir(parents=True, exist_ok=True)
-    config_path.write_text(json.dumps(config, indent=2) + "\n")
-    _move_break(name, old_config, config)
-    (CSVS_DIR / f"{name}.csv").write_text(csv_text)
+    progress_path = profile_paths(name)[1]
+    moved = _move_break(name, old_config, config)
+    # The timeline, the config and (for a break being changed) the
+    # progress are each replaced atomically; the journal (see above) has
+    # what they were, so a save that fails, or one a crash cuts off, is
+    # put back as it was.
+    writes = [(CSVS_DIR / f"{name}.csv", csv_text), (config_path, json.dumps(config, indent=2) + "\n")]
+    if moved is not None:
+        writes.append((progress_path, json.dumps(moved, indent=2)))
+    try:
+        write_atomic(journal, json.dumps({"files": [
+            {"path": str(path), "old": path.read_text() if path.exists() else None} for path, _ in writes]}))
+    except OSError as e:
+        raise AppError(f"Couldn't save {title} ({e.strerror or e}). Nothing was changed.", 500)
+    written = []
+    try:
+        for path, text in writes:
+            write_atomic(path, text)
+            written.append(path)
+    except OSError as e:
+        restored = _undo_save(journal, written)
+        raise AppError(f"Couldn't save {title} ({e.strerror or e}). " + ("Nothing was changed." if restored else
+                       "Some of its files may be the new ones; they're put back when STAR next starts."), 500)
+    journal.unlink(missing_ok=True)
     achievements.keep_asf_open()  # a Start often follows
     return {"saved": name}
 
@@ -323,6 +427,8 @@ def start_run(name, every=False, delay=None):
     # A session that ended has its break to wait out first (a stopped one
     # can carry on, waiting only for its next unlock).
     state = _game_state(name, None)
+    if state.get("state") == "invalid":
+        raise AppError(f"{state.get('title') or name}: {state.get('error')}", 409)
     if state.get("ready_in") and not state.get("cut_short"):
         raise AppError(f"{state.get('title') or name} isn't playable yet: the break after its last "
                        "session isn't over.", 409)
@@ -352,11 +458,28 @@ def start_run(name, every=False, delay=None):
             + ([] if every else ["--once"]) + (["-in", str(delay)] if delay else []),
             cwd=str(PROJECT_DIR), stdin=subprocess.DEVNULL, stdout=log,
             stderr=subprocess.STDOUT, start_new_session=True)
-    # Wait until it holds its lock, so the next status already shows it
-    # running and a second click can't start (and wipe the log of) another.
-    deadline = time.monotonic() + 5
+    # Started once it holds its lock (the first thing a run does), so the
+    # next status already shows it running and a second click can't start
+    # (and wipe the log of) another. One that ends first, or doesn't get
+    # there in time (it's stopped then), didn't start: that's the answer,
+    # with the last thing it printed.
+    deadline = time.monotonic() + 15
     while not lock_info(auto_lock_path(name)) and proc.poll() is None and time.monotonic() < deadline:
         time.sleep(0.1)
+    if not lock_info(auto_lock_path(name)):
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+        said = [line for line in log_path.read_text(errors="replace").splitlines()[-20:]
+                if line.strip() and not line.startswith(RUN_HEADER)]
+        title = state.get("title") or name
+        last = said[-1].strip() if said else ""
+        if last and last[-1] not in ".!?":
+            last += "."
+        raise AppError(f"{title} didn't start" + (f": {last}" if last else ".") + " Its log in Runs has the rest.", 500)
     return {"started": name}
 
 
@@ -384,6 +507,16 @@ def set_stop_after(name, on):
         raise AppError(f"{name} isn't running from the app.", 409)
     stop_after_path(name).touch()
     return {"stop_after": True}
+
+
+def reset_game_progress(name):
+    """Moves a game's damaged progress file aside (Reset progress), so it
+    starts again from its first session."""
+    name = _check_name(name)
+    if _running_pid(name):
+        raise AppError(f"{name} is running.", 409)
+    reset_progress(profile_paths(name)[1])
+    return {"reset": name}
 
 
 def dismiss(name):
@@ -629,7 +762,10 @@ def test_keep_awake():
 def _shown_path(path):
     """path with the home folder as ~, so it doesn't show the user's name."""
     path, home = path.resolve(), Path.home().resolve()
-    return "~/" + str(path.relative_to(home)) if path.is_relative_to(home) else str(path)
+    try:
+        return "~/" + str(path.relative_to(home))
+    except ValueError:  # not under it (Path.is_relative_to is Python 3.9+)
+        return str(path)
 
 
 def open_data_folder():
@@ -836,6 +972,7 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/stop": lambda: stop_run(name),
             "/api/stop-after": lambda: set_stop_after(name, bool(body.get("on", True))),
             "/api/dismiss": lambda: dismiss(name),
+            "/api/reset-progress": lambda: reset_game_progress(name),
             "/api/settings": lambda: save_run_settings(body.get("settings")),
             "/api/setup/install": lambda: setup_install(bool(body.get("latest"))),
             "/api/setup/asf-check": asf_check,
@@ -905,6 +1042,7 @@ def serve():
         print("The app is already running.")
         return
     extras.extend_path()  # Homebrew's tools, for this server and its runs
+    recover_saves()  # schedule saves a crash cut off
     server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     print(f"Serving {URL} (started {datetime.now():%a %H:%M}).")
     threading.Thread(target=_keep_asf_current, daemon=True).start()
