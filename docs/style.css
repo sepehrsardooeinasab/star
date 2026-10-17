@@ -2555,7 +2555,7 @@
     display: grid; grid-template-columns: 12rem 18rem; align-items: center; column-gap: 0.5rem;
     min-height: 0; margin: 0; padding: 0; border: 0; font-size: 13px; color: var(--text-dim);
   }
-  body.local #schedule-details .schedule-options-body .field:has(input) { grid-template-columns: 12rem 6rem auto; }
+  body.local #schedule-details .schedule-options-body .field:has(input) { grid-template-columns: 12rem 4.5rem auto; }
   body.local #schedule-details :is(.schedule-details-body .bar-field, .schedule-options-body .field:has(input)) + * { border-top: 0; }
   body.local #schedule-details :is(.bar-field, .schedule-options-body) input { width: 100%; justify-self: stretch; }
   body.local #schedule-details .schedule-options-body label { margin: 0; color: var(--text-dim); font-size: 13px; }
@@ -2674,3 +2674,12 @@
     body.local .library-games-table :is(.library-games-header, .lib-game) { column-gap: 12px; }
     body.local .library-games-table .unlock-meta > div, body.local .games-col-played { display: none; }
   }
+
+  /* Session options' hours: a narrow box with up/down arrows, as App ID has. */
+  body.local #schedule-details .schedule-options-body input[type="number"] { padding-right: 4px; }
+  body.local #schedule-details .schedule-options-body input[type="number"]::-webkit-inner-spin-button { display: block; }
+
+  /* Something that can't be used right now (Save with nothing to save, a
+     tab with nothing in it yet) says so under the pointer. */
+  body.local :is(button, summary, [role="tab"]):is(:disabled, [aria-disabled="true"]),
+  body.local .is-disabled { cursor: not-allowed; }
