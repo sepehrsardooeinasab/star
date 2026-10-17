@@ -181,6 +181,23 @@ fn quit_server() {
 #[cfg(target_os = "macos")]
 const WINDOW_BUTTONS: (f64, f64) = (18.0, 26.0);
 
+/// Restore the native frame before the window is shown. AppKit then keeps
+/// its size and position in the app's preferences as the user changes it.
+#[cfg(target_os = "macos")]
+fn restore_window_frame(window: &tauri::WebviewWindow) -> tauri::Result<()> {
+    use objc2_app_kit::NSWindow;
+    use objc2_foundation::NSString;
+
+    let ptr = window.ns_window()?;
+    // SAFETY: setup runs on the main thread; this NSWindow belongs to the
+    // live Tauri window and is not retained beyond this call.
+    let ns_window = unsafe { &*(ptr as *const NSWindow) };
+    let name = NSString::from_str("STAR Main Window");
+    ns_window.setFrameUsingName(&name);
+    ns_window.setFrameAutosaveName(&name);
+    Ok(())
+}
+
 /// Puts the window buttons back in the top bar. AppKit moves them back to
 /// their default spot on some window events (focus, theme, …) and Tauri only
 /// restores them when its own view redraws, which the page covers; so this
@@ -407,6 +424,9 @@ fn main() {
                 .title("STAR")
                 .inner_size(1180.0, 860.0)
                 .min_inner_size(960.0, 560.0)
+                // Restore the frame while hidden, then show it once at
+                // its final size instead of visibly zooming on launch.
+                .visible(false)
                 // In the app's theme from the start: the window, the web
                 // view before a page paints (macOS draws it in the window's
                 // appearance), and the pages (window.starTheme).
@@ -422,6 +442,9 @@ fn main() {
                 .hidden_title(true)
                 .traffic_light_position(tauri::LogicalPosition::new(WINDOW_BUTTONS.0, WINDOW_BUTTONS.1));
             let window = builder.build()?;
+            #[cfg(target_os = "macos")]
+            restore_window_frame(&window)?;
+            window.show()?;
             if let Ok(url) = window.url() {
                 let _ = START_URL.set(url);
             }
