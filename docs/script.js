@@ -1511,7 +1511,7 @@
   // settings.json, so it survives updates). Off until the settings say.
   var showDone = false;
   try { runOpts.every = localStorage.getItem("run-every") === "1"; } catch (e) {}
-  var runsTimer = null;
+  var runsTimer = null, runsFetch = null, runPending = null;
 
   function api(path, body) {
     var opts = body === undefined ? {} : {
@@ -1748,7 +1748,7 @@
       'stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 4.8V8l2.2 1.5"/></svg></span>' : "";
     var over = g.finished || g.state === "completed";
     return '<div class="run-card' + (g.name === selectedRun ? " selected" : "") + (resting ? " resting" : "") + (over ? " over" : "") + (cut ? " cut" : "") +
-      '" data-name="' + escapeHtml(g.name) + '"' +
+      '" role="button" tabindex="0" aria-pressed="' + (g.name === selectedRun) + '" data-name="' + escapeHtml(g.name) + '"' +
       (g.appid > 0 ? ' style="--card-hero: ' + escapeHtml(heroUrl(g)) + '"' : "") + ">" +
       '<div class="run-head">' + gameIconHtml(g) + '<span class="run-name">' + escapeHtml(gameTitle(g)) + "</span>" + counterMark(g) + clock +
       (badge ? '<span class="run-badge ' + badge[0] + '"' + (badge[2] ? ' data-tip="' + escapeHtml(badge[2]) + '" aria-label="' + escapeHtml(badge[2]) + '"' : "") +
@@ -1855,7 +1855,7 @@
   // changes, so the box keeps its focus while typing.
   // Enter in the box makes it a chip like the others ("In 2h", "At 23:30");
   // clicking that chip opens the box again.
-  var runChipsDrawn = "", customDone = false;
+  var runChipsDrawn = "", customDone = false, lastPresetDelay = "0";
   function customLabel() {
     var text = byId("run-delay-custom").value.trim();
     if (/:/.test(text)) return "At " + text;
@@ -1924,20 +1924,41 @@
       }
       blocked = !!why;  // the menu doesn't open
       if (blocked) byId("run-menu").open = false;
-      // Open, it confirms what the menu says (not while the time is unclear).
-      var open = byId("run-menu").open;
-      button.textContent = open ? "Confirm" : g && g.done ? "Continue" : "Run";
-      button.className = "btn-hero run-start" + (open ? " btn-danger" : " primary");
-      if (open && minutes === null) blocked = true;
+      // The confirmation stays inside the menu, beside its choices.
+      button.textContent = g && g.done ? "Continue" : "Run";
+      button.className = "btn-hero run-start primary";
       mode = runOpts.every;
     }
-    button.classList.toggle("is-disabled", blocked);
-    button.setAttribute("aria-disabled", blocked);
-    button.title = blocked ? why : "";
+    if (runPending) {
+      blocked = true;
+      button.textContent = runPending === "run" ? "Starting…" : runPending === "stop" ? "Stopping…"
+        : runPending === "dismiss" ? "Dismissing…" : "Updating…";
+      byId("run-menu").open = false;
+    }
     if (running || done) byId("run-menu").open = false;
-    delay.disabled = custom.disabled = running || done;
-    setRunMode(mode, done || (running && !g.auto));
+    // Dim the open menu's trigger, while allowing another click to close it.
+    // Pending requests still disable the control completely.
+    button.classList.toggle("is-disabled", blocked);
+    button.classList.toggle("menu-open", byId("run-menu").open);
+    button.setAttribute("aria-disabled", String(blocked));
+    button.setAttribute("aria-busy", String(!!runPending));
+    button.title = blocked ? why : "";
+    delay.disabled = custom.disabled = !!runPending || running || done;
+    setRunMode(mode, !!runPending || done || (running && !g.auto));
     drawRunChips();
+    renderRunConfirmation(g, blocked || running || done, minutes);
+  }
+
+  function renderRunConfirmation(g, blocked, minutes) {
+    var valid = minutes !== null;
+    var waiting = g ? Math.max(waitLeft(g), (minutes || 0) * 60) : 0;
+    var every = byId("run-mode").value === "1";
+    var action = byId("run-confirm");
+    action.disabled = blocked || !valid;
+    action.textContent = waiting > 0 ? "Schedule run" : every ? "Start all sessions" : "Start session";
+    var custom = byId("run-delay-custom");
+    if (byId("run-delay").value === "custom") custom.setAttribute("aria-invalid", String(!valid));
+    else custom.removeAttribute("aria-invalid");
   }
 
   // Runs is redrawn every few seconds while it's open. This changes only
@@ -1963,9 +1984,8 @@
     runsDone = done;
     var running = games.filter(function (g) { return g.running; }).length;
     byId("run-options").hidden = !games.length;
-    renderRunBar(games);
     byId("switch-runs").classList.toggle("has-content", running > 0);
-    if (currentView !== "runs") return;
+    if (currentView !== "runs") { renderRunBar(games); return; }
     // One game runs at a time, so its name says more than a count.
     var runningGame = games.filter(function (g) { return g.running; })[0];
     // Over the list: games still to play (finished ones counted apart),
@@ -1999,6 +2019,7 @@
         : emptyHtml("▶", "Every game is finished. Turn on Show finished games in Settings to see them."));
     }
     var shown = selectedGame();
+    renderRunBar(games);
     // Behind the selected game: a glow in its art's main colour.
     tintFor(runsError ? null : shown, function (tint) {
       setTint(document.querySelector(".runs-log"), tint);
@@ -2381,24 +2402,28 @@
   }
 
   function refreshRuns() {
-    if (!local) return;
+    if (!local) return Promise.resolve();
     clearTimeout(runsTimer);
-    api("/api/games").then(function (data) {
+    if (runsFetch) return runsFetch;
+    runsFetch = api("/api/games").then(function (data) {
       runsData = data;
       runsError = null;
       runsFetchedAt = Date.now();
     }).catch(function (err) {
       runsError = err.message;
     }).then(function () {
+      runsFetch = null;
       renderRuns();
       if (currentView === "runs") refreshLog();
       // Quick while it's being looked at, slow otherwise (just the tab dot).
       var visible = currentView === "runs" && !document.hidden;
       runsTimer = setTimeout(refreshRuns, visible ? 3000 : 20000);
     });
+    return runsFetch;
   }
 
   function runAction(action, name) {
+    if (runPending) return;
     var g = (runsData ? runsData.games : []).filter(function (x) { return x.name === name; })[0];
     var title = g ? gameTitle(g) : name, minutes = runDelayMinutes(), delaySelect = byId("run-delay");
     var when = !minutes ? "" : delaySelect.value === "custom" ? ", in " + fmtDur(minutes * 60)
@@ -2414,12 +2439,21 @@
     };
     var req = requests[action];
     if (action === "stop" && !confirmTwice("stop:" + name)) { renderRuns(); return; }
-    api(req[0], req[1]).then(function () {
+    runPending = action;
+    renderRunBar(runsData ? runsData.games : []);
+    return api(req[0], req[1]).then(function () {
       showToast(req[2] || "Done.");
     }).catch(function (err) {
       showToast(err.message);
     }).then(function () {
-      setTimeout(refreshRuns, 400);  // let the run start/stop before re-reading
+      // Keep controls disabled until fresh status has arrived, including
+      // when a poll from before this action was already in flight.
+      return new Promise(function (resolve) { setTimeout(resolve, 400); });
+    }).then(function () {
+      return runsFetch ? runsFetch.then(refreshRuns) : refreshRuns();
+    }).then(function () {
+      runPending = null;
+      renderRuns();
     });
   }
 
@@ -2434,23 +2468,51 @@
       refreshLog();
     }
   });
+  els.runsList.addEventListener("keydown", function (e) {
+    var card = e.target.closest(".run-card");
+    if (card && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); card.click(); }
+  });
 
-  // Run opens its menu, and then (Confirm) starts it; Stop and Dismiss
-  // act at once.
+  // Run opens its menu. Starting is an explicit action beside the choices.
   byId("run-start").addEventListener("click", function (e) {
-    var g = selectedGame(), menu = byId("run-menu");
+    var g = selectedGame();
     if (!g || this.classList.contains("is-disabled")) { e.preventDefault(); return; }
     if (g.running || g.finished) { e.preventDefault(); runAction(g.running ? "stop" : "dismiss", g.name); return; }
-    if (menu.open) {
-      e.preventDefault();
-      menu.open = false;
-      runAction("run", g.name);
-    }
   });
-  byId("run-menu").addEventListener("toggle", function () { renderRunBar(runsData ? runsData.games : []); });
+  byId("run-confirm").addEventListener("click", function () {
+    var g = selectedGame();
+    if (!g || this.disabled || g.running) return;
+    byId("run-menu").open = false;
+    runAction("run", g.name);
+    byId("run-start").focus();
+  });
+  // Leaving an empty custom field restores the previous preset and Other….
+  function resetEmptyCustomDelay() {
+    var delay = byId("run-delay"), custom = byId("run-delay-custom");
+    if (delay.value !== "custom" || customDone || custom.value.trim()) return;
+    custom.value = "";
+    delay.value = lastPresetDelay;
+    delay.dispatchEvent(new Event("change"));
+  }
+  byId("run-menu").addEventListener("toggle", function () {
+    if (!this.open) resetEmptyCustomDelay();
+    renderRunBar(runsData ? runsData.games : []);
+  });
+  byId("run-delay-custom").addEventListener("blur", function () {
+    var custom = this;
+    // Let a clicked preset or mode finish handling its click before redrawing.
+    setTimeout(function () {
+      if (document.activeElement !== custom) resetEmptyCustomDelay();
+    }, 0);
+  });
   byId("run-delay-custom").addEventListener("keydown", function (e) {
     if (e.key !== "Enter") return;
     e.preventDefault();
+    if (!this.value.trim()) {
+      resetEmptyCustomDelay();
+      byId("run-delay-chips").querySelector('[data-value="custom"]').focus();
+      return;
+    }
     if (runDelayMinutes() === null) return;
     customDone = true;
     renderRunBar(runsData ? runsData.games : []);
@@ -2472,6 +2534,7 @@
   setRunMode(runOpts.every, false);
   byId("run-delay").addEventListener("change", function () {
     var custom = byId("run-delay-custom");
+    if (this.value !== "custom") lastPresetDelay = this.value;
     renderRunBar(runsData ? runsData.games : []);
     if (this.value === "custom") custom.focus();
   });

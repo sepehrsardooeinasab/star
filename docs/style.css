@@ -906,24 +906,39 @@
   }
   .run-options input[type="text"].invalid { border-color: var(--danger); }
   .run-options select:focus-visible, .run-options input[type="text"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  /* Next session / All sessions: two choices, the chosen one tinted. */
-  .run-options input[type="text"] { width: 9.5rem; }
   /* One width for Run, Continue, Stop and Dismiss: switching games keeps the bar still. */
   .run-options .run-start { padding: 0 0.5rem; width: 6.5rem; justify-content: center; white-space: nowrap; }
   .run-menu summary.run-start { list-style: none; cursor: pointer; }
   .run-menu summary.run-start::-webkit-details-marker { display: none; }
   .run-start.is-disabled { opacity: 0.4; cursor: not-allowed; }
+  .run-start.menu-open { opacity: 0.7; }
   /* Run's menu: when it starts, how much it plays, then Run. */
-  .run-pop { display: flex; flex-direction: column; gap: 0.4rem; min-width: 19rem; }
+  .run-menu .run-pop { display: flex; flex-direction: column; width: min(27rem, calc(100vw - 2rem)); min-width: 0; padding: 1rem; gap: 0.65rem; max-height: calc(100vh - 6rem); overflow-y: auto; }
+  .run-pop .filter-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .run-pop .filter-chip { width: 100%; min-height: 32px; padding: 0.35rem 0.4rem; white-space: normal; }
+  .run-pop #run-mode-chips { align-self: stretch; }
+  .run-pop #run-mode-chips button { flex: 1; min-height: 30px; }
+  /* The custom input replaces a chip without changing its dimensions. */
+  #run-delay-chips > :is(.filter-chip, input[type="text"]) {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    height: 32px;
+    min-height: 32px;
+    margin: 0;
+    padding: 0 0.4rem;
+    text-align: center;
+    font-family: var(--font);
+    font-size: 0.78rem;
+    line-height: normal;
+    border-radius: 7px;
+  }
+  .run-menu-divider { flex: none; width: 100%; margin: 0; border: 0; border-top: 1px solid var(--border); }
+  :root .run-pop #run-confirm { min-height: 36px; justify-content: center; font-family: var(--font); font-size: 0.82rem; letter-spacing: 0; text-transform: none; }
   .run-pop .filter-list + .filter-list { margin: 0; padding: 0; border: 0; }
   .run-pop .filters-title { margin-top: 0.2rem; }
-  .run-pop .seg-switch { align-self: flex-start; }
-  /* All six chips one width (for When ready), and Other…'s box, in its
-     place among them, the same. */
-  .run-pop .filter-chip, .run-pop input[type="text"] { box-sizing: border-box; width: 6.1rem; text-align: center; }
   /* Under the title bar's coloured line, not across it. */
   :root[data-desktop] .topbar .run-pop { top: calc(100% + 20px); }
-  :root[data-desktop] .topbar .run-options .run-pop input[type="text"] { width: 6.1rem; height: 27px; border-radius: 7px; }
   .run-options :disabled { cursor: not-allowed; }
   /* Details tab: label / value rows. */
   .run-details { flex: 1; min-height: 0; overflow-y: auto; }

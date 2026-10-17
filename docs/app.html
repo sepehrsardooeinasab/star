@@ -80,19 +80,19 @@
       <button class="btn-hero primary page-action" id="download-btn" type="button" disabled>Save</button>
     </div>
     <div class="pa pa-runs">
-      <!-- Run opens a menu: when it starts and how much it plays; Run,
-           then Confirm while it's open, starts it. Stop and Dismiss act
-           at once. The two selects hold the choices the menu's chips
-           show; Other… becomes the box for a time. -->
+      <!-- Run opens its options; the action inside the popover starts it.
+           The hidden selects hold the choices represented by the chips. -->
       <div class="run-options" id="run-options">
         <details class="filters-menu run-menu" id="run-menu">
           <summary class="btn-hero primary run-start" id="run-start">Run</summary>
           <div class="filters-pop run-pop">
             <div class="filters-title">Start</div>
             <div class="filter-list" id="run-delay-chips"></div>
-            <div id="run-pop-hold" hidden><input type="text" id="run-delay-custom" placeholder="45m or 23:30" aria-label="Start in or at" spellcheck="false" hidden></div>
+            <div id="run-pop-hold" hidden><input type="text" id="run-delay-custom" aria-label="Start in or at" data-tip="In: 45m, 2h or 1h30 · At: 23:30" spellcheck="false" hidden></div>
             <div class="filters-title">Play</div>
             <div class="seg-switch" id="run-mode-chips" role="group" aria-label="How much to play"></div>
+            <hr class="run-menu-divider">
+            <button class="btn-hero primary" id="run-confirm" type="button">Start session</button>
           </div>
         </details>
         <select id="run-delay" aria-label="Start" hidden>
