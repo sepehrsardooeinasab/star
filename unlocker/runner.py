@@ -343,9 +343,10 @@ def run_auto(game_name, once=False, delay=None):
 
 def _run(game_name, force=False, time_only=False, delay=None, wait_ready=False):
     """delay: seconds to wait before starting (-in). wait_ready: wait until
-    the session can actually run — cooldown over and first unlock due — and
-    start then (-w). Either way the wait happens after the confirmation
-    prompt, under keep-awake, and before ASF is touched."""
+    the session can actually run — the break before it over — and start
+    then (-w); a session stopped partway starts right away and plays while
+    it waits for its next unlock. Either way the wait happens after the
+    confirmation prompt, under keep-awake, and before ASF is touched."""
     config_path, progress_path = profile_paths(game_name)
     game_label = game_name
 
@@ -460,9 +461,14 @@ def _run(game_name, force=False, time_only=False, delay=None, wait_ready=False):
     else:
         print("Session can be run now.")
 
-    if wait_ready:
+    if wait_ready and cooldown_ends is not None:
         # With a delay too (the app's "Start in"): whichever is later.
         start_at = max(ready_at, now + timedelta(seconds=delay or 0))
+    elif wait_ready and delay is None:
+        # Partway through a session, its next unlock is waited out with the
+        # game playing (below), as it would have if the session hadn't
+        # stopped, so the playtime between unlocks still adds up.
+        start_at = now
     elif delay is not None:
         start_at = now + timedelta(seconds=delay)
     else:

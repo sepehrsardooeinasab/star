@@ -23,6 +23,8 @@ Usage: runsteamunlocker [-f] [-w | -in <time>] <config-name>
   -f, --force     Same as above, but skip the confirmation prompt.
   -w, --wait      Confirm now, then wait (kept awake, without
                   touching ASF) until the session can run, and start it.
+                  A session stopped partway starts now, playing the game
+                  until its next unlock.
   -in <time>      Confirm now, then wait <time> before starting, e.g.
                   30 (minutes), 45m, 2h, 1h30m. Refused if the session's
                   cooldown would still be running by then.
