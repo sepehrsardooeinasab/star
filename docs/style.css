@@ -1677,8 +1677,8 @@
 
   /* The overview and the log take only the room they need: a short
      game's overview isn't padded out, and an empty log is a line, growing
-     as the run writes to it. */
-  .runs-log:not(.full) .runs-timeline,
+     as the run writes to it. The overview never shrinks for a long log
+     (it'd cut its rows): it's capped at 45% above and scrolls in that. */
   .runs-log:not(.full) .timeline-table,
   .runs-log:not(.full) .runs-timeline .table-wrap { flex: 0 1 auto; min-height: 0; }
   .runs-log:not(.full) .runs-timeline .empty-hint .glyph { display: none; }
