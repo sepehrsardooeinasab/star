@@ -916,7 +916,8 @@
   /* Run's menu: when it starts, how much it plays, then Run. */
   .run-pop { display: flex; flex-direction: column; gap: 0.4rem; min-width: 19rem; }
   .run-pop .filter-list + .filter-list { margin: 0; padding: 0; border: 0; }
-  .run-pop-label { margin-top: 0.2rem; font-size: 0.72rem; font-weight: 600; color: var(--text-dim); }
+  .run-pop .filters-title { margin-top: 0.2rem; }
+  .run-pop .seg-switch { align-self: flex-start; }
   /* All six chips one width (for When ready), and Other…'s box, in its
      place among them, the same. */
   .run-pop .filter-chip, .run-pop input[type="text"] { box-sizing: border-box; width: 6.1rem; text-align: center; }

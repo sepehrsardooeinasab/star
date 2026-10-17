@@ -1870,6 +1870,13 @@
       return '<button class="filter-chip' + (on ? " on" : "") + '" type="button" data-value="' + o.value + '" aria-pressed="' + on + '">' + text + "</button>";
     }).join("");
   }
+  // A choice of two, as one switch (Play, like Filters' Match).
+  function segHtml(select) {
+    return [].map.call(select.options, function (o) {
+      var on = o.value === select.value;
+      return '<button class="' + (on ? "on" : "") + '" type="button" data-value="' + o.value + '" aria-pressed="' + on + '">' + o.text + "</button>";
+    }).join("");
+  }
   function drawRunChips() {
     var delay = byId("run-delay"), mode = byId("run-mode");
     var key = delay.value + " " + mode.value + " " + (customDone ? customLabel() : "");
@@ -1880,7 +1887,7 @@
     byId("run-delay-chips").innerHTML = runChips(delay);
     var slot = byId("run-delay-chips").querySelector("[data-custom-slot]");
     if (slot) slot.replaceWith(custom);
-    byId("run-mode-chips").innerHTML = runChips(mode);
+    byId("run-mode-chips").innerHTML = segHtml(mode);
   }
   function renderRunBar(games) {
     var g = selectedGame();
@@ -3147,6 +3154,8 @@
       return '<button class="filter-chip' + (on ? " on" : "") + '" type="button" data-value="' + c[0] + '" aria-pressed="' + on + '">' + c[1] + "</button>";
     }).join("") + "</div>";
   }
+  // Over a sort menu's chips, as Filters has over its.
+  var SORT_TITLE = '<div class="filters-head"><span class="filters-title">Sort by</span></div>';
   function sortRowsHtml(sorts, sort, order) {
     return '<div class="filter-list" data-choice="sort">' + sorts.map(function (c) {
       var on = c[0] === sort;
@@ -3328,7 +3337,7 @@
   function renderGames(d) {
     var games = sortGames(d && !unlocksError ? d.games_list || [] : []);
     byId("games-sort-label").innerHTML = sortLabel(SORTS.games, gamesSort, gamesOrder);
-    byId("games-sort-pop").innerHTML = sortRowsHtml(SORTS.games, gamesSort, gamesOrder);
+    byId("games-sort-pop").innerHTML = SORT_TITLE + sortRowsHtml(SORTS.games, gamesSort, gamesOrder);
     renderFilterList("games-filter-list", libFilter, "games-match");
     var off = FILTERS.filter(function (f) { return libFilter[f[0]] === "only" || libFilter[f[0]] === "hide"; }).length;
     byId("games-filters-label").textContent = off ? "Filters \u00b7 " + off : "Filters";
@@ -3562,7 +3571,7 @@
       html += '<div class="unlocks-bar ach-sort games-sort">' +
         '<details class="filters-menu sort-menu" id="ach-sort-menu"' + (achSortOpen ? " open" : "") + ">" +
         '<summary class="btn-ghost">' + sortLabel(SORTS.ach, achSort, achOrder) + "</summary>" +
-        '<div class="filters-pop">' + sortRowsHtml(SORTS.ach, achSort, achOrder) + "</div></details>" +
+        '<div class="filters-pop">' + SORT_TITLE + sortRowsHtml(SORTS.ach, achSort, achOrder) + "</div></details>" +
         '<button class="btn-ghost ach-group' + (achGroup === "status" ? " on" : "") + '" type="button" data-ach-group aria-pressed="' +
         (achGroup === "status") + '" data-tip="Show unlocked and locked achievements in separate lists">Split by status</button>' +
         '<span class="ach-right">' + achApplyHtml() +
