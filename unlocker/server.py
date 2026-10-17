@@ -46,9 +46,9 @@ from unlocker.state import (
     list_profiles,
     load_progress,
     lock_info,
+    reset_progress,
     profile_lock_path,
     profile_paths,
-    save_progress,
     stop_after_path)
 
 PORT = SETTINGS["ui_port"]
@@ -146,7 +146,16 @@ def _game_state(name, session_label):
         game.update(state="invalid", error=problems[0])
         return game
 
-    progress = load_progress(progress_path)
+    try:
+        progress = load_progress(progress_path)
+    except (OSError, ValueError) as e:
+        # Damaged (a crash, a hand edit): this game needs its progress
+        # reset (Reset progress); the others still show.
+        game.update(state="invalid", progress_damaged=True, appid=config["appid"], title=_title(config),
+                    icon=achievements.app_icon(config["appid"]),
+                    error=f"Its progress file {e}. Reset it to start again from its first session; "
+                          "achievements Steam already has are skipped.")
+        return game
     if progress["appid"] != 0 and progress["appid"] != config["appid"]:
         progress = dict(DEFAULT_PROGRESS)
     total = len(config["achievements"])
@@ -418,6 +427,8 @@ def start_run(name, every=False, delay=None):
     # A session that ended has its break to wait out first (a stopped one
     # can carry on, waiting only for its next unlock).
     state = _game_state(name, None)
+    if state.get("state") == "invalid":
+        raise AppError(f"{state.get('title') or name}: {state.get('error')}", 409)
     if state.get("ready_in") and not state.get("cut_short"):
         raise AppError(f"{state.get('title') or name} isn't playable yet: the break after its last "
                        "session isn't over.", 409)
@@ -479,6 +490,16 @@ def set_stop_after(name, on):
         raise AppError(f"{name} isn't running from the app.", 409)
     stop_after_path(name).touch()
     return {"stop_after": True}
+
+
+def reset_game_progress(name):
+    """Moves a game's damaged progress file aside (Reset progress), so it
+    starts again from its first session."""
+    name = _check_name(name)
+    if _running_pid(name):
+        raise AppError(f"{name} is running.", 409)
+    reset_progress(profile_paths(name)[1])
+    return {"reset": name}
 
 
 def dismiss(name):
@@ -931,6 +952,7 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/stop": lambda: stop_run(name),
             "/api/stop-after": lambda: set_stop_after(name, bool(body.get("on", True))),
             "/api/dismiss": lambda: dismiss(name),
+            "/api/reset-progress": lambda: reset_game_progress(name),
             "/api/settings": lambda: save_run_settings(body.get("settings")),
             "/api/setup/install": lambda: setup_install(bool(body.get("latest"))),
             "/api/setup/asf-check": asf_check,

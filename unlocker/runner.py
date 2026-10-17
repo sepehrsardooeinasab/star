@@ -366,7 +366,12 @@ def _run(game_name, force=False, time_only=False, delay=None, wait_ready=False):
     achievements = config["achievements"]
     appid = config["appid"]
 
-    progress = load_progress(progress_path)
+    try:
+        progress = load_progress(progress_path)
+    except ValueError as e:
+        print(f"{game_label}'s progress file {e}. Reset it (Runs → Reset progress in the app) "
+              "to start again from its first session; achievements Steam already has are skipped.")
+        return "error"
 
     if progress["appid"] != 0 and progress["appid"] != appid:
         if not time_only:

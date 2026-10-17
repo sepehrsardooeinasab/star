@@ -1791,7 +1791,7 @@
       : cut ? ["cut", STOP_ICON, "Stopped at " + cut.played + " of " + cut.of]
       : g.finished || g.state === "completed" ? ["", "Done"] : null;
     var meta;
-    if (g.state === "invalid") meta = "The config has a problem.";
+    if (g.state === "invalid") meta = g.progress_damaged ? "Its progress needs resetting." : "The config has a problem.";
     else if (g.finished || g.state === "completed") meta = "All achievements unlocked.";
     else if (!g.session) meta = g.total ? g.done + " / " + g.total + " achievements" : "";
     // Just the session: Playing / Waiting is the badge, and the next
@@ -1829,7 +1829,10 @@
       (runInfoOpen ? "Hide" : "Show") + ' App ID and where it came from" aria-label="Schedule info">' +
       '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5 8 10l3.5-3.5"/></svg></button>';
     if (g.state === "invalid") {
-      return title + '<div class="run-summary-line"><span class="bad">' + escapeHtml(g.error || "The config has a problem.") + "</span>" + more + "</div>";
+      // A damaged progress file: reset it from here (clicked twice).
+      var reset = g.progress_damaged && !g.running ? ' <button class="btn-ghost reset-progress' + (isArmed("reset-progress:" + g.name) ? " armed" : "") +
+        '" type="button" data-reset-progress>' + (isArmed("reset-progress:" + g.name) ? "Confirm reset" : "Reset progress") + "</button>" : "";
+      return title + '<div class="run-summary-line"><span class="bad">' + escapeHtml(g.error || "The config has a problem.") + "</span>" + reset + more + "</div>";
     }
     if (g.finished || g.state === "completed") return title + '<div class="run-summary-line">All achievements unlocked' + more + "</div>";
     var parts = [];
@@ -1968,7 +1971,7 @@
     } else {
       if (!g) why = "Select a game.";
       else if (done) why = gameTitle(g) + " is done.";
-      else if (g.state === "invalid") why = gameTitle(g) + "'s config has a problem.";
+      else if (g.state === "invalid") why = g.progress_damaged ? gameTitle(g) + "'s progress needs resetting (Reset progress)." : gameTitle(g) + "'s config has a problem.";
       else if (g.config_changed) why = "The achievement order changed. Run it once from the terminal to confirm.";
       else if (other) why = "Only one game runs at a time. Stop " + gameTitle(other) + " first.";
       else if (g.session && !g.cut_short && waitLeft(g) > 0) {
@@ -2407,6 +2410,14 @@
   // The schedule's info, shown under the summary when its arrow is open.
   var runInfoOpen = false;
   byId("run-summary").addEventListener("click", function (e) {
+    if (e.target.closest("[data-reset-progress]")) {
+      var g = selectedGame();
+      if (g && confirmTwice("reset-progress:" + g.name)) {
+        api("/api/reset-progress", {name: g.name}).then(function () { showToast(gameTitle(g) + "'s progress was reset."); })
+          .catch(function (err) { showToast(err.message); }).then(refreshRuns);
+      } else renderRuns();
+      return;
+    }
     var lib = e.target.closest("[data-lib-game]");
     if (lib) return openAchInLibrary(Number(lib.getAttribute("data-lib-game")), null);
     var button = e.target.closest("[data-run-info]");
