@@ -193,6 +193,12 @@
   // STAR's own server), asked again after a few seconds.
   function retryable(title) { return !title || title === "Couldn't reach Steam" || title === "Steam is busy"; }
 
+  function fillLinkFields(d) {
+    if (!els.appid.value && d.appid) els.appid.value = d.appid;
+    if (!els.gameName.value && d.game) els.gameName.value = d.game;
+    if (!els.copiedFrom.value && d.player) els.copiedFrom.value = d.player;
+  }
+
   // A link's achievements, read once. If Steam couldn't be reached (a
   // passing hiccup), it's asked again every few seconds; Steam's own
   // answers (a private profile, no such player) stay.
@@ -203,9 +209,7 @@
     api("/api/achievements/link", {url: url}).then(function (d) {
       linkSources[url] = {status: "ok", data: d};
       if (pastedLink(els.exportText.value) === url) {
-        if (!els.appid.value && d.appid) els.appid.value = d.appid;
-        if (!els.gameName.value && d.game) els.gameName.value = d.game;
-        if (!els.copiedFrom.value && d.player) els.copiedFrom.value = d.player;
+        fillLinkFields(d);
       }
     }).catch(function (err) {
       var title = (err.data || {}).title, retry = retryable(title);
@@ -768,6 +772,9 @@
   // the top bar doesn't move anything. Measured with the builder briefly
   // laid out (not drawn), since it's hidden on those tabs.
   function sizeBoxes() {
+    // The local app has one persistent frame. Only the standalone builder
+    // needs to measure its content to match heights between views.
+    if (local) return;
     var body = document.body, box = document.querySelector(".box");
     var screen = body.getAttribute("data-screen"), view = box.getAttribute("data-view");
     body.setAttribute("data-screen", "work");
@@ -879,8 +886,7 @@
     }
 
     var errors = [];
-    // The fields sit in the bar above.
-    var where = " above.";
+    var where = combined ? " in Details." : " in Settings.";
     if (!appidVal || appidVal <= 0) errors.push("Enter the game's App ID" + where);
     if (!gameName) errors.push("Enter a game name" + where);
 
@@ -1039,6 +1045,40 @@
 
   var combined = false;  // the app's one-screen Schedule (see enableLocal)
   var schedFull = false;  // every achievement instead of the sessions
+  var scheduleReady = false;
+  var schedulePanel = "import";
+
+  function setSchedulePanel(panel, focus) {
+    if (panel === "preview" && !scheduleReady) panel = "import";
+    if (panel !== schedulePanel) swapIn(byId(byId("schedule-tabs").querySelector('[data-panel="' + panel + '"]').getAttribute("aria-controls")));
+    schedulePanel = panel;
+    byId("schedule-tabs").querySelectorAll("[data-panel]").forEach(function (tab) {
+      var active = tab.getAttribute("data-panel") === panel;
+      tab.setAttribute("aria-selected", String(active));
+      tab.tabIndex = active ? 0 : -1;
+      byId(tab.getAttribute("aria-controls")).hidden = !active;
+      if (active && focus) tab.focus();
+    });
+  }
+
+  function renderScheduleSource(ok) {
+    var imported = ok && !scheduleReady;
+    scheduleReady = !!ok;
+    byId("schedule-tab-preview").disabled = !ok;
+    if (imported) setSchedulePanel("preview", byId("schedule-workspace").contains(document.activeElement));
+    else if (!ok && schedulePanel === "preview") setSchedulePanel("import");
+    var source = els.copiedFrom.value.trim();
+    byId("schedule-source-note").textContent = source ? "Achievements from " + source : "Steam or SteamHunters";
+    if (els.exportText.value.trim() && latest && !latest.pending && !latest.inputNotice &&
+        (!els.appid.value || !els.gameName.value.trim())) {
+      setSchedulePanel("details");
+    }
+    if (!ok) return;
+    var appid = parseInt(els.appid.value, 10);
+    var game = ((runsData && runsData.games) || []).filter(function (g) { return g.appid === appid; })[0];
+    patchHtml(byId("schedule-game"), gameIconHtml({title: els.gameName.value.trim(),
+      icon: game && game.icon || heroUrls(appid)[2]}) + "<span>" + escapeHtml(els.gameName.value.trim()) + "</span>");
+  }
 
   function fileKeyForView(view) {
     if (combined && view === "input") return "csv";
@@ -1070,7 +1110,7 @@
     if (!n || !showLockNotice) return "";
     var label = isArmed("discard") ? "Confirm" : "Discard";
     return '<div class="notice info edits-banner"><span>' + n + " Timeline edit" + (n === 1 ? "" : "s") +
-      ", so the pasted text is locked until you download or discard " + (n === 1 ? "it" : "them") + ".</span>" +
+      ", so the pasted text is locked until you " + (combined ? "save" : "download") + " or discard " + (n === 1 ? "it" : "them") + ".</span>" +
       '<button class="btn-ghost discard-edits' + (isArmed("discard") ? " armed" : "") + '" type="button">' + label + "</button></div>";
   }
 
@@ -1081,12 +1121,9 @@
     els.exportText.readOnly = locked;
     els.exportText.classList.toggle("locked", locked);
     // So are the options: they'd split the sessions differently.
-    var opts = byId("bar-options"), optsBtn = opts.querySelector("summary");
-    opts.classList.toggle("locked", locked);
-    if (locked) {
-      opts.open = false;
-      optsBtn.setAttribute("data-tip", "Discard the Timeline edits to change them");
-    } else optsBtn.removeAttribute("data-tip");
+    byId("bar-options").classList.toggle("locked", locked);
+    byId("schedule-options-lock").hidden = !locked;
+    if (combined) [els.gapLimit, els.cumLimit, els.minGap].forEach(function (input) { input.disabled = locked; });
     els.resetBtn.textContent = locked && isArmed("reset") ? "Confirm" : "Reset all fields";
     els.resetBtn.classList.toggle("armed", locked && isArmed("reset"));
 
@@ -1099,13 +1136,19 @@
     // stats strip (shown once we have valid data, regardless of view)
     if (ok) {
       els.statsStrip.innerHTML =
+        (combined ? [
+          ["Achievements", latest.stats.achievements + " / " + latest.stats.totalAchievements],
+          ["Sessions", latest.stats.sessions],
+          ["Session length", latest.stats.sessionLenExact],
+          ["Breaks", latest.stats.gapRangeExact]
+        ].map(function (part) {
+          return '<div class="summary-part"><span class="summary-label">' + part[0] +
+            '</span><span class="summary-value" title="' + escapeHtml(String(part[1])) + '">' + escapeHtml(String(part[1])) + '</span></div>';
+        }).join("") :
         "<span><b>" + latest.stats.achievements + " / " + latest.stats.totalAchievements + "</b> achievements</span>" +
         "<span><b>" + latest.stats.sessions + "</b> sessions</span>" +
-        (combined
-          ? "<span>sessions <b>" + latest.stats.sessionLenExact + "</b></span>" +
-            "<span>breaks <b>" + latest.stats.gapRangeExact + "</b></span>"
-          : "<span>len <b>" + latest.stats.sessionLen + "</b></span>" +
-            "<span>gap <b>" + latest.stats.gapRange + "</b></span>");
+        "<span>len <b>" + latest.stats.sessionLen + "</b></span>" +
+        "<span>gap <b>" + latest.stats.gapRange + "</b></span>");
     } else if (combined) {
       els.statsStrip.innerHTML = "<span>Import achievements to preview sessions and breaks.</span>";
     } else {
@@ -1123,7 +1166,7 @@
     // Problems with the paste itself (a link, the numbers) show under it too.
     var inputHtml = latest && !ok && latest.inputNotice
       ? latest.errors.map(function (m) { return problemHtml(latest.inputNotice, latest.errorTitle, m); }).join("") : "";
-    els.inputAlertSlot.innerHTML = dangerHtml + inputHtml + editsBannerHtml();
+    els.inputAlertSlot.innerHTML = (combined && ok ? "" : dangerHtml) + inputHtml + editsBannerHtml();
     els.downloadBtn.classList.toggle("btn-danger", dangers.length > 0);
     var replacing = local && isArmed("overwrite");
     els.downloadBtn.classList.toggle("armed", replacing);
@@ -1143,11 +1186,12 @@
       var box = document.querySelector(".box");
       box.classList.toggle("has-paste", !!els.exportText.value.trim());
       box.classList.toggle("has-timeline", !!ok);
+      renderScheduleSource(ok);
       // Behind it all, as in Runs: a glow in the colour of the game the
       // App ID names.
       var schedAppid = parseInt(els.appid.value, 10);
       tintFor(schedAppid > 0 ? {appid: schedAppid} : null, function (tint) {
-        setTint(document.querySelector('.view-pane[data-view="input"]'), tint);
+        setTint(byId("schedule-workspace"), tint);
       }, "schedule");
       // A new App ID rebuilds the timeline (its numbers checked again), so
       // it's fixed while there are Timeline edits to lose.
@@ -1157,14 +1201,13 @@
       box.classList.toggle("sched-full", !!ok && schedFull);
       byId("sched-full-btn").disabled = !ok;
       if (!latest || latest.errors.length) {
-        // What's still missing (like the App ID) says so here; problems
-        // with the paste itself already show under it.
-        // The timeline's frame is there already, these inside it at the
-        // bottom, so it doesn't shrink when they come and go.
+        // Import progress and missing details share the frame's status
+        // area, so they stay visible while switching between panels.
         var missing = latest && !latest.inputNotice && els.exportText.value.trim() ? latest.errors : [];
-        slot.innerHTML = emptyHtml("☰", "Your schedule preview will appear here.") +
-          '<div class="notices-below in-frame">' + (latest && latest.pending ? stepsHtml(latest.errors[0], latest.steps)
-            : missing.map(function (m) { return noticeHtml("info", m); }).join("")) + "</div>";
+        slot.innerHTML = "";
+        if (els.exportText.value.trim()) els.inputAlertSlot.innerHTML +=
+          latest && latest.pending ? stepsHtml(latest.errors[0], latest.steps)
+            : missing.map(function (m) { return noticeHtml("info", m); }).join("");
         return;
       }
     }
@@ -1237,7 +1280,13 @@
   // game's appid/name/timing settings, so reset them the moment the export
   // text changes. Registered before the scheduleRecompute loop below so it
   // runs first and scheduleRecompute's saveDraft() sees the reset values.
-  els.exportText.addEventListener("input", resetSettingFields);
+  els.exportText.addEventListener("input", function () {
+    resetSettingFields();
+    // A repeated link already has its achievements cached, so its fetch
+    // callback won't run again to restore the game and source fields.
+    var source = linkSources[pastedLink(els.exportText.value)];
+    if (source && source.status === "ok") fillLinkFields(source.data);
+  });
 
   // A whole-page paste names its game: that fills in the game name, and in
   // the app the App ID too, when Steam's store has exactly one game by
@@ -1315,6 +1364,8 @@
     edits = {};
     breaks = {};
     armedUntil = {};
+    scheduleReady = false;
+    setSchedulePanel("import");
     try { draftStore.removeItem("unlock-scheduler-draft"); } catch (e) {}
     recompute();
     setView("input");
@@ -1445,6 +1496,11 @@
     appearanceMenu.querySelectorAll("[data-accent-choice]").forEach(function (b) {
       b.setAttribute("aria-pressed", String(b.getAttribute("data-accent-choice") === root.getAttribute("data-accent")));
     });
+    ["banners", "gradient"].forEach(function (key) {
+      appearanceMenu.querySelectorAll("[data-" + key + "-choice]").forEach(function (b) {
+        b.setAttribute("aria-pressed", String(b.getAttribute("data-" + key + "-choice") === root.getAttribute("data-" + key)));
+      });
+    });
   }
 
   function setAppearanceOpen(open) {
@@ -1524,11 +1580,6 @@
           throw err;
         }
         return data;
-      });
-    });
-    ["banners", "gradient"].forEach(function (key) {
-      appearanceMenu.querySelectorAll("[data-" + key + "-choice]").forEach(function (b) {
-        b.setAttribute("aria-pressed", String(b.getAttribute("data-" + key + "-choice") === root.getAttribute("data-" + key)));
       });
     });
   }
@@ -2166,6 +2217,7 @@
     // Every achievement (no log) for Full timeline, and while editing.
     var full = runFull || !!runEdit;
     byId("run-full-btn").disabled = !!runEdit;  // it's needed for editing
+    byId("workspace-runs-tabs").querySelector('[data-run-view="overview"]').disabled = !!runEdit;
     document.querySelector(".runs-log").classList.toggle("full", full);
     byId("run-activity").hidden = full;
 
@@ -2366,11 +2418,23 @@
   });
   // Full timeline: every session, in the space the log takes otherwise.
   var runFull = false;
-  byId("run-full-btn").addEventListener("click", function () {
-    runFull = !runFull;
-    this.setAttribute("aria-pressed", String(runFull));
+  function setRunFull(full) {
+    if (runEdit && !full) return;
+    if (full !== runFull) swapIn(byId("runs-timeline"));
+    runFull = full;
+    byId("run-full-btn").setAttribute("aria-pressed", String(runFull));
+    byId("workspace-runs-tabs").querySelectorAll("[data-run-view]").forEach(function (button) {
+      button.setAttribute("aria-pressed", String((button.getAttribute("data-run-view") === "timeline") === runFull));
+    });
     timelineShown = "";
     renderTimeline();
+  }
+  byId("run-full-btn").addEventListener("click", function () {
+    setRunFull(!runFull);
+  });
+  byId("workspace-runs-tabs").addEventListener("click", function (e) {
+    var button = e.target.closest("[data-run-view]");
+    if (button) setRunFull(button.getAttribute("data-run-view") === "timeline");
   });
 
   // A game's log: its newest run, then the older ones behind a toggle
@@ -2569,13 +2633,6 @@
     try { localStorage.setItem("run-every", every ? "1" : "0"); } catch (err) {}
   });
 
-  // In the app, each screen's actions (Save, Run…) sit in the window's
-  // title bar, beside the screen switch, as in other Mac apps.
-  if (document.documentElement.hasAttribute("data-desktop")) {
-    var topRight = document.querySelector(".topbar-right");
-    topRight.insertBefore(document.querySelector(".page-actions"), topRight.firstChild);
-  }
-
   // In the app, a right click is for text only (Cut, Copy, Paste): the
   // web view's own menu (Reload, Inspect Element) isn't for an app.
   if (document.documentElement.hasAttribute("data-desktop") && !document.documentElement.hasAttribute("data-dev")) {
@@ -2604,19 +2661,81 @@
     byId("screen-switch").hidden = false;
     syncScreenSwitch();
     document.body.classList.add("local");
+    var navigation = byId("workspace-navigation");
+    byId("workspace-actions").appendChild(document.querySelector(".page-actions"));
+    // Advanced run settings and Library's display options, folded away in
+    // their sections on the website, are each a Settings tab of their own
+    // in the app, open: a card of their own, their fold's title as its.
+    [["run-settings-box", "step-run-settings", "advanced"], ["lib-defaults-box", "step-lib-display", "display"]].forEach(function (f) {
+      var box = byId(f[0]), card = document.createElement("li");
+      card.className = "setup-step done settings-tab-card";
+      card.id = f[1];
+      card.setAttribute("data-settings-tab", f[2]);
+      card.innerHTML = '<div class="step-head"><b></b></div>';
+      card.querySelector("b").textContent = box.querySelector("summary").firstChild.textContent.trim();
+      box.open = true;
+      card.appendChild(box);
+      document.querySelector("#hero-setup .setup-steps").appendChild(card);
+    });
+    // One toolbar row: the sections lead it and Appearance ends it, out of
+    // the old top bar (hidden in the app, see style.css).
+    byId("workspace-toolbar").prepend(byId("screen-switch"));
+    byId("workspace-actions").appendChild(document.querySelector(".topbar-right .appearance"));
+    // When Steam was read sits beside Refresh, as a toolbar status would.
+    document.querySelector(".pa-unlocks").prepend(document.querySelector(".unlocks-when"));
+    navigation.appendChild(byId("schedule-tabs"));
+    navigation.appendChild(byId("library-tabs"));
+    navigation.appendChild(byId("game-back"));
+    byId("app-workspace").appendChild(byId("schedule-workspace-footer"));
+    byId("screen-switch").addEventListener("keydown", function (e) {
+      if (["ArrowUp", "ArrowDown", "Home", "End"].indexOf(e.key) < 0) return;
+      var buttons = [].slice.call(this.querySelectorAll("button"));
+      var index = buttons.indexOf(document.activeElement);
+      if (index < 0) return;
+      e.preventDefault();
+      index = e.key === "Home" ? 0 : e.key === "End" ? buttons.length - 1 :
+        (index + (e.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length;
+      buttons[index].click();
+      buttons[index].focus();
+    });
+    // The same keyboard interaction applies to each screen's segmented
+    // navigation. Schedule's tablist already handles its own focus.
+    navigation.addEventListener("keydown", function (e) {
+      var group = e.target.closest(".segmented");
+      if (!group || group.id === "schedule-tabs" || ["ArrowLeft", "ArrowRight", "Home", "End"].indexOf(e.key) < 0) return;
+      var buttons = [].slice.call(group.querySelectorAll("button:not(:disabled)"));
+      var index = buttons.indexOf(document.activeElement);
+      if (index < 0) return;
+      e.preventDefault();
+      index = e.key === "Home" ? 0 : e.key === "End" ? buttons.length - 1 :
+        (index + (e.key === "ArrowRight" ? 1 : -1) + buttons.length) % buttons.length;
+      buttons[index].click();
+      buttons[index].focus();
+    });
+    setSettingsSection(settingsSection);
+    syncWorkspace();
     els.exportText.placeholder = "Paste the copied SteamHunters achievements page here, or a link to a player's achievements\u2026";
-    // Schedule is one screen in the app: the game's fields and options in
-    // a bar on top, the paste on the left and its timeline on the right.
+    // Every part of Schedule shares one fixed frame, with tabs to switch
+    // between the import, game fields, session options and timeline.
     combined = true;
     var bar = byId("schedule-bar");
-    bar.querySelector('[data-slot="game-name"]').appendChild(els.gameName);
-    bar.querySelector('[data-slot="appid"]').appendChild(els.appid);
-    bar.querySelector('[data-slot="copied-from"]').appendChild(els.copiedFrom);
+    var source = byId("schedule-source"), preview = byId("schedule-preview");
+    source.appendChild(byId("schedule-import"));
+    byId("schedule-panels").appendChild(byId("schedule-details"));
+    // Session options sit under the game's details, in one Details tab.
+    byId("schedule-details").appendChild(byId("bar-options"));
+    preview.appendChild(els.csvSlot);
+    byId("schedule-game").after(byId("schedule-counters"));
+    byId("schedule-details").querySelector('[data-slot="game-name"]').appendChild(els.gameName);
+    byId("schedule-details").querySelector('[data-slot="appid"]').appendChild(els.appid);
+    byId("schedule-details").querySelector('[data-slot="copied-from"]').appendChild(els.copiedFrom);
     els.copiedFrom.placeholder = "optional";
     bar.querySelector('[data-slot="reset"]').appendChild(els.resetBtn);
+    byId("schedule-workspace-footer").prepend(els.inputAlertSlot);
+    document.querySelector(".schedule-footer-row").appendChild(bar.querySelector('[data-slot="reset"]'));
     els.resetBtn.style.width = "";
-    bar.querySelector('[data-slot="settings-form"]').prepend(document.querySelector(".settings-form"));
-    // In the popover: short labels, the unit beside each box.
+    byId("bar-options").querySelector('[data-slot="settings-form"]').prepend(document.querySelector(".settings-form"));
+    // Short labels, with the unit beside each box.
     [["gap-limit", "Session break after"], ["cum-limit", "Max session length"], ["min-gap", "Warn if break under"]]
       .forEach(function (f) {
         var input = byId(f[0]), unit = document.createElement("span");
@@ -2625,48 +2744,31 @@
         unit.textContent = "hours";
         input.parentNode.insertBefore(unit, input.nextSibling);
       });
-    // It opens centered under Options, moved in from the window's edge if
-    // it would cross it (its pointer stays on the button), and closes on a
-    // click outside it, or Esc.
-    var options = byId("bar-options");
-    function placeOptions() {
-      var pop = options.querySelector(".bar-popover");
-      pop.style.setProperty("--shift", "0px");
-      if (!options.open) return;
-      var r = pop.getBoundingClientRect(), edge = 12;
-      var shift = Math.min(0, window.innerWidth - edge - r.right) || Math.max(0, edge - r.left);
-      pop.style.setProperty("--shift", shift + "px");
-    }
-    options.addEventListener("toggle", placeOptions);
-    // Locked while there are Timeline edits (see render).
-    options.querySelector("summary").addEventListener("click", function (e) {
-      if (options.classList.contains("locked")) e.preventDefault();
+    byId("schedule-tabs").addEventListener("click", function (e) {
+      var tab = e.target.closest("[data-panel]");
+      if (tab && !tab.disabled) setSchedulePanel(tab.getAttribute("data-panel"));
     });
-    // Again as the window is resized with it open.
-    window.addEventListener("resize", placeOptions);
-    document.addEventListener("mousedown", function (e) {
-      if (options.open && !options.contains(e.target)) options.open = false;
-    });
-    document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape" && options.open) { options.open = false; options.querySelector("summary").focus(); }
+    byId("schedule-tabs").addEventListener("keydown", function (e) {
+      if (["ArrowLeft", "ArrowRight", "Home", "End"].indexOf(e.key) < 0) return;
+      var tabs = [].slice.call(this.querySelectorAll("[data-panel]:not(:disabled)"));
+      var index = tabs.indexOf(document.activeElement);
+      if (index < 0) return;
+      e.preventDefault();
+      index = e.key === "Home" ? 0 : e.key === "End" ? tabs.length - 1 :
+        (index + (e.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+      setSchedulePanel(tabs[index].getAttribute("data-panel"), true);
     });
     // What the paste gave (achievements, sessions, lengths), in a line
     // over the result.
     byId("paste-summary").querySelector('[data-slot="stats"]').appendChild(els.statsStrip);
+    els.statsStrip.classList.add("summary-bar");
     // No How to edit in the app: the timeline's tooltips say it.
     document.querySelector(".hover-help").remove();
     // Keep the input actionable; detailed import instructions are optional.
     var help = document.querySelector(".input-help");
-    els.exportText.parentNode.appendChild(help);
+    source.appendChild(help);
     els.exportText.placeholder = "Paste a Steam or SteamHunters link here…";
-    byId("manual-details").addEventListener("click", function () {
-      var box = document.querySelector(".box");
-      var open = box.classList.toggle("show-details");
-      this.setAttribute("aria-expanded", String(open));
-      this.textContent = open ? "Hide game details" : "Enter game details";
-      if (open) els.gameName.focus();
-    });
-    document.querySelector('.view-pane[data-view="input"]').appendChild(els.csvSlot);
+    setSchedulePanel("import");
     // It opens on Runs (Settings takes over while setup isn't done; see
     // refreshSetup).
     showScreen("work");
@@ -3051,11 +3153,16 @@
   byId("awake-check").addEventListener("click", function () {
     var button = byId("awake-check");
     button.disabled = true;
-    button.textContent = "Testing…";
+    button.setAttribute("aria-busy", "true");
+    button.setAttribute("data-tip", "Testing…");
     api("/api/setup/test-awake", {}).then(function (d) {
       showToast(d.works ? "Keep awake works: " + d.found + "." : "Keep awake doesn't work here: " + d.found + ".");
     }).catch(function (err) { showToast(err.message); })
-      .then(function () { button.disabled = false; button.textContent = "Test"; });
+      .then(function () {
+        button.disabled = false;
+        button.removeAttribute("aria-busy");
+        button.setAttribute("data-tip", "Check that the computer really stays awake");
+      });
   });
   byId("open-folder").addEventListener("click", function () {
     api("/api/open-folder", {}).catch(function (err) { showToast(err.message); });
@@ -3127,6 +3234,19 @@
   }
 
   // The Settings tab.
+  var settingsSection = "general";
+  function setSettingsSection(section) {
+    if (section !== settingsSection) swapIn(document.querySelector("#hero-setup .setup-steps"));
+    settingsSection = section;
+    byId("hero-setup").setAttribute("data-settings-section", section);
+    byId("workspace-settings-tabs").querySelectorAll("[data-settings]").forEach(function (button) {
+      button.setAttribute("aria-pressed", String(button.getAttribute("data-settings") === section));
+    });
+  }
+  byId("workspace-settings-tabs").addEventListener("click", function (e) {
+    var button = e.target.closest("[data-settings]");
+    if (button) setSettingsSection(button.getAttribute("data-settings"));
+  });
   function showGuide() {
     setupOpen = true;
     showScreen("guide");
@@ -3148,6 +3268,7 @@
   window.unlockerCheckUpdates = function () {
     showGuide();
     if (!local) return;
+    setSettingsSection("general");
     byId("update-row").scrollIntoView({block: "center"});
     checkUpdates(true);
   };
@@ -3156,8 +3277,10 @@
   function showScreen(name) {
     document.body.setAttribute("data-screen", name);
     renderPageHead();
-    window.scrollTo(0, 0);
-    byId("page").scrollTop = 0;  // in the app, the page scrolls on its own
+    if (!local) {
+      window.scrollTo(0, 0);
+      byId("page").scrollTop = 0;
+    }
     // Leaving the Guide tab closes the panel, unless it's first-run setup,
     // which stays on the start screen until it's done.
     // What Check for updates found answers the click; leaving Settings
@@ -3516,6 +3639,7 @@
       gamePage = null;
       resetAchEdit();
       renderGamePage();
+      swapIn(byId("unlocks-screen"));
       scrollLibraryTop();
     }
     api("/api/unlocks/game?appid=" + encodeURIComponent(appid)).then(function (p) {
@@ -3528,6 +3652,7 @@
     gamePageFor = gamePage = null;
     resetAchEdit();
     renderGamePage();
+    swapIn(byId("unlocks-screen"));
     backToAchievements();
   }
   // A hidden achievement's description (Steam's stats page leaves it out;
@@ -3782,11 +3907,16 @@
     if (e.target.id === "ach-sort-menu") achSortOpen = e.target.open;
   }, true);
 
+  // Each Library section keeps its own place when switching tabs.
+  var libraryScroll = {};
   function showLibraryTab(tab) {
     if (tab === libraryTab) return;
+    var scroller = libraryScroller();
+    libraryScroll[libraryTab] = scroller.scrollTop;
     libraryTab = tab;
     renderUnlocks();
-    scrollLibraryTop();
+    swapIn(byId("unlocks-screen"));
+    scroller.scrollTop = libraryScroll[tab] || 0;
     api("/api/settings", {settings: {library_tab: libraryTab}}).then(function (d) { runSettings = d.settings; })
       .catch(function (err) { showToast("Couldn't save: " + err.message); });
   }
@@ -3861,7 +3991,7 @@
   // Back to top, once the list has been scrolled a long way. In the app
   // the Library scrolls on its own; on a page, the window does.
   function libraryScroller() {
-    return document.documentElement.hasAttribute("data-desktop") ? byId("unlocks-screen") : document.scrollingElement;
+    return local ? byId("unlocks-screen") : document.scrollingElement;
   }
   function scrollLibraryTop() { libraryScroller().scrollTo({top: 0, behavior: "smooth"}); }
   function syncToTop() {
@@ -3925,9 +4055,9 @@
       ? (syncing && syncing.total ? "Reading your games: " + syncing.done + " of " + syncing.total + "\u2026" : "Checking Steam\u2026")
       : d && !unlocksError && d.fetched_at ? nextCheckText(d.fetched_at) : "";
     if (unlocksError) {
-      list.innerHTML = problemHtml("warn", (unlocksError.data || {}).title, unlocksError.message);
+      patchHtml(list, problemHtml("warn", (unlocksError.data || {}).title, unlocksError.message));
     } else if (d && !shown.length) {
-      list.innerHTML = syncing && !d.unlocks.length ? "" : emptyHtml("\u2606", "No unlocks " + range[1] + ".");
+      patchHtml(list, syncing && !d.unlocks.length ? "" : emptyHtml("\u2606", "No unlocks " + range[1] + "."));
     } else if (d) {
       var html = "", lastDay = null;
       shown.forEach(function (u) {
@@ -3944,8 +4074,8 @@
           '<div class="unlock-meta"><div class="unlock-game">' + markHtml(u) + escapeHtml(u.game) + "</div>" +
           '<div class="unlock-time">' + escapeHtml(fmtClock(at)) + "</div></div></div>";
       });
-      list.innerHTML = html + (lastDay ? "</div>" : "");
-    } else if (!unlocksBusy) list.innerHTML = "";
+      patchHtml(list, html + (lastDay ? "</div>" : ""));
+    } else if (!unlocksBusy) patchHtml(list, "");
     // While Steam is read in the background, look again in a moment.
     clearTimeout(unlocksPoll);
     if (syncing && document.body.getAttribute("data-screen") === "unlocks") {
@@ -4084,7 +4214,32 @@
     loadUnlocks(false);
   }
 
-  // Schedule / Runs in the top bar (app only).
+  // The section title, secondary navigation and action share fixed slots.
+  // The new contents of a section or tab ease in where the old ones were
+  // (see .swap-in), so a change reads as one page changing, not a new one.
+  function swapIn(el) {
+    if (!local || !el) return;
+    el.classList.remove("swap-in");
+    void el.offsetWidth;  // so the animation starts again
+    el.classList.add("swap-in");
+  }
+  var workspaceShown = null;
+  function syncWorkspace() {
+    if (!local) return;
+    var screen = document.body.getAttribute("data-screen");
+    var runs = screen === "work" && currentView === "runs";
+    var title = screen === "guide" ? "Settings" : screen === "unlocks" ? "Library" : runs ? "Runs" : "Schedule";
+    if (workspaceShown && workspaceShown !== title) swapIn(byId("page"));
+    workspaceShown = title;
+    byId("workspace-title").textContent = title;
+    byId("workspace-runs-tabs").hidden = !runs;
+    // Settings: General (every section), then Run settings and Library
+    // display, each a tab of its own (see enableLocal).
+    byId("workspace-settings-tabs").hidden = screen !== "guide";
+    byId("schedule-tabs").hidden = screen !== "work" || runs;
+  }
+
+  // Main app sections in the top bar.
   function syncScreenSwitch() {
     var work = document.body.getAttribute("data-screen") === "work";
     byId("switch-schedule").classList.toggle("active", work && currentView !== "runs");
@@ -4093,7 +4248,10 @@
     byId("switch-guide").classList.toggle("active", document.body.getAttribute("data-screen") === "guide");
     byId("screen-switch").querySelectorAll("button").forEach(function (button) {
       button.setAttribute("aria-pressed", String(button.classList.contains("active")));
+      if (button.classList.contains("active")) button.setAttribute("aria-current", "page");
+      else button.removeAttribute("aria-current");
     });
+    syncWorkspace();
   }
   byId("switch-schedule").addEventListener("click", function () { showScreen("work"); setView(scheduleView); });
   byId("switch-runs").addEventListener("click", function () { showScreen("work"); setView("runs"); });

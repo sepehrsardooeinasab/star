@@ -41,15 +41,15 @@
     <span>STAR</span>
   </a>
   <div class="screen-switch" id="screen-switch" role="group" aria-label="Screen" hidden>
-    <button type="button" id="switch-schedule" title="Make a schedule">Schedule</button>
-    <button type="button" id="switch-runs" title="Run, stop and follow your games">Runs</button>
-    <button type="button" id="switch-unlocks" title="Your games and achievements, from Steam">Library</button>
-    <button type="button" id="switch-guide" title="Setup, updates and how it works">Settings</button>
+    <button type="button" id="switch-schedule" aria-label="Schedule" title="Make a schedule"><span>Schedule</span></button>
+    <button type="button" id="switch-runs" aria-label="Runs" title="Run, stop and follow your games"><span>Runs</span></button>
+    <button type="button" id="switch-unlocks" aria-label="Library" title="Your games and achievements, from Steam"><span>Library</span></button>
+    <button type="button" id="switch-guide" aria-label="Settings" title="Setup, updates and how it works"><span>Settings</span></button>
   </div>
   <div class="topbar-right">
     <div class="appearance">
       <button class="icon-btn" id="appearance-toggle" type="button" aria-label="Appearance" aria-expanded="false" aria-controls="appearance-menu" title="Appearance">
-        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.2a6.8 6.8 0 1 0 0 13.6c.8 0 1.3-.6 1.3-1.3 0-.4-.1-.6-.4-.9-.2-.3-.4-.6-.4-.9 0-.7.6-1.3 1.3-1.3h1.6a3.4 3.4 0 0 0 3.4-3.4C14.8 3.9 11.8 1.2 8 1.2z" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="4.6" cy="7.4" r="1" fill="currentColor"/><circle cx="6.6" cy="4.6" r="1" fill="currentColor"/><circle cx="10" cy="4.6" r="1" fill="currentColor"/></svg>
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.2a6.8 6.8 0 1 0 0 13.6c.8 0 1.3-.6 1.3-1.3 0-.4-.1-.6-.4-.9-.2-.3-.4-.6-.4-.9 0-.7.6-1.3 1.3-1.3h1.6a3.4 3.4 0 0 0 3.4-3.4C14.8 3.9 11.8 1.2 8 1.2z" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="4.6" cy="7.4" r="1" fill="currentColor"/><circle cx="6.6" cy="4.6" r="1" fill="currentColor"/><circle cx="10" cy="4.6" r="1" fill="currentColor"/></svg><span class="appearance-label">Appearance</span>
       </button>
       <div class="appearance-menu" id="appearance-menu" role="dialog" aria-label="Appearance" hidden>
         <div class="menu-label">Theme</div>
@@ -84,7 +84,24 @@
   </div>
 </header>
 
-<!-- The page under the top bar; in the app, it alone scrolls. -->
+<!-- One frame and toolbar remain in place across every app section. -->
+<div class="app-workspace" id="app-workspace">
+  <div class="workspace-toolbar" id="workspace-toolbar" data-tauri-drag-region="deep">
+    <h1 id="workspace-title">Runs</h1>
+    <div class="workspace-navigation" id="workspace-navigation">
+      <div class="segmented" id="workspace-runs-tabs" role="group" aria-label="Runs view" hidden>
+        <button type="button" data-run-view="overview" aria-pressed="true">Overview</button>
+        <button type="button" data-run-view="timeline" aria-pressed="false">Timeline</button>
+      </div>
+      <div class="segmented" id="workspace-settings-tabs" role="group" aria-label="Settings section" hidden>
+        <button type="button" data-settings="general" aria-pressed="true">General</button>
+        <button type="button" data-settings="advanced" aria-pressed="false">Run settings</button>
+        <button type="button" data-settings="display" aria-pressed="false">Library display</button>
+      </div>
+    </div>
+    <div class="workspace-actions" id="workspace-actions"></div>
+  </div>
+<!-- Each section scrolls its contents inside the shared frame. -->
 <div class="page" id="page">
 <!-- Over Schedule, Runs and Settings: what the screen is, in the start
      screen's style, and its main action on the right. -->
@@ -138,7 +155,7 @@
       <button class="btn-ghost panel-close" id="setup-close" type="button">Close</button>
     </div>
     <ol class="setup-steps">
-      <li class="setup-step" id="step-asf">
+      <li class="setup-step" id="step-asf" data-settings-section="steam">
         <div class="step-head"><span class="step-mark"></span><b>ArchiSteamFarm</b></div>
         <p class="step-text" id="step-asf-text">Downloads ArchiSteamFarm and its achievement plugin (about 50 MB).</p>
         <p class="step-text" id="asf-latest-text" hidden></p>
@@ -148,7 +165,7 @@
           <button class="btn-ghost primary-ghost" id="asf-update-latest" type="button" hidden>Update</button>
         </div>
       </li>
-      <li class="setup-step" id="step-steam">
+      <li class="setup-step" id="step-steam" data-settings-section="steam">
         <div class="step-head"><span class="step-mark"></span><b>Steam account</b></div>
         <p class="step-text" id="step-steam-text">Sign in with the account to unlock achievements on. It's saved only in ArchiSteamFarm's own config on this computer.</p>
         <button class="btn-ghost" id="steam-change" type="button" hidden>Use another account</button>
@@ -162,12 +179,12 @@
           <button class="btn-ghost" type="submit">Continue</button>
         </form>
       </li>
-      <li class="setup-step done" id="step-runs" hidden>
+      <li class="setup-step done" id="step-runs" data-settings-section="runs" hidden>
         <div class="step-head"><span class="step-mark"></span><b>Runs</b></div>
         <label class="setting-check"><input type="checkbox" id="show-done"> Show finished games in Runs</label>
         <div class="awake-row" id="awake-row" hidden>
           <label class="setting-check"><input type="checkbox" id="keep-awake-on" disabled> Keep the computer awake during runs</label>
-          <button class="btn-ghost" type="button" id="awake-check" title="Checks that the computer really stays awake">Test</button>
+          <button class="btn-ghost icon-test" type="button" id="awake-check" aria-label="Test keeping awake" data-tip="Check that the computer really stays awake"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 1.8h4M6.6 1.8v4.3L3 12.4a1.2 1.2 0 0 0 1 1.8h8a1.2 1.2 0 0 0 1-1.8L9.4 6.1V1.8M4.6 9.6h6.8"/></svg></button>
         </div>
         <p class="step-text setting-why" id="awake-text" hidden></p>
         <details class="run-settings-box" id="run-settings-box">
@@ -186,7 +203,7 @@
           <form class="run-settings" id="run-settings" autocomplete="off"></form>
         </details>
       </li>
-      <li class="setup-step done" id="step-unlocks" hidden>
+      <li class="setup-step done" id="step-unlocks" data-settings-section="library" hidden>
         <div class="step-head"><span class="step-mark"></span><b>Library</b></div>
         <p class="step-text" id="unlocks-key-text"></p>
         <div class="step-actions" id="unlocks-key-actions" hidden>
@@ -243,8 +260,8 @@
         </details>
       </li>
       <!-- Other: the clock, the data folder, and STAR's version, a row each. -->
-      <li class="setup-step done" id="step-other">
-        <div class="step-head"><span class="step-mark"></span><b>Other</b></div>
+      <li class="setup-step done" id="step-other" data-settings-section="general">
+        <div class="step-head"><span class="step-mark"></span><b>General</b></div>
         <div class="lib-defaults other-rows">
           <div class="lib-default" id="step-clock" hidden><span>Clock</span>
             <select id="clock-format" aria-label="How times are written">
@@ -314,46 +331,69 @@
         </div>
       </nav>
 
-      <!-- The app's Schedule bar (the website keeps the tabs above): the
-           game, its App ID, the session options, and what was found. -->
+      <!-- In the app these controls move into fixed workspace panels. -->
       <div class="schedule-bar" id="schedule-bar">
-        <label class="bar-field" data-slot="game-name">Game</label>
-        <label class="bar-field bar-appid" data-slot="appid">App ID</label>
-        <span class="bar-counters" id="schedule-counters"></span>
-        <label class="bar-field bar-from" data-slot="copied-from">Copied from</label>
-        <details class="bar-options" id="bar-options">
-          <summary>Options</summary>
-          <div class="bar-popover" data-slot="settings-form">
+        <section class="schedule-panel schedule-details" id="schedule-details" role="tabpanel" aria-labelledby="schedule-tab-details" tabindex="0" hidden>
+          <!-- A card like a Settings section; Session options is the next. -->
+          <div class="schedule-card">
+            <div class="schedule-panel-intro"><h2>Game details</h2><p>These fill in from the import. You can correct them here.</p></div>
+            <div class="schedule-details-body">
+              <label class="bar-field" data-slot="game-name">Game name</label>
+              <label class="bar-field bar-appid" data-slot="appid">App ID</label>
+              <label class="bar-field bar-from" data-slot="copied-from">Copied from</label>
+            </div>
           </div>
-        </details>
-        <div class="bar-stats" data-slot="stats-strip"></div>
+        </section>
+        <span class="bar-counters" id="schedule-counters"></span>
+        <section class="bar-options" id="bar-options" aria-label="Session options">
+          <div class="schedule-panel-intro"><h2>Session options</h2><p>Choose how achievements split into sessions and breaks.</p></div>
+          <p class="schedule-options-lock" id="schedule-options-lock" hidden>Save or discard your timeline edits to change these options.</p>
+          <div class="schedule-options-body" data-slot="settings-form">
+          </div>
+        </section>
         <div class="bar-reset" data-slot="reset"></div>
-        <div class="bar-help" data-slot="hover-help"></div>
       </div>
 
       <div class="box-content">
         <div class="view-pane active" data-view="input">
-          <!-- The app, once something's pasted: what it gave, in a line. -->
-          <div class="paste-summary" id="paste-summary">
-            <div class="paste-summary-stats" data-slot="stats"></div>
-            <button class="bar-btn" id="sched-full-btn" type="button" aria-pressed="false">Full timeline</button>
-          </div>
-          <div class="field">
+          <section class="schedule-workspace app-only" id="schedule-workspace" aria-label="Schedule editor">
+            <div class="schedule-workspace-head">
+              <div class="segmented schedule-tabs" id="schedule-tabs" role="tablist" aria-label="Schedule editor">
+                <button type="button" id="schedule-tab-import" role="tab" aria-selected="true" aria-controls="schedule-source" data-panel="import">Import</button>
+                <button type="button" id="schedule-tab-details" role="tab" aria-selected="false" aria-controls="schedule-details" data-panel="details" tabindex="-1">Details</button>
+                <button type="button" id="schedule-tab-preview" role="tab" aria-selected="false" aria-controls="schedule-preview" data-panel="preview" tabindex="-1" disabled>Timeline</button>
+              </div>
+            </div>
+            <div class="schedule-panels" id="schedule-panels">
+              <section class="schedule-panel schedule-source" id="schedule-source" role="tabpanel" aria-labelledby="schedule-tab-import" tabindex="0"></section>
+              <section class="schedule-panel schedule-preview" id="schedule-preview" role="tabpanel" aria-labelledby="schedule-tab-preview" tabindex="0" hidden>
+                <div class="schedule-preview-head">
+                  <div class="run-summary-title" id="schedule-game"></div>
+                  <button class="bar-btn" id="sched-full-btn" type="button" aria-pressed="false">Full timeline</button>
+                </div>
+                <div class="paste-summary" id="paste-summary">
+                  <div class="paste-summary-stats" data-slot="stats"></div>
+                </div>
+              </section>
+            </div>
+            <footer class="schedule-workspace-footer" id="schedule-workspace-footer">
+              <div class="schedule-footer-row"><span class="schedule-source-note" id="schedule-source-note">Steam or SteamHunters</span></div>
+            </footer>
+          </section>
+          <div class="field" id="schedule-import">
             <div class="import-intro app-only">
-              <h2>Paste a player’s achievement link</h2>
-              <p>Import from Steam or SteamHunters to build a schedule.</p>
+              <h2>Import achievements</h2>
+              <p>Paste a player’s achievement link to create a schedule.</p>
             </div>
             <label for="export-text" class="visually-hidden">Achievement link or copied SteamHunters page</label>
             <textarea id="export-text" spellcheck="false" placeholder="Paste the copied SteamHunters achievements page here…"></textarea>
             <div id="input-alert-slot"></div>
-            <div class="import-actions app-only"><span>Or paste a copied SteamHunters page.</span>
-              <button class="link-btn" id="manual-details" type="button" aria-expanded="false" aria-controls="schedule-bar">Enter game details</button>
-            </div>
+            <div class="import-actions app-only"><span>Or paste a copied SteamHunters page.</span></div>
           </div>
-          <details class="hint settings-help input-help">
-            <summary>How to import achievements</summary>
+          <section class="hint settings-help input-help">
+            <h3>Import sources</h3>
             <div class="import-help-body">
-            <div class="help-title app-only">A link</div>
+            <div class="help-title app-only">Steam or SteamHunters link</div>
             <ul class="app-only">
               <li>A link to the player's achievements for a game, from SteamHunters or Steam:
                 <code class="help-url">steamhunters.com/id/<i>name</i>/<wbr>apps/<i>appid</i>/<wbr>achievements</code>
@@ -361,17 +401,16 @@
               </li>
               <li>With this method, the player's Steam profile must be public.</li>
             </ul>
-            <div class="help-title format-title app-only">Or the page</div>
+            <div class="help-title format-title app-only">Copied SteamHunters page</div>
             <div class="help-title web-only">What to paste</div>
             <ul>
               <li>On SteamHunters, open the player's achievements for a game.</li>
               <li>Select the whole page (<b>⌘A</b> / <b>Ctrl+A</b>), copy it and paste it here.</li>
-              <li class="app-only">Any sort or grouping works.</li>
               <li>Achievements the player hasn't unlocked are skipped.</li>
-              <li class="app-only">Steam's own page can't be pasted; use its link.</li>
+              <li class="app-only">For Steam pages, paste the link instead.</li>
             </ul>
             </div>
-          </details>
+          </section>
         </div>
 
         <div class="view-pane" data-view="settings">
@@ -537,6 +576,7 @@
     Top
   </button>
 </section>
+</div>
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
