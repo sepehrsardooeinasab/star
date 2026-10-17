@@ -1787,7 +1787,7 @@
     // one that can play now just shows its session.
     var wait = g.session ? waitLeft(g) : 0;
     // Stopped partway through a session: a stop icon (how far it got on
-    // hover) and its bar.
+    // hover).
     var cut = !g.running && g.state === "idle" && g.cut_short;
     var resting = !g.running && g.state === "idle" && wait > 0 && !cut;
     var badge = g.state === "in_session" ? ["live", PLAY_ICON, "Playing"]
@@ -1814,7 +1814,6 @@
       (badge ? '<span class="run-badge ' + badge[0] + '"' + (badge[2] ? ' data-tip="' + escapeHtml(badge[2]) + '" aria-label="' + escapeHtml(badge[2]) + '"' : "") +
         ">" + badge[1] + "</span>" : "") + "</div>" +
       (meta ? '<div class="run-meta">' + meta + "</div>" : "") +
-      (cut ? '<div class="run-progress"><span style="width:' + Math.round(100 * cut.played / cut.of) + '%"></span></div>' : "") +
       "</div>";
   }
 
