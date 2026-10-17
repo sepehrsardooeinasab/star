@@ -8,7 +8,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from unlocker.paths import DATA_DIR
+from unlocker.paths import DATA_DIR, write_atomic
 
 PROJECT_DIR = DATA_DIR
 JSONS_DIR = PROJECT_DIR / "jsons"
@@ -130,15 +130,9 @@ def load_progress(path):
 
 
 def save_progress(path, progress):
-    """Writes to a temp file and renames it over the real one, which is
-    atomic: a signal or crash mid-write leaves the old file intact instead
-    of a truncated one that can't be parsed."""
-    tmp = path.with_name(path.name + ".tmp")
-    with open(tmp, "w") as f:
-        f.write(json.dumps(progress, indent=2))
-        f.flush()
-        os.fsync(f.fileno())
-    os.replace(tmp, path)
+    """Written atomically (see write_atomic), so a signal or crash
+    mid-write leaves the old file instead of one that can't be parsed."""
+    write_atomic(path, json.dumps(progress, indent=2))
 
 
 _held_locks = []  # open lock files, kept referenced so they stay locked
