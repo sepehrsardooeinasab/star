@@ -97,7 +97,7 @@ def _stop_playing():
     send_command's long retry loop, since the user is waiting for it to quit.
     Prints nothing — after SIGHUP there's no terminal left to print to."""
     signal.signal(signal.SIGINT, signal.SIG_IGN)  # a second Ctrl+C can't cut it short
-    argv, headers = api_request_args("resume")
+    argv, headers = api_request_args("reset")
     try:
         subprocess.run(argv, input=headers, capture_output=True, text=True, timeout=10)
     except (subprocess.TimeoutExpired, OSError):
@@ -107,21 +107,23 @@ def _stop_playing():
 
 def _schedule_asf_shutdown(delay_seconds=ASF_SHUTDOWN_DELAY):
     """Detached background timer: after delay_seconds, shuts ArchiSteamFarm
-    down entirely — but only if it still looks idle by then, so it isn't
-    killed out from under an interleaved session for another game that
-    might get started in the meantime. Each call moves the time on (in
-    ASF_CLOSE_AT), so it's delay_seconds after the last use, not the first:
-    an earlier timer that wakes before then leaves it to the later one."""
+    down entirely — but only if no session holds SESSION_LOCK by then, so
+    it isn't killed out from under an interleaved session for another game
+    that might get started in the meantime. (ASF's status can't tell: with
+    card farming paused it reads "paused" whether a game plays or not.)
+    Each call moves the time on (in ASF_CLOSE_AT), so it's delay_seconds
+    after the last use, not the first: an earlier timer that wakes before
+    then leaves it to the later one."""
     close_at = time.time() + delay_seconds
     try:
         ASF_CLOSE_AT.write_text(str(close_at))
     except OSError:
         pass
-    (status_argv, headers), (exit_argv, _) = api_request_args("status"), api_request_args("exit")
+    exit_argv, headers = api_request_args("exit")
     # Headers (which may hold the IPC password) go through the environment,
     # not the -c code below, which is visible in `ps`.
     child_code = f"""
-import json, os, subprocess, time
+import fcntl, json, os, subprocess, time
 
 def request(argv):
     p = subprocess.run(argv, input=os.environ["UNLOCKER_API_HEADERS"],
@@ -148,8 +150,14 @@ try:
             raise SystemExit  # used again since: a later timer closes it
 except (OSError, ValueError):
     pass
-if "not farming anything" in cmd({status_argv!r}).lower():
-    cmd({exit_argv!r})
+try:
+    with open({str(SESSION_LOCK)!r}) as f:
+        fcntl.flock(f, fcntl.LOCK_SH | fcntl.LOCK_NB)
+except BlockingIOError:
+    raise SystemExit  # a session is playing: it closes ASF itself, after
+except OSError:
+    pass
+cmd({exit_argv!r})
 """
     subprocess.Popen(
         [sys.executable, "-c", child_code],
@@ -569,6 +577,15 @@ def _run(game_name, force=False, time_only=False, delay=None, wait_ready=False):
             send_command(f"play {appid}")
             time.sleep(RECONNECT_SETTLE_DELAY)
 
+        def not_kept(ids):
+            """The ids alist still shows locked (all of them if ASF didn't
+            answer), keeping unlocked up to date for the skips below."""
+            statuses, _ = send_alist(appid)
+            if statuses is None:
+                return list(ids)
+            unlocked.update(statuses)
+            return [a for a in ids if not statuses.get(a, False)]
+
         def advance(i, issued_at):
             """Record achievement i as done and schedule (or end) what's next."""
             nonlocal playing
@@ -582,7 +599,7 @@ def _run(game_name, force=False, time_only=False, delay=None, wait_ready=False):
                 progress["session_ends_at"] = (datetime.now() + timedelta(seconds=gap)).isoformat()
                 save_progress(progress_path, progress)
                 playing = False
-                send_command("resume")
+                send_command("reset")
                 _schedule_asf_shutdown()
                 print(f"Session complete. Next session in {gap // 3600}h {(gap % 3600) // 60}m.")
                 return True  # stop the script
@@ -662,7 +679,7 @@ def _run(game_name, force=False, time_only=False, delay=None, wait_ready=False):
                     # "play" was already sent above, so leaving ASF running here
                     # would strand the bot stuck "playing" this game indefinitely.
                     # The API isn't reachable, so there's no graceful way to tell it
-                    # to resume/exit — force-kill it directly instead.
+                    # to reset/exit — force-kill it directly instead.
                     schedule_asf_kill()
                     return "error"
 
@@ -676,6 +693,26 @@ def _run(game_name, force=False, time_only=False, delay=None, wait_ready=False):
                 if status == "already_unlocked":
                     print(f"Already unlocked, skipping: {label}")
                 else:
+                    # "Success!" only means ASF sent it: Steam has dropped one
+                    # (right as ASF reset the game), so check alist. The next
+                    # unlock counts from issued_at, so the check comes out of
+                    # its wait instead of adding to it.
+                    missing = not_kept(to_unlock)
+                    if missing:
+                        print(f"Steam didn't keep {', '.join(map(str, missing))}, trying again...")
+                        send_command(f"play {appid}")
+                        time.sleep(WARM_SETTLE_DELAY)
+                        # The retry is the real unlock, so the next gap counts from it.
+                        issued_at = datetime.now()
+                        status, result = send_aset(appid, missing)
+                        missing = not_kept(missing)
+                    if missing:
+                        print(f"ERROR: Steam didn't keep {', '.join(map(str, missing))}. "
+                              f"ArchiSteamFarm's answer: {result.strip()}")
+                        progress["next_unlock_at"] = datetime.now().isoformat()
+                        save_progress(progress_path, progress)
+                        schedule_asf_kill()
+                        return "error"
                     print(f"Unlocked: {label} at [{issued_at:%H:%M:%S}]")
 
             for gi in range(i, group_end):
@@ -684,7 +721,7 @@ def _run(game_name, force=False, time_only=False, delay=None, wait_ready=False):
             i = group_end
 
         playing = False
-        send_command("resume")
+        send_command("reset")
         _schedule_asf_shutdown()
         print("\nAll achievements unlocked.")
         cleanup_profile(game_name)

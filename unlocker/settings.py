@@ -63,6 +63,10 @@ DEFAULTS = {
     # The app's look (its Appearance menu).
     "theme": "dark",
     "accent": "violet",
+    # Games' art behind run cards and a game page's header: "off", "normal"
+    # or "blur"; and the colour glows behind a game: "off" or "on".
+    "banners": "off",
+    "gradient": "off",
     # How far back the app's Library lists achievements: day, week, month, year or all.
     "unlocks_range": "month",
     # How the Library's Games are sorted: by when last played, the last
@@ -76,14 +80,16 @@ DEFAULTS = {
     "achievement_sort": "date",
     "achievement_order": "desc",
     "achievement_group": "status",
-    # Which games the Library's Games list shows, by group, each "show" or
-    # "hide": those marked Private in Steam, those marked finished, those
-    # without achievements, and the rest ("active"). A game shows when any
-    # group it's in is shown.
+    # Which games the Library's Games list shows, by group, each "show",
+    # "only" (just games in it) or "hide" (games not in it): those marked
+    # Private in Steam, those marked finished, those without achievements,
+    # and the rest ("active"). A game shows when it fits every group set
+    # to "only" or "hide", or with library_match "any", one of them.
     "library_active": "show",
     "library_private": "show",
     "library_no_achievements": "show",
     "library_finished": "show",
+    "library_match": "all",
     # Which section the app's Library opens on: achievements or games.
     "library_tab": "achievements",
     # Hidden achievements' descriptions in the Library: shown once
@@ -118,6 +124,8 @@ _TYPES = {
     "clock": (str,),
     "theme": (str,),
     "accent": (str,),
+    "banners": (str,),
+    "gradient": (str,),
     "unlocks_range": (str,),
     "library_sort": (str,),
     "library_order": (str,),
@@ -128,6 +136,7 @@ _TYPES = {
     "library_private": (str,),
     "library_no_achievements": (str,),
     "library_finished": (str,),
+    "library_match": (str,),
     "library_tab": (str,),
     "hidden_descriptions": (str,),
     "library_check": (str,),
@@ -148,23 +157,28 @@ APP_TOGGLES = ["keep_awake", "show_finished"]
 # Choices the app shows on their own, with what each can be.
 APP_CHOICES = {"clock": ["system", "12h", "24h"], "theme": ["dark", "light"],
                "accent": ["violet", "wine", "blue", "teal", "amber"],
+               "banners": ["off", "normal", "blur"],
+               "gradient": ["off", "on"],
                "unlocks_range": ["day", "week", "month", "year", "all"],
-               "library_sort": ["played", "achievement", "name", "progress", "playtime"],
+               "library_sort": ["played", "achievement", "name", "progress", "playtime", "duration"],
                "library_order": ["desc", "asc"],
                "achievement_sort": ["default", "date", "name"],
                "achievement_order": ["desc", "asc"],
                "achievement_group": ["status", "none"],
-               "library_active": ["show", "hide"],
-               "library_private": ["show", "hide"],
-               "library_no_achievements": ["show", "hide"],
-               "library_finished": ["show", "hide"],
+               "library_active": ["show", "only", "hide"],
+               "library_private": ["show", "only", "hide"],
+               "library_no_achievements": ["show", "only", "hide"],
+               "library_finished": ["show", "only", "hide"],
+               "library_match": ["all", "any"],
                "library_tab": ["achievements", "games"],
                "hidden_descriptions": ["unlocked", "all", "none"],
                "library_check": ["1h", "3h", "6h", "12h", "24h", "manual"]}
 
 # Settings older versions had, ignored (and dropped on the next save from
 # the app) rather than refused as unknown.
-RETIRED = {"notifications", "library_hidden", "auto_update"}
+RETIRED = {"notifications", "library_hidden", "auto_update",
+           # Artwork on/off, briefly, before Banners and Gradient replaced it.
+           "art"}
 
 
 def problems(overrides):

@@ -459,6 +459,8 @@ def _games_list(store, key, private):
             "finished": appid in finished,
             "unlocked": saved.get("unlocked", len(unlocks)), "total": saved.get("total"),
             "last_unlock": max((u["time"] for u in unlocks), default=None),
+            # The first, for how long the game's unlocks span (untimed ones aside).
+            "first_unlock": min((u["time"] for u in unlocks if u.get("time")), default=None),
             "unreadable": bool(saved.get("unreadable")),
             "private": appid in private or bool(saved.get("private"))})
     out.sort(key=lambda g: (g["played"] or 0, g["last_unlock"] or 0), reverse=True)
