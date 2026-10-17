@@ -827,7 +827,6 @@
   .run-badge:is(.live, .wait, .cut) svg { width: 11px; height: 11px; }
   /* Stopped partway through a session: a warm edge and how far it got. */
   .run-card.cut { box-shadow: inset 3px 0 0 var(--warn); }
-  .run-card.cut .run-progress span { background: var(--warn); }
   /* Still in its break: a touch quieter until it can play. */
   .run-card.resting { background: transparent; }
   @keyframes run-pulse { 50% { opacity: 0.3; } }
@@ -841,8 +840,6 @@
   .run-meta b { color: var(--text); font-weight: 500; }
   .run-meta .warn { color: var(--warn); }
   .run-meta .bad { color: var(--danger); }
-  .run-progress { height: 4px; margin-top: 0.6rem; background: var(--surface-3); border-radius: 2px; overflow: hidden; }
-  .run-progress span { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
   .runs-side { display: flex; flex-direction: column; gap: 0.6rem; min-height: 0; }
   .runs-list-head {
     font-family: var(--mono);
@@ -932,7 +929,6 @@
   .detail-value { margin-top: 0.35rem; font-size: 1.15rem; font-weight: 600; letter-spacing: -0.01em; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .detail-value .bad { color: var(--danger); }
   .detail-sub { margin-top: 0.3rem; font-size: 0.76rem; color: var(--text-dim); }
-  .detail-sub .run-progress { margin: 0.15rem 0 0.35rem; }
   .detail-sub .nowrap { white-space: nowrap; }
   .details-facts { display: flex; flex-wrap: wrap; gap: 0.3rem 0.6rem; padding: 0.6rem 1rem; border-top: 1px solid var(--border); font-size: 0.78rem; color: var(--text-dim); }
   .details-facts b { color: var(--text); font-weight: 500; }
@@ -2633,7 +2629,6 @@
   body.local .app-workspace .run-card .mark-counters { grid-column: 3; grid-row: 1 / span 2; margin-left: 8px; }
   body.local .app-workspace .run-card .run-rest-mark { grid-column: 4; grid-row: 1 / span 2; margin-left: 8px; }
   body.local .app-workspace .run-card .run-badge { grid-column: 5; grid-row: 1 / span 2; margin-left: 8px; }
-  body.local .app-workspace .run-card .run-progress { grid-column: 2 / -1; grid-row: 3; margin: 6px 0 0 12px; }
   body.local .app-workspace .run-card :is(.mark-counters, .run-rest-mark, .run-badge) { align-self: center; }
 
   /* A game's icon that opens it elsewhere (Runs' selected game, a game's
