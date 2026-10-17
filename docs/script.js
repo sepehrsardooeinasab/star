@@ -815,14 +815,12 @@
     return '<div class="empty-hint"><div class="glyph">' + glyph + "</div><p>" + escapeHtml(text) + "</p></div>";
   }
 
-  // Where Schedule's draft is kept. In the app only until it quits (a
-  // reload keeps it), so it opens empty; the website keeps it.
-  var desktop = document.documentElement.hasAttribute("data-desktop");
+  // Where Schedule's draft is kept: across launches, so closing the window
+  // doesn't lose a paste that isn't saved yet (Reset all fields clears it).
   var draftStore = null;
-  try {
-    draftStore = desktop ? sessionStorage : localStorage;
-    if (desktop) localStorage.removeItem("unlock-scheduler-draft");  // kept there before
-  } catch (e) {}
+  try { draftStore = localStorage; } catch (e) {}
+  // tests/draft.test.cjs runs the code from here to its end marker below.
+  // >>> draft storage
   function saveDraft() {
     try {
       draftStore.setItem("unlock-scheduler-draft", JSON.stringify({
@@ -1065,6 +1063,8 @@
     var imported = ok && !scheduleReady;
     scheduleReady = !!ok;
     byId("schedule-tab-preview").disabled = !ok;
+    if (ok) byId("schedule-tab-preview").removeAttribute("data-tip");
+    else byId("schedule-tab-preview").setAttribute("data-tip", "Appears once achievements are imported");
     if (imported) setSchedulePanel("preview", byId("schedule-workspace").contains(document.activeElement));
     else if (!ok && schedulePanel === "preview") setSchedulePanel("import");
     var source = els.copiedFrom.value.trim();
@@ -1158,8 +1158,13 @@
     }
 
     // Save saves everything together, so it only depends on whether we
-    // have valid data at all — not on which tab is open.
+    // have valid data at all — not on which tab is open. Why it can't, on
+    // hover: what's still missing, or that nothing's imported yet.
     els.downloadBtn.disabled = !ok;
+    var saveWhy = ok ? "" : !els.exportText.value.trim() ? "Import achievements first"
+      : latest && latest.errors && latest.errors[0] ? latest.errors[0] : "";
+    if (saveWhy) els.downloadBtn.setAttribute("data-tip", saveWhy);
+    else els.downloadBtn.removeAttribute("data-tip");
 
     var dangers = ok ? latest.dangers : [];
     var dangerHtml = dangers.map(function (d) { return noticeHtml("danger", d); }).join("");
@@ -1370,12 +1375,10 @@
     recompute();
     setView("input");
   }
-  // The app's window closed while a game runs (STAR stays in the menu
-  // bar): Schedule is emptied, as when STAR quits. Called by the app.
+  // The app hides the window while a game runs. Keep the current screen
+  // and edits, and persist the draft for the next launch too.
   window.starWindowClosed = function () {
-    var view = currentView;
-    resetAll();
-    if (view !== "input") setView(view);
+    saveDraft();
   };
 
   els.resetBtn.addEventListener("click", function () {
@@ -2000,7 +2003,9 @@
     button.classList.toggle("menu-open", byId("run-menu").open);
     button.setAttribute("aria-disabled", String(blocked));
     button.setAttribute("aria-busy", String(!!runPending));
-    button.title = blocked ? why : "";
+    // Why it can't run, on hover (the app's web view shows no title).
+    if (blocked && why) button.setAttribute("data-tip", why);
+    else button.removeAttribute("data-tip");
     delay.disabled = custom.disabled = !!runPending || running || done;
     setRunMode(mode, !!runPending || done || (running && !g.auto));
     drawRunChips();
@@ -2491,11 +2496,28 @@
     }).catch(function () {});
   }
 
+  // Run's menu back to When ready and 1 session, its own time cleared.
+  var wasRunning = {};
+  function resetRunChoices() {
+    var delay = byId("run-delay");
+    delay.value = lastPresetDelay = "0";
+    customDone = false;
+    byId("run-delay-custom").value = "";
+    runOpts.every = false;
+    setRunMode(false, false);
+    try { localStorage.setItem("run-every", "0"); } catch (err) {}
+  }
   function refreshRuns() {
     if (!local) return Promise.resolve();
     clearTimeout(runsTimer);
     if (runsFetch) return runsFetch;
     runsFetch = api("/api/games").then(function (data) {
+      // A run that ended (finished, stopped, or failed) leaves Run's menu at
+      // its defaults: its start time and how much it played were for it.
+      var nowRunning = {};
+      (data.games || []).forEach(function (g) { if (g.running) nowRunning[g.name] = true; });
+      if (Object.keys(wasRunning).some(function (n) { return !nowRunning[n]; })) resetRunChoices();
+      wasRunning = nowRunning;
       runsData = data;
       runsError = null;
       runsFetchedAt = Date.now();
@@ -2550,6 +2572,12 @@
   els.runsList.addEventListener("click", function (e) {
     var card = e.target.closest(".run-card");
     if (card && card.getAttribute("data-name") !== selectedRun) {
+      // Unsaved timeline edits go with a second click (Save keeps them).
+      if (runEdit && JSON.stringify(runEdit.config) !== JSON.stringify(runEdit.base) &&
+          !confirmTwice("switch-edits:" + runEdit.name)) {
+        showToast("Unsaved timeline edits. Save them, or click again to discard them.");
+        return;
+      }
       selectedRun = card.getAttribute("data-name");
       olderOpen = false;
       lastLog = null;
