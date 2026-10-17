@@ -762,7 +762,10 @@ def test_keep_awake():
 def _shown_path(path):
     """path with the home folder as ~, so it doesn't show the user's name."""
     path, home = path.resolve(), Path.home().resolve()
-    return "~/" + str(path.relative_to(home)) if path.is_relative_to(home) else str(path)
+    try:
+        return "~/" + str(path.relative_to(home))
+    except ValueError:  # not under it (Path.is_relative_to is Python 3.9+)
+        return str(path)
 
 
 def open_data_folder():

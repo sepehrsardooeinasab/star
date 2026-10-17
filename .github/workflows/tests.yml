@@ -1,0 +1,37 @@
+# Runs the tests on every push and pull request: Python's (the unlocker and
+# the app's server) on the oldest Python STAR supports (3.8, as install.sh
+# says) and the newest, and the page's (Node's built-in test runner). The release workflow runs the same
+# before it builds anything.
+name: Tests
+
+on:
+  # Branches only: a version tag's push runs them as the release's first job.
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_call:
+
+jobs:
+  test:
+    # 22.04: GitHub's Python 3.8 builds aren't made for newer Ubuntu.
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.8", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Python tests
+        run: python -m unittest discover -s tests -p "test_*.py" -v
+
+      - name: Page tests
+        run: node --test tests/*.test.cjs

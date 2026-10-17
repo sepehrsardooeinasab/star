@@ -13,7 +13,12 @@ permissions:
   contents: write
 
 jobs:
+  # Nothing is built or released unless the tests pass.
+  test:
+    uses: ./.github/workflows/tests.yml
+
   build:
+    needs: test
     strategy:
       fail-fast: false
       matrix:

@@ -854,6 +854,8 @@
     } catch (e) {}
   }
 
+  // <<< draft storage
+
   // ---- core recompute (pure, runs on every input change) ----
   function recompute() {
     var appidVal = parseInt(els.appid.value, 10);
