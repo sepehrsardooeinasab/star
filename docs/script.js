@@ -2327,22 +2327,46 @@
     renderTimeline();
   });
 
+  // A game's log: its newest run, then the older ones behind a toggle
+  // (closed again when another game is picked).
+  var olderOpen = false, lastLog = null;
+  function drawLog(force) {
+    var pre = els.runsLog;
+    if (lastLog === null) { pre.textContent = ""; pre._key = ""; pre.classList.toggle("empty", false); return; }
+    // Newest run first; each run's own lines stay in the order they happened.
+    var runs = lastLog.split(/\n*(?=^── Started )/m)
+      .map(function (run) { return run.trim(); }).filter(Boolean).reverse();
+    // No log yet: a note in its place, which can't be selected.
+    pre.classList.toggle("empty", !runs.length);
+    var key = runs.join("\n\n") + "\u0000" + olderOpen;
+    // Replacing the text drops a selection, so it waits while one is in it.
+    var sel = window.getSelection();
+    if (!force && (pre._key === key || (sel && !sel.isCollapsed && pre.contains(sel.anchorNode)))) return;
+    pre._key = key;
+    pre.textContent = (runs[0] || "No activity yet. When this game runs, what it does shows up here.") +
+      (olderOpen && runs.length > 1 ? "\n\n" + runs.slice(1).join("\n\n") : "");
+    if (runs.length < 2) return;
+    // A bar under what's shown: Show N older runs, or Show less.
+    var toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "older-runs-toggle" + (olderOpen ? " open" : "");
+    toggle.setAttribute("aria-expanded", String(olderOpen));
+    toggle.textContent = olderOpen ? "Show less" : "Show " + (runs.length - 1) + " older run" + (runs.length > 2 ? "s" : "");
+    pre.appendChild(toggle);
+  }
+  els.runsLog.addEventListener("click", function (e) {
+    if (!e.target.closest(".older-runs-toggle")) return;
+    olderOpen = !olderOpen;
+    drawLog(true);
+  });
+
   function refreshLog() {
-    if (!selectedRun) { els.runsLog.textContent = ""; return; }
+    if (!selectedRun) { lastLog = null; drawLog(true); return; }
     var name = selectedRun;
     api("/api/log?name=" + encodeURIComponent(name)).then(function (data) {
       if (name !== selectedRun) return;
-      var pre = els.runsLog;
-      // Newest run first; each run's own lines stay in the order they happened.
-      var text = (data.text || "").split(/\n*(?=^── Started )/m)
-        .map(function (run) { return run.trim(); }).filter(Boolean).reverse().join("\n\n");
-      // No log yet: a note in its place, which can't be selected.
-      pre.classList.toggle("empty", !text);
-      text = text || "No activity yet. When this game runs, what it does shows up here.";
-      // Replacing the text drops a selection, so it waits while one is in it.
-      var sel = window.getSelection();
-      if (pre.textContent === text || (sel && !sel.isCollapsed && pre.contains(sel.anchorNode))) return;
-      pre.textContent = text;
+      lastLog = data.text || "";
+      drawLog(false);
     }).catch(function () {});
   }
 
@@ -2393,7 +2417,9 @@
     var card = e.target.closest(".run-card");
     if (card && card.getAttribute("data-name") !== selectedRun) {
       selectedRun = card.getAttribute("data-name");
-      els.runsLog.textContent = "";
+      olderOpen = false;
+      lastLog = null;
+      drawLog(true);
       renderRuns();
       refreshLog();
     }

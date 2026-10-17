@@ -255,6 +255,20 @@
     user-select: text;
   }
   :root[data-desktop] :is(.file-preview, code) { cursor: text; }
+  /* Under a game's log: Show N older runs (or Show less), centered with
+     an arrow. Not part of what's selected or copied. */
+  .older-runs-toggle {
+    display: flex; align-items: center; justify-content: center; gap: 0.45em; width: 100%;
+    margin-top: 1.6rem; padding: 0; border: 0;
+    font-family: var(--font); font-size: 0.78rem; color: var(--text-dim); background: none; cursor: pointer;
+    -webkit-user-select: none; user-select: none;
+  }
+  .older-runs-toggle::after {
+    content: ""; width: 0.4em; height: 0.4em; margin-top: -0.2em;
+    border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg);
+  }
+  .older-runs-toggle.open::after { margin-top: 0.2em; transform: rotate(-135deg); }
+  .older-runs-toggle:hover { color: var(--text); }
   /* A run log with nothing in it yet: just a note, greyed. */
   .file-preview.empty { color: var(--text-dim); }
   :root[data-desktop] .file-preview.empty { -webkit-user-select: none; user-select: none; cursor: default; }
