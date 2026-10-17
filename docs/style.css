@@ -255,6 +255,9 @@
     user-select: text;
   }
   :root[data-desktop] :is(.file-preview, code) { cursor: text; }
+  /* A run log with nothing in it yet: just a note, greyed. */
+  .file-preview.empty { color: var(--text-dim); }
+  :root[data-desktop] .file-preview.empty { -webkit-user-select: none; user-select: none; cursor: default; }
   /* The Appearance menu opens below the bar and its colored line. */
   :root[data-desktop] .appearance-menu { top: calc(100% + 16px); }
   /* The colored line runs under the bar, not above it. */

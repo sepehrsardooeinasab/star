@@ -2336,6 +2336,8 @@
       // Newest run first; each run's own lines stay in the order they happened.
       var text = (data.text || "").split(/\n*(?=^── Started )/m)
         .map(function (run) { return run.trim(); }).filter(Boolean).reverse().join("\n\n");
+      // No log yet: a note in its place, which can't be selected.
+      pre.classList.toggle("empty", !text);
       text = text || "No activity yet. When this game runs, what it does shows up here.";
       // Replacing the text drops a selection, so it waits while one is in it.
       var sel = window.getSelection();
