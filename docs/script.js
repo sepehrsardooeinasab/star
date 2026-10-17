@@ -1971,7 +1971,18 @@
     box.innerHTML = html;
     var next = [].slice.call(box.childNodes), now = [].slice.call(el.childNodes);
     if (next.length !== now.length) { el.innerHTML = html; return; }
-    next.forEach(function (node, i) { if (!now[i].isEqualNode(node)) el.replaceChild(node, now[i]); });
+    next.forEach(function (node, i) {
+      var old = now[i];
+      if (old.isEqualNode(node)) return;
+      // Only its own attributes changed (a card picked, say): those change in
+      // place, so its art isn't loaded again (and doesn't flash).
+      if (old.nodeType === 1 && node.nodeType === 1 && old.tagName === node.tagName && old.innerHTML === node.innerHTML) {
+        [].slice.call(old.attributes).forEach(function (a) { if (!node.hasAttribute(a.name)) old.removeAttribute(a.name); });
+        [].slice.call(node.attributes).forEach(function (a) { if (old.getAttribute(a.name) !== a.value) old.setAttribute(a.name, a.value); });
+        return;
+      }
+      el.replaceChild(node, old);
+    });
   }
 
   var runsDone = null;  // achievements the runs have unlocked, all told
