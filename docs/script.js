@@ -3224,13 +3224,14 @@
   var gamesSort = "played", gamesOrder = "desc", appliedLib = {};
   var ORDER_NAMES = {played: ["Newest first", "Oldest first"], achievement: ["Newest first", "Oldest first"],
     name: ["Z \u2192 A", "A \u2192 Z"], progress: ["Most first", "Least first"], playtime: ["Most first", "Least first"],
+    duration: ["Longest first", "Shortest first"],
     date: ["Newest first", "Oldest first"], default: ["Reversed", "In order"]};
   function orderName(sort, order) { return ORDER_NAMES[sort][order === "desc" ? 0 : 1]; }
   // Sorting, as chips like the filters: a row of sorts, the picked one
   // with an arrow for its order (clicked again, it flips). In a menu in
   // Games and on a game's page, and in Settings → Library.
   var SORTS = {games: [["played", "Last played"], ["achievement", "Last achievement"], ["name", "Name"],
-    ["progress", "Progress"], ["playtime", "Play time"]], ach: [["default", "Default"], ["date", "Date unlocked"], ["name", "Name"]]};
+    ["progress", "Progress"], ["playtime", "Play time"], ["duration", "Duration"]], ach: [["default", "Default"], ["date", "Date unlocked"], ["name", "Name"]]};
   // A game's achievements: unlocked and locked apart, or in one list.
   var GROUPS = [["status", "On"], ["none", "Off"]];
   // A–Z, Steam's own order, or newest / most first.
@@ -3275,6 +3276,7 @@
       if (gamesSort === "name") return g.name.toLowerCase();
       if (gamesSort === "achievement") return g.last_unlock || 0;
       if (gamesSort === "playtime") return g.playtime || 0;
+      if (gamesSort === "duration") { var d = unlockSpan(g); return d === null ? -1 : d; }
       if (gamesSort === "progress") return g.total ? g.unlocked / g.total : -1;
       return g.played || 0;
     }
@@ -3284,6 +3286,21 @@
       var c = typeof ka === "string" ? ka.localeCompare(kb) : ka - kb;
       return c * dir || a.name.localeCompare(b.name);
     });
+  }
+  // How long a game's achievements took: its first unlock to its last, or
+  // null with fewer than two timed ones. Shown as "45 min", "6 h", "12 days",
+  // "5 months" or "6.1 years".
+  function unlockSpan(g) {
+    return g.first_unlock && g.last_unlock && g.last_unlock > g.first_unlock ? g.last_unlock - g.first_unlock : null;
+  }
+  function fmtSpan(seconds) {
+    if (seconds === null) return "";
+    if (seconds < 3600) return Math.max(1, Math.round(seconds / 60)) + " min";
+    if (seconds < 48 * 3600) return Math.round(seconds / 3600) + " h";
+    var days = seconds / 86400;
+    if (days < 60) return Math.round(days) + " days";
+    if (days < 365) return Math.round(days / 30.44) + " months";
+    return (days / 365.25).toFixed(1).replace(/\.0$/, "") + " years";
   }
   function fmtPlaytime(minutes) {
     if (!minutes) return "";
@@ -3465,7 +3482,9 @@
     }
     var shown = kept;
     byId("games-list").hidden = !shown.length;
-    byId("games-list").innerHTML = shown.map(function (g) {
+    byId("games-table").hidden = !shown.length;
+    byId("games-columns").hidden = !local || !shown.length;
+    patchHtml(byId("games-list"), shown.map(function (g) {
       var progress;
       if (!g.stats) progress = '<span class="lib-dim">No achievements</span>';
       else if (g.unreadable) progress = '<span class="lib-dim">' + (g.private ? "Not shown while Private" : "Not shown by Steam") + "</span>";
@@ -3477,9 +3496,13 @@
         iconHtml("lib-icon", g.icon, g.name) +
         '<div class="lib-text"><div class="lib-name"><span class="name-text">' + escapeHtml(g.name) + "</span>" + finishedMark(g) + markHtml(g) + counterMark(g) + "</div>" +
         '<div class="lib-progress">' + progress + "</div></div>" +
-        '<div class="unlock-meta"><div>' + escapeHtml(playedText(g)) + "</div>" +
-        "<div>" + escapeHtml(fmtPlaytime(g.playtime)) + "</div></div></div>";
-    }).join("");
+        // In the app the columns are headed (Last played, Play time), so
+        // their cells say just the date and the hours.
+        '<div class="unlock-meta"><div>' + escapeHtml(local ? (g.played ? fmtDay(g.played) : neverPlayed(g) ? "Never" : "") : playedText(g)) + "</div>" +
+        "<div>" + escapeHtml(local ? fmtPlaytime(g.playtime).replace(/ played$/, "") : fmtPlaytime(g.playtime)) + "</div>" +
+        '<div class="lib-span"' + (unlockSpan(g) !== null ? ' data-tip="From its first achievement to its last"' : "") + ">" +
+        escapeHtml(fmtSpan(unlockSpan(g))) + "</div></div></div>";
+    }).join(""));
   }
   // A game's own page: its achievements, unlocked (newest first) and
   // locked, from what's saved; links to Steam and SteamHunters, and to its
