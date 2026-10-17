@@ -3953,6 +3953,15 @@
       if (!inside || inside.id !== menu.id) menu.open = false;
     });
   });
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    var menus = document.querySelectorAll(".filters-menu[open]");
+    if (!menus.length) return;
+    var focused = document.activeElement.closest(".filters-menu[open]") || menus[menus.length - 1];
+    menus.forEach(function (menu) { menu.open = false; });
+    focused.querySelector("summary").focus();
+    e.preventDefault();
+  });
   byId("games-search").addEventListener("input", function () {
     gamesQuery = this.value;
     renderGames(unlocksData);
@@ -4042,6 +4051,9 @@
     byId("switch-runs").classList.toggle("active", work && currentView === "runs");
     byId("switch-unlocks").classList.toggle("active", document.body.getAttribute("data-screen") === "unlocks");
     byId("switch-guide").classList.toggle("active", document.body.getAttribute("data-screen") === "guide");
+    byId("screen-switch").querySelectorAll("button").forEach(function (button) {
+      button.setAttribute("aria-pressed", String(button.classList.contains("active")));
+    });
   }
   byId("switch-schedule").addEventListener("click", function () { showScreen("work"); setView(scheduleView); });
   byId("switch-runs").addEventListener("click", function () { showScreen("work"); setView("runs"); });
