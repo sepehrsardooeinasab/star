@@ -552,7 +552,7 @@
   .lock-shackle { transition: transform 0.15s ease; }
   .run-settings { display: flex; flex-direction: column; gap: 0.9rem; margin-top: 0.4rem; }
   .run-settings .setting-row .setting-check { margin: 0; }
-  .run-settings.locked input:disabled { opacity: 0.75; cursor: default; }
+  .run-settings.locked :is(input, select):disabled { opacity: 0.75; cursor: default; }
   .setting-reset { padding: 0 0.35rem; height: 1.6rem; font-size: 0.85rem; line-height: 1; background: none; border: 0; color: var(--accent); }
   .setting-reset:hover { color: var(--text); }
   .setting-reset[hidden] { display: none; }
@@ -572,7 +572,7 @@
     border: 1px solid var(--border-strong);
     border-radius: 7px;
   }
-  .run-settings input:disabled { opacity: 0.45; }
+  .run-settings :is(input, select):disabled { opacity: 0.45; }
   .run-settings input.invalid { border-color: var(--danger); }
 
   .setup-form { display: flex; flex-wrap: wrap; gap: 0.5rem; }
@@ -1577,7 +1577,7 @@
   body.local #schedule-import { display: flex; flex-direction: column; min-width: 0; gap: 1rem; margin: 0; }
   body.local .import-intro { display: block; }
   body.local #export-text { flex: none; width: 100%; height: 14rem; min-height: 0; padding: 0.85rem; font-family: var(--font); font-size: 0.84rem; line-height: 1.6; resize: none; background: var(--bg); }
-  body.local .import-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 0.55rem; font-size: 0.78rem; color: var(--text-dim); line-height: 1.5; }
+  body.local div.import-actions { display: flex; align-items: center; justify-content: space-between; gap: 1rem; font-size: 0.78rem; color: var(--text-dim); line-height: 1.5; }
   .import-actions .link-btn { font-size: inherit; }
   body.local .input-help { position: static; flex: none; margin: 0; padding: 0 0 0 2rem; max-height: none; overflow: visible; border: 0; border-left: 1px solid var(--border); font-size: 0.78rem; }
   .input-help h3 { margin: 0; color: var(--text-dim); font-size: 0.8rem; font-weight: 600; line-height: 1.5; }
@@ -1594,8 +1594,6 @@
   .schedule-workspace-footer { flex: none; padding: 0.8rem 1.2rem; border-top: 1px solid var(--border); }
   .schedule-workspace-footer #input-alert-slot { max-height: 8rem; overflow-y: auto; }
   .schedule-workspace-footer #input-alert-slot:empty { display: none; }
-  .schedule-footer-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 1.3rem; font-size: 0.76rem; color: var(--text-dim); }
-  .schedule-source-note { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .bar-reset { flex: none; }
   .bar-reset #reset-btn { border: 0; background: transparent; padding: 0; height: auto; font-size: 0.76rem; color: var(--text-dim); }
   .bar-reset #reset-btn:hover { color: var(--text); }
@@ -2146,6 +2144,23 @@
     border-radius: 7px;
   }
   :is(#step-clock, #step-unlocks, .lib-default) select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  /* Like the number boxes beside it, with the other selects' arrow. */
+  .run-settings select {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 1.9rem;
+    box-sizing: border-box;
+    padding: 0 1.8rem 0 0.5rem;
+    font: inherit;
+    font-size: 0.82rem;
+    color: var(--text);
+    background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%238a8a8a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5'/%3E%3C/svg%3E") no-repeat right 0.55rem center / 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: 7px;
+  }
+  .run-settings select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .run-settings select + .setting-unit { width: auto; }
+  .run-settings .setting-unit[hidden] { display: none; }
   .unlocks-day { margin: 1.1rem 0 0.45rem; font-size: 0.75rem; font-weight: 600; color: var(--text-dim); }
   .unlocks-group { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
   /* Every row one height, in both tabs: one line each for the name and
@@ -2306,8 +2321,8 @@
   body.local :is(.bar-btn, .lock-toggle, .btn-ghost, a.btn-ghost) { min-height: 30px; font-size: 0.78rem; }
   body.local .bar-reset #reset-btn { min-height: 0; }
   body.local #app-workspace > .schedule-workspace-footer { min-height: 48px; background: var(--surface); }
-  body.local:not([data-screen="work"]) .schedule-workspace-footer :is(#input-alert-slot, .schedule-source-note, .bar-reset),
-  body.local[data-view="runs"] .schedule-workspace-footer :is(#input-alert-slot, .schedule-source-note, .bar-reset) { display: none; }
+  body.local:not([data-screen="work"]) .schedule-workspace-footer #input-alert-slot,
+  body.local[data-view="runs"] .schedule-workspace-footer #input-alert-slot { display: none; }
   body.local :is(.games-search, .bar-field input) { height: 34px; border-radius: var(--control-radius); }
   @media (max-width: 720px) {
     body.local { --workspace-inset: 1rem; }
@@ -2471,7 +2486,9 @@
   body.local .schedule-preview-head .bar-btn { height: 26px; min-width: 0; }
   body.local #app-workspace > .schedule-workspace-footer { min-height: 32px; padding: 6px 20px; background: var(--chrome); }
   body.local .bar-reset #reset-btn { min-height: 0; padding: 0; background: transparent; border: 0; box-shadow: none; font-size: 11px; }
-  body.local .schedule-footer-row { font-size: 11px; }
+  body.local .import-actions #reset-btn { font-size: inherit; }
+  /* The bar under Schedule only shows an import error. */
+  body.local #app-workspace > .schedule-workspace-footer:has(#input-alert-slot:empty),
   body.local:not([data-screen="work"]) #app-workspace > .schedule-workspace-footer,
   body.local[data-view="runs"] #app-workspace > .schedule-workspace-footer { display: none; }
   body.local .to-top { position: absolute; bottom: 16px; right: 20px; border-radius: 6px; }
@@ -2584,12 +2601,12 @@
     body.local .lib-game .unlock-meta > div:nth-child(n+2) { display: none; }
   }
   /* Run settings' rows like the rest of Settings: the label, then its box. */
-  body.local .settings-tab-card .setting-row:has(input[type="number"]) { justify-content: flex-start; }
-  body.local .settings-tab-card .setting-row:has(input[type="number"]) > :first-child { flex: 0 0 24rem; }
+  body.local .settings-tab-card .setting-row:has(input[type="number"], select) { justify-content: flex-start; }
+  body.local .settings-tab-card .setting-row:has(input[type="number"], select) > :first-child { flex: 0 0 24rem; }
 
   /* Keep awake's Test: an icon at the end of its row; it pulses while testing. */
   body.local .awake-row { display: flex; align-items: center; }
-  body.local #awake-check.icon-test { margin-left: auto; width: 28px; padding: 0; justify-content: center; }
+  body.local #awake-check.icon-test { display: inline-flex; align-items: center; justify-content: center; margin-left: auto; width: 28px; height: 28px; padding: 0; }
   body.local #awake-check svg { width: 15px; height: 15px; }
   @keyframes test-pulse { 50% { opacity: 0.35; } }
   body.local #awake-check[aria-busy="true"] svg { animation: test-pulse 0.9s ease-in-out infinite; }

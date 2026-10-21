@@ -14,6 +14,7 @@
   "jitter_min_delay": 60,
   "jitter_percent": 10,
   "keep_awake": true,
+  "break_wait": "6h",
   "show_finished": false,
   "steam_api_key": null,
   "clock": "system",

@@ -1069,8 +1069,6 @@
     else byId("schedule-tab-preview").setAttribute("data-tip", "Appears once achievements are imported");
     if (imported) setSchedulePanel("preview", byId("schedule-workspace").contains(document.activeElement));
     else if (!ok && schedulePanel === "preview") setSchedulePanel("import");
-    var source = els.copiedFrom.value.trim();
-    byId("schedule-source-note").textContent = source ? "Achievements from " + source : "";
     if (els.exportText.value.trim() && latest && !latest.pending && !latest.inputNotice &&
         (!els.appid.value || !els.gameName.value.trim())) {
       setSchedulePanel("details");
@@ -1848,9 +1846,11 @@
     if (g.session) {
       part(g.state === "in_session" ? "Playing session" : "Session", g.session + " of " + g.sessions +
         (g.running ? ' <span class="summary-note">· ' + (g.stop_after ? "this one only" : "all sessions") + "</span>" : ""));
-      // While it plays, how long it has left; otherwise how long it lasts.
+      // While it plays, how long it has left; otherwise how long it lasts
+      // (a stopped one's wait for its next unlock is part of it).
       var size = g.count + " achievement" + (g.count === 1 ? "" : "s") + " · " +
-        (g.state === "in_session" && g.session_left != null ? fmtDur(left(g.session_left)) + " left" : sessionDuration(g.duration));
+        (g.state === "in_session" && g.session_left != null ? fmtDur(left(g.session_left)) + " left"
+          : sessionDuration(cut ? Math.round(g.duration + left(g.ready_in || 0)) : g.duration));
       // Stopped partway: what's left of it, in yellow, why on hover.
       part("This session", cut ? '<span class="warn" data-tip="Session ' + g.session + " stopped after " + cut.played + " of its " + cut.of +
         ' achievements; Continue picks up here">' + size + "</span>" : size);
@@ -1859,7 +1859,8 @@
     if (g.state === "in_session") {
       part("Next unlock", g.next_unlock_in == null ? "Now" : "In " + fmtDur(left(g.next_unlock_in)));
     } else if (g.session) {
-      var wait = waitLeft(g);
+      // A stopped session carries on whenever, so it's playable now.
+      var wait = cut ? 0 : waitLeft(g);
       part(g.running ? "Starts" : "Playable", wait > 0 ? escapeHtml(fmtAt(wait)) : g.running ? "Starting…" : "Now");
     }
     parts[parts.length - 1] = parts[parts.length - 1].replace(/<\/div>$/, more + "</div>");
@@ -1904,6 +1905,14 @@
   // it starts, how much it plays), or while it's running, Stop it.
   function selectedGame() {
     return (runsData ? runsData.games : []).filter(function (x) { return x.name === selectedRun; })[0];
+  }
+
+  // How long before a break ends Continue can start (break_wait), in
+  // seconds: 0 when it's off.
+  function breakWaitAllowed() {
+    var s = (runSettings || []).filter(function (x) { return x.key === "break_wait"; })[0];
+    var value = s ? s.value : "6h";
+    return value === "off" ? 0 : parseInt(value, 10) * 3600;
   }
 
   // 1 session / All sessions.
@@ -1978,9 +1987,10 @@
       else if (g.state === "invalid") why = g.progress_damaged ? gameTitle(g) + "'s progress needs resetting (Reset progress)." : gameTitle(g) + "'s config has a problem.";
       else if (g.config_changed) why = "The achievement order changed. Run it once from the terminal to confirm.";
       else if (other) why = "Only one game runs at a time. Stop " + gameTitle(other) + " first.";
-      else if (g.session && !g.cut_short && waitLeft(g) > 0) {
-        // A session that ended: its break first. (One stopped partway can
-        // carry on.)
+      else if (g.session && !g.cut_short && waitLeft(g) > breakWaitAllowed()) {
+        // A session that ended: its break first, unless it ends within
+        // break_wait (Run settings), when the run waits it out. (One stopped
+        // partway can carry on.)
         var at = fmtAt(waitLeft(g));
         why = "Playable " + (/^\d/.test(at) ? "at " + at : at.replace(/^Tomorrow/, "tomorrow"));
       }
@@ -2772,7 +2782,9 @@
     els.copiedFrom.placeholder = "optional";
     bar.querySelector('[data-slot="reset"]').appendChild(els.resetBtn);
     byId("schedule-workspace-footer").prepend(els.inputAlertSlot);
-    document.querySelector(".schedule-footer-row").appendChild(bar.querySelector('[data-slot="reset"]'));
+    // Reset sits at the end of the import's last line; the bar below is
+    // only for import errors.
+    document.querySelector(".import-actions").appendChild(bar.querySelector('[data-slot="reset"]'));
     els.resetBtn.style.width = "";
     byId("bar-options").querySelector('[data-slot="settings-form"]').prepend(document.querySelector(".settings-form"));
     // Short labels, with the unit beside each box.
@@ -2922,6 +2934,8 @@
   // Settings → Runs: how runs pace themselves (settings.json), and whether
   // finished games are listed.
   var RUN_SETTINGS = {
+    break_wait: ["Continue during a break", {off: "Off", "1h": "1 hour", "3h": "3 hours", "6h": "6 hours", "12h": "12 hours", "24h": "1 day"},
+                 "before it ends"],
     jitter_enabled: ["Randomize delays", "Moves each delay a little, so a run doesn't replay the player's timings to the second."],
     jitter_percent: ["By up to", "%", 0, 100],
     jitter_min_delay: ["Only delays longer than", "seconds"],
@@ -2947,6 +2961,7 @@
   }
 
   var RUN_SETTING_GROUPS = [
+    ["Breaks", ["break_wait"]],
     ["Delays", ["jitter_enabled", "jitter_percent", "jitter_min_delay", "simultaneous_max_delay"]],
     ["ArchiSteamFarm", ["stop_other_asf", "warm_settle_delay", "reconnect_settle_delay",
                         "play_check_interval", "bot_connect_timeout", "asf_shutdown_delay"]],
@@ -2970,16 +2985,23 @@
     return (function (s) {
       var info = RUN_SETTINGS[s.key], id = "set-" + s.key;
       // ↺ puts one setting back to its default (shown while editing, when
-      // it differs).
+      // it differs), after the box so the box stays put.
       var reset = '<button class="setting-reset" type="button" data-reset="' + s.key + '" title="Set to default (' +
         (typeof s.default === "boolean" ? (s.default ? "on" : "off") : s.default) + ')" aria-label="Set to default">↺</button>';
       if (typeof s.default === "boolean") {
         return '<div class="setting-row"><label class="setting-check" title="' + escapeHtml(info[1]) + '"><input type="checkbox" id="' + id +
           '" data-key="' + s.key + '"' + (s.value ? " checked" : "") + "> " + escapeHtml(info[0]) + "</label>" + reset + "</div>";
       }
-      return '<div class="setting-row"><label for="' + id + '">' + escapeHtml(info[0]) + '</label><span>' + reset + '<input type="number" id="' + id +
+      // A choice: its unit is hidden while it's off.
+      if (typeof info[1] === "object") {
+        return '<div class="setting-row"><label for="' + id + '">' + escapeHtml(info[0]) + '</label><span><select id="' + id +
+          '" data-key="' + s.key + '">' + Object.keys(info[1]).map(function (v) {
+            return '<option value="' + v + '"' + (v === s.value ? " selected" : "") + ">" + escapeHtml(info[1][v]) + "</option>";
+          }).join("") + '</select><span class="setting-unit"' + (s.value === "off" ? " hidden" : "") + ">" + escapeHtml(info[2]) + "</span>" + reset + "</span></div>";
+      }
+      return '<div class="setting-row"><label for="' + id + '">' + escapeHtml(info[0]) + '</label><span><input type="number" id="' + id +
         '" data-key="' + s.key + '" min="' + (info[2] || 0) + '"' + (info[3] != null ? ' max="' + info[3] + '"' : "") +
-        ' step="1" value="' + s.value + '"><span class="setting-unit">' + escapeHtml(info[1]) + "</span></span></div>";
+        ' step="1" value="' + s.value + '"><span class="setting-unit">' + escapeHtml(info[1]) + "</span>" + reset + "</span></div>";
     })(s);
   }
 
@@ -2988,6 +3010,7 @@
     var values = {}, ok = true;
     byId("run-settings").querySelectorAll("[data-key]").forEach(function (el) {
       if (el.type === "checkbox") { values[el.dataset.key] = el.checked; return; }
+      if (el.tagName === "SELECT") { values[el.dataset.key] = el.value; return; }
       var n = Number(el.value), valid = el.value.trim() !== "" && el.checkValidity() && Number.isInteger(n);
       el.classList.toggle("invalid", !valid);
       if (!valid) ok = false;
@@ -3002,6 +3025,7 @@
     var form = byId("run-settings");
     form.classList.toggle("locked", !editingSettings);
     form.querySelectorAll("[data-key]").forEach(function (el) { el.disabled = !editingSettings; });
+    form.querySelectorAll("select").forEach(function (el) { el.nextElementSibling.hidden = el.value === "off"; });
     var jitter = byId("set-jitter_enabled");
     ["set-jitter_percent", "set-jitter_min_delay"].forEach(function (id) {
       if (byId(id) && jitter && !jitter.checked) byId(id).disabled = true;

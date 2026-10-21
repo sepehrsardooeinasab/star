@@ -424,12 +424,18 @@ def start_run(name, every=False, delay=None):
         raise AppError(f"There's no config for {name}.", 404)
     if _running_pid(name):
         raise AppError(f"{name} is already running.", 409)
-    # A session that ended has its break to wait out first (a stopped one
-    # can carry on, waiting only for its next unlock).
+    # A session that ended has its break to wait out first: the run waits
+    # for it when it ends within break_wait, and can't start before then
+    # (a stopped one can carry on, waiting only for its next unlock).
     state = _game_state(name, None)
     if state.get("state") == "invalid":
         raise AppError(f"{state.get('title') or name}: {state.get('error')}", 409)
-    if state.get("ready_in") and not state.get("cut_short"):
+    try:
+        break_wait = settings_module.read_overrides().get("break_wait", SETTINGS["break_wait"])
+    except ValueError:
+        break_wait = SETTINGS["break_wait"]
+    allowed = 0 if break_wait == "off" else int(break_wait.rstrip("h")) * 3600
+    if state.get("ready_in", 0) > allowed and not state.get("cut_short"):
         raise AppError(f"{state.get('title') or name} isn't playable yet: the break after its last "
                        "session isn't over.", 409)
     other = lock_info(GAME_LOCK)

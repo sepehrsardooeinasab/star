@@ -52,6 +52,10 @@ DEFAULTS = {
     "jitter_percent": 10,
     # Keep the computer from sleeping while a run waits or plays.
     "keep_awake": True,
+    # How long before a break ends the app's Continue can start a session,
+    # waiting out the rest of the break (Steam untouched): "off" (only once
+    # it's playable), 1h, 3h, 6h, 12h or 24h.
+    "break_wait": "6h",
     # The app's Runs list: show finished games too (at the bottom).
     "show_finished": False,
     # A Steam Web API key (steamcommunity.com/dev/apikey), so the app's
@@ -120,6 +124,7 @@ _TYPES = {
     "jitter_min_delay": (int,),
     "jitter_percent": (int, float),
     "keep_awake": (bool,),
+    "break_wait": (str,),
     "show_finished": (bool,),
     "steam_api_key": (str, type(None)),
     "clock": (str,),
@@ -157,6 +162,7 @@ APP_EDITABLE = [
 APP_TOGGLES = ["keep_awake", "show_finished"]
 # Choices the app shows on their own, with what each can be.
 APP_CHOICES = {"clock": ["system", "12h", "24h"], "theme": ["dark", "light"],
+               "break_wait": ["off", "1h", "3h", "6h", "12h", "24h"],
                "accent": ["violet", "wine", "blue", "teal", "amber"],
                "banners": ["off", "normal", "blur"],
                "gradient": ["off", "on"],
