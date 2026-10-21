@@ -1577,7 +1577,7 @@
   body.local #schedule-import { display: flex; flex-direction: column; min-width: 0; gap: 1rem; margin: 0; }
   body.local .import-intro { display: block; }
   body.local #export-text { flex: none; width: 100%; height: 14rem; min-height: 0; padding: 0.85rem; font-family: var(--font); font-size: 0.84rem; line-height: 1.6; resize: none; background: var(--bg); }
-  body.local .import-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 0.55rem; font-size: 0.78rem; color: var(--text-dim); line-height: 1.5; }
+  body.local div.import-actions { display: flex; align-items: center; justify-content: space-between; gap: 1rem; font-size: 0.78rem; color: var(--text-dim); line-height: 1.5; }
   .import-actions .link-btn { font-size: inherit; }
   body.local .input-help { position: static; flex: none; margin: 0; padding: 0 0 0 2rem; max-height: none; overflow: visible; border: 0; border-left: 1px solid var(--border); font-size: 0.78rem; }
   .input-help h3 { margin: 0; color: var(--text-dim); font-size: 0.8rem; font-weight: 600; line-height: 1.5; }
@@ -1594,8 +1594,6 @@
   .schedule-workspace-footer { flex: none; padding: 0.8rem 1.2rem; border-top: 1px solid var(--border); }
   .schedule-workspace-footer #input-alert-slot { max-height: 8rem; overflow-y: auto; }
   .schedule-workspace-footer #input-alert-slot:empty { display: none; }
-  .schedule-footer-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 1.3rem; font-size: 0.76rem; color: var(--text-dim); }
-  .schedule-source-note { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .bar-reset { flex: none; }
   .bar-reset #reset-btn { border: 0; background: transparent; padding: 0; height: auto; font-size: 0.76rem; color: var(--text-dim); }
   .bar-reset #reset-btn:hover { color: var(--text); }
@@ -2306,8 +2304,8 @@
   body.local :is(.bar-btn, .lock-toggle, .btn-ghost, a.btn-ghost) { min-height: 30px; font-size: 0.78rem; }
   body.local .bar-reset #reset-btn { min-height: 0; }
   body.local #app-workspace > .schedule-workspace-footer { min-height: 48px; background: var(--surface); }
-  body.local:not([data-screen="work"]) .schedule-workspace-footer :is(#input-alert-slot, .schedule-source-note, .bar-reset),
-  body.local[data-view="runs"] .schedule-workspace-footer :is(#input-alert-slot, .schedule-source-note, .bar-reset) { display: none; }
+  body.local:not([data-screen="work"]) .schedule-workspace-footer #input-alert-slot,
+  body.local[data-view="runs"] .schedule-workspace-footer #input-alert-slot { display: none; }
   body.local :is(.games-search, .bar-field input) { height: 34px; border-radius: var(--control-radius); }
   @media (max-width: 720px) {
     body.local { --workspace-inset: 1rem; }
@@ -2471,7 +2469,9 @@
   body.local .schedule-preview-head .bar-btn { height: 26px; min-width: 0; }
   body.local #app-workspace > .schedule-workspace-footer { min-height: 32px; padding: 6px 20px; background: var(--chrome); }
   body.local .bar-reset #reset-btn { min-height: 0; padding: 0; background: transparent; border: 0; box-shadow: none; font-size: 11px; }
-  body.local .schedule-footer-row { font-size: 11px; }
+  body.local .import-actions #reset-btn { font-size: inherit; }
+  /* The bar under Schedule only shows an import error. */
+  body.local #app-workspace > .schedule-workspace-footer:has(#input-alert-slot:empty),
   body.local:not([data-screen="work"]) #app-workspace > .schedule-workspace-footer,
   body.local[data-view="runs"] #app-workspace > .schedule-workspace-footer { display: none; }
   body.local .to-top { position: absolute; bottom: 16px; right: 20px; border-radius: 6px; }

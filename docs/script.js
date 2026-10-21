@@ -1069,8 +1069,6 @@
     else byId("schedule-tab-preview").setAttribute("data-tip", "Appears once achievements are imported");
     if (imported) setSchedulePanel("preview", byId("schedule-workspace").contains(document.activeElement));
     else if (!ok && schedulePanel === "preview") setSchedulePanel("import");
-    var source = els.copiedFrom.value.trim();
-    byId("schedule-source-note").textContent = source ? "Achievements from " + source : "";
     if (els.exportText.value.trim() && latest && !latest.pending && !latest.inputNotice &&
         (!els.appid.value || !els.gameName.value.trim())) {
       setSchedulePanel("details");
@@ -2775,7 +2773,9 @@
     els.copiedFrom.placeholder = "optional";
     bar.querySelector('[data-slot="reset"]').appendChild(els.resetBtn);
     byId("schedule-workspace-footer").prepend(els.inputAlertSlot);
-    document.querySelector(".schedule-footer-row").appendChild(bar.querySelector('[data-slot="reset"]'));
+    // Reset sits at the end of the import's last line; the bar below is
+    // only for import errors.
+    document.querySelector(".import-actions").appendChild(bar.querySelector('[data-slot="reset"]'));
     els.resetBtn.style.width = "";
     byId("bar-options").querySelector('[data-slot="settings-form"]').prepend(document.querySelector(".settings-form"));
     // Short labels, with the unit beside each box.
