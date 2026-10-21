@@ -2589,7 +2589,7 @@
 
   /* Keep awake's Test: an icon at the end of its row; it pulses while testing. */
   body.local .awake-row { display: flex; align-items: center; }
-  body.local #awake-check.icon-test { margin-left: auto; width: 28px; padding: 0; justify-content: center; }
+  body.local #awake-check.icon-test { display: inline-flex; align-items: center; justify-content: center; margin-left: auto; width: 28px; height: 28px; padding: 0; }
   body.local #awake-check svg { width: 15px; height: 15px; }
   @keyframes test-pulse { 50% { opacity: 0.35; } }
   body.local #awake-check[aria-busy="true"] svg { animation: test-pulse 0.9s ease-in-out infinite; }
