@@ -153,6 +153,7 @@ In the app, **Settings** has the keep-awake and update switches and **Advanced r
 | `jitter_min_delay` | `60` | Only delays longer than this many seconds get randomness. Shorter ones are kept exact. |
 | `jitter_percent` | `10` | How far a delay can move, in either direction, as a percentage of itself (0–100). With the defaults, a 10-minute delay becomes anywhere from 9 to 11 minutes. |
 | `keep_awake` | `true` | Keeps the computer from sleeping while a run waits or plays. |
+| `break_wait` | `"6h"` | How long before a break ends **Continue** can start a session; the run then waits out the rest of the break without touching Steam: `"off"` (only once it's playable), `"1h"`, `"3h"`, `"6h"`, `"12h"` or `"24h"`. Set it in Settings → Run settings. |
 | `show_finished` | `false` | Lists finished games in the app's Runs (at the bottom). |
 | `steam_api_key` | `null` | A [Steam Web API key](https://steamcommunity.com/dev/apikey), so the app's **Library** covers every game you play, not just the games in STAR. Set it in Settings → Library. |
 | `clock` | `"system"` | How the app writes times: `"12h"` (2:30 PM) or `"24h"` (14:30). Until one's set (`"system"`), the usual one for the computer's language. Set it in Settings → Clock. |
