@@ -2973,16 +2973,16 @@
     return (function (s) {
       var info = RUN_SETTINGS[s.key], id = "set-" + s.key;
       // ↺ puts one setting back to its default (shown while editing, when
-      // it differs).
+      // it differs), after the box so the box stays put.
       var reset = '<button class="setting-reset" type="button" data-reset="' + s.key + '" title="Set to default (' +
         (typeof s.default === "boolean" ? (s.default ? "on" : "off") : s.default) + ')" aria-label="Set to default">↺</button>';
       if (typeof s.default === "boolean") {
         return '<div class="setting-row"><label class="setting-check" title="' + escapeHtml(info[1]) + '"><input type="checkbox" id="' + id +
           '" data-key="' + s.key + '"' + (s.value ? " checked" : "") + "> " + escapeHtml(info[0]) + "</label>" + reset + "</div>";
       }
-      return '<div class="setting-row"><label for="' + id + '">' + escapeHtml(info[0]) + '</label><span>' + reset + '<input type="number" id="' + id +
+      return '<div class="setting-row"><label for="' + id + '">' + escapeHtml(info[0]) + '</label><span><input type="number" id="' + id +
         '" data-key="' + s.key + '" min="' + (info[2] || 0) + '"' + (info[3] != null ? ' max="' + info[3] + '"' : "") +
-        ' step="1" value="' + s.value + '"><span class="setting-unit">' + escapeHtml(info[1]) + "</span></span></div>";
+        ' step="1" value="' + s.value + '"><span class="setting-unit">' + escapeHtml(info[1]) + "</span>" + reset + "</span></div>";
     })(s);
   }
 
