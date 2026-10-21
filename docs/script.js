@@ -1848,9 +1848,11 @@
     if (g.session) {
       part(g.state === "in_session" ? "Playing session" : "Session", g.session + " of " + g.sessions +
         (g.running ? ' <span class="summary-note">· ' + (g.stop_after ? "this one only" : "all sessions") + "</span>" : ""));
-      // While it plays, how long it has left; otherwise how long it lasts.
+      // While it plays, how long it has left; otherwise how long it lasts
+      // (a stopped one's wait for its next unlock is part of it).
       var size = g.count + " achievement" + (g.count === 1 ? "" : "s") + " · " +
-        (g.state === "in_session" && g.session_left != null ? fmtDur(left(g.session_left)) + " left" : sessionDuration(g.duration));
+        (g.state === "in_session" && g.session_left != null ? fmtDur(left(g.session_left)) + " left"
+          : sessionDuration(cut ? Math.round(g.duration + left(g.ready_in || 0)) : g.duration));
       // Stopped partway: what's left of it, in yellow, why on hover.
       part("This session", cut ? '<span class="warn" data-tip="Session ' + g.session + " stopped after " + cut.played + " of its " + cut.of +
         ' achievements; Continue picks up here">' + size + "</span>" : size);
@@ -1859,7 +1861,8 @@
     if (g.state === "in_session") {
       part("Next unlock", g.next_unlock_in == null ? "Now" : "In " + fmtDur(left(g.next_unlock_in)));
     } else if (g.session) {
-      var wait = waitLeft(g);
+      // A stopped session carries on whenever, so it's playable now.
+      var wait = cut ? 0 : waitLeft(g);
       part(g.running ? "Starts" : "Playable", wait > 0 ? escapeHtml(fmtAt(wait)) : g.running ? "Starting…" : "Now");
     }
     parts[parts.length - 1] = parts[parts.length - 1].replace(/<\/div>$/, more + "</div>");
