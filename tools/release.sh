@@ -37,6 +37,7 @@ while [ $# -gt 0 ]; do
 done
 
 # ---- Checks: nothing is changed unless they all pass ------------------------
+"$ROOT/tools/no-session.sh" || exit 1
 [ "$(git branch --show-current)" = dev ] || fail "Run this on dev."
 [ -z "$(git status --porcelain)" ] || fail "Commit or stash your changes first."
 say "Fetching"
@@ -152,6 +153,11 @@ fi
 # ---- Install it here --------------------------------------------------------
 if [ "$INSTALL" -eq 0 ]; then
     note "Install it with Check for Updates, or run this again without --no-install."
+    exit 0
+fi
+# A run may have started during the build; STAR updates itself after it.
+if ! "$ROOT/tools/no-session.sh"; then
+    note "Not installing now; STAR installs $TAG by itself once no game is in a session."
     exit 0
 fi
 say "Installing $TAG on this computer"
