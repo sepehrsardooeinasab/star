@@ -1855,7 +1855,7 @@
       part("This session", cut ? '<span class="warn" data-tip="Session ' + g.session + " stopped after " + cut.played + " of its " + cut.of +
         ' achievements; Continue picks up here">' + size + "</span>" : size);
     }
-    if (g.total) part("Unlocked", g.done + " / " + g.total);
+    if (g.total) part("Unlocked", g.done + " of " + g.total + " scheduled");
     if (g.state === "in_session") {
       part("Next unlock", g.next_unlock_in == null ? "Now" : "In " + fmtDur(left(g.next_unlock_in)));
     } else if (g.session) {
