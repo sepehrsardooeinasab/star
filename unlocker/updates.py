@@ -22,7 +22,7 @@ from unlocker.state import JSONS_DIR
 
 # The release this code is. Bump it along with the app's version in
 # app/src-tauri/tauri.conf.json and Cargo.toml (release v3.01 is 3.0.1).
-RELEASE = "v3.25"
+RELEASE = "v3.26"
 REPO = "sepehrsardooeinasab/star"
 LATEST_URL = f"https://api.github.com/repos/{REPO}/releases/latest"
 INSTALL_URL = f"https://raw.githubusercontent.com/{REPO}/main/install.sh"
