@@ -2521,7 +2521,9 @@
   @media (prefers-reduced-motion: reduce) { body.local .swap-in { animation: none; } }
   @media (max-width: 1100px) { body.local .workspace-actions .unlocks-when { display: none; } }
   /* Narrower: the sections and action on top, the section's tabs under. */
-  @media (max-width: 1000px) {
+  /* One row down to where the sections, the widest middle tabs (Settings')
+     and the actions stop fitting side by side; two rows below that. */
+  @media (max-width: 900px) {
     body.local .workspace-toolbar { height: 84px; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: 28px 28px; align-content: center; row-gap: 8px; }
     body.local .workspace-navigation { grid-column: 1 / -1; grid-row: 2; }
     body.local .workspace-actions { grid-column: 2; grid-row: 1; }
