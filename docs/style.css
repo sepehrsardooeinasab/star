@@ -439,7 +439,7 @@
   /* The start screen's buttons, a size smaller. */
   .page-actions .btn-hero { padding: 0 1.2rem; height: 2.5rem; font-size: 0.78rem; justify-content: center; }
   .page-actions .btn-hero:disabled { opacity: 0.4; cursor: not-allowed; }
-  .page-actions .pa-schedule .btn-ghost { height: 2.5rem; padding: 0 1rem; font-size: 0.8rem; }
+  .page-actions .pa-schedule .btn-ghost { height: 2.5rem; padding: 0 1rem; font-size: var(--fs-body); }
   /* Red (Save with a warning, …): over the primary's gradient border too. */
   :is(button, summary).btn-hero.btn-danger {
     color: var(--danger);
@@ -1033,12 +1033,12 @@
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 0.5rem;
-    font-size: 0.76rem;
+    gap: var(--space-s);
+    font-size: var(--fs-small);
     color: var(--text-dim);
   }
   .timeline-bar > span { flex: 1; min-width: 0; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .timeline-bar button { padding: 0.25rem 0.75rem; font-size: 0.76rem; }
+  .timeline-bar button { padding: 0.25rem 0.75rem; font-size: var(--fs-small); }
   .timeline-bar .primary-ghost { border-color: var(--accent); color: var(--accent); }
   td.delay-cell.run-editable { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
   td.delay-cell.run-editable:hover { color: var(--accent); }
@@ -1144,10 +1144,10 @@
     margin: 0;
     background: var(--surface-2);
     border: 1px solid var(--border);
-    border-radius: 7px;
+    border-radius: var(--radius-control);
     padding: 0.9rem 1rem;
     font-family: var(--mono);
-    font-size: 0.78rem;
+    font-size: var(--fs-small);
     line-height: 1.55;
     overflow: auto;
     flex: 1;
@@ -1169,7 +1169,7 @@
     width: 100%;
     border-collapse: collapse;
     font-family: var(--mono);
-    font-size: 0.76rem;
+    font-size: var(--fs-small);
     color: var(--text);
   }
   table.csv-table th {
@@ -1580,32 +1580,32 @@
   .schedule-workspace [hidden] { display: none !important; }
   body.local .schedule-workspace-head { display: none; }
   .schedule-tabs { max-width: 100%; }
-  .schedule-tabs button { padding: 0.35rem 0.9rem; font-size: 0.8rem; white-space: nowrap; }
+  .schedule-tabs button { padding: 0.35rem 0.9rem; font-size: var(--fs-body); white-space: nowrap; }
   .schedule-tabs button[aria-selected="true"] { background: var(--accent-tint); color: var(--accent); }
   .schedule-tabs button:disabled { opacity: 0.4; cursor: default; }
   .schedule-panels { flex: 1; display: flex; min-height: 0; overflow: hidden; }
   .schedule-panel { flex: 1; min-width: 0; min-height: 0; padding: var(--workspace-inset); overflow-y: auto; }
   .schedule-panel-intro, .schedule-details-body, .schedule-options-body, .schedule-options-lock { width: 100%; max-width: 32rem; margin-left: auto; margin-right: auto; }
-  .schedule-panel-intro h2, .import-intro h2 { margin: 0; font-size: 1.15rem; line-height: 1.4; font-weight: 600; color: var(--text); }
-  .schedule-panel-intro p, .import-intro p { margin: 0.4rem 0 0; color: var(--text-dim); font-size: 0.82rem; line-height: 1.5; }
+  .schedule-panel-intro h2, .import-intro h2 { margin: 0; font-size: var(--fs-title); line-height: 1.4; font-weight: 600; color: var(--text); }
+  .schedule-panel-intro p, .import-intro p { margin: var(--space-s) 0 0; color: var(--text-dim); font-size: var(--fs-body); line-height: 1.5; }
   body.local .schedule-source { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 2rem; align-content: start; }
-  body.local #schedule-import { display: flex; flex-direction: column; min-width: 0; gap: 1rem; margin: 0; }
+  body.local #schedule-import { display: flex; flex-direction: column; min-width: 0; gap: var(--space-l); margin: 0; }
   body.local .import-intro { display: block; }
   body.local #export-text { flex: none; width: 100%; height: 14rem; min-height: 0; padding: 0.85rem; font-family: var(--font); font-size: 0.84rem; line-height: 1.6; resize: none; background: var(--bg); }
-  body.local div.import-actions { display: flex; align-items: center; justify-content: space-between; gap: 1rem; font-size: 0.78rem; color: var(--text-dim); line-height: 1.5; }
+  body.local div.import-actions { display: flex; align-items: center; justify-content: space-between; gap: var(--space-l); font-size: var(--fs-small); color: var(--text-dim); line-height: 1.5; }
   .import-actions .link-btn { font-size: inherit; }
   body.local .input-help { position: static; flex: none; margin: 0; padding: 0 0 0 2rem; max-height: none; overflow: visible; border: 0; border-left: 1px solid var(--border); font-size: 0.78rem; }
   .input-help h3 { margin: 0; color: var(--text-dim); font-size: 0.8rem; font-weight: 600; line-height: 1.5; }
-  .import-help-body { padding-top: 0.8rem; line-height: 1.6; }
+  .import-help-body { padding-top: var(--space-m); line-height: 1.6; }
   body.local .input-help .help-url { font-size: 0.7rem; }
-  .schedule-details-body { display: flex; flex-direction: column; gap: 1rem; padding-top: 1.4rem; }
-  .bar-field { display: flex; flex-direction: column; align-items: stretch; gap: 0.4rem; margin: 0; font-family: var(--font); font-size: 0.8rem; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--text-dim); }
-  .bar-field input { width: 100%; min-width: 0; height: 34px; padding: 0 0.65rem; font-size: 0.84rem; }
+  .schedule-details-body { display: flex; flex-direction: column; gap: var(--space-l); padding-top: 1.4rem; }
+  .bar-field { display: flex; flex-direction: column; align-items: stretch; gap: var(--space-s); margin: 0; font-family: var(--font); font-size: var(--fs-body); font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--text-dim); }
+  .bar-field input { width: 100%; min-width: 0; height: 34px; padding: 0 0.65rem; font-size: var(--fs-body); }
   .schedule-details input[readonly] { color: var(--text-dim); cursor: default; }
-  .schedule-options-lock { color: var(--warn); font-size: 0.8rem; line-height: 1.5; }
+  .schedule-options-lock { color: var(--warn); font-size: var(--fs-body); line-height: 1.5; }
   .schedule-options-body input:disabled { opacity: 0.55; }
   body.local .schedule-preview { display: flex; flex-direction: column; overflow: hidden; }
-  .schedule-preview-head { display: flex; align-items: center; gap: 0.6rem; min-height: 28px; }
+  .schedule-preview-head { display: flex; align-items: center; gap: var(--space-s); min-height: 28px; }
   .schedule-workspace-footer { flex: none; padding: 0.8rem 1.2rem; border-top: 1px solid var(--border); }
   .schedule-workspace-footer #input-alert-slot { max-height: 8rem; overflow-y: auto; }
   .schedule-workspace-footer #input-alert-slot:empty { display: none; }
@@ -1660,22 +1660,22 @@
   .details-list dt { color: var(--text-dim); }
   .details-list dd { margin: 0; color: var(--text); font-variant-numeric: tabular-nums; }
   .schedule-options-body { padding-top: 1.4rem; }
-  .schedule-options-body .settings-form { display: flex; flex-direction: column; gap: 1rem; }
+  .schedule-options-body .settings-form { display: flex; flex-direction: column; gap: var(--space-l); }
   .schedule-options-body .row2 { display: contents; }
   .schedule-options-body .field { position: relative; margin: 0; }
   .schedule-options-body .field:not(:has(input)) { display: none; }
-  .schedule-options-body label { font-family: var(--font); font-size: 0.76rem; font-weight: 500; letter-spacing: 0; text-transform: none; }
-  .schedule-options-body input { width: 100%; height: 34px; padding-right: 4rem; font-size: 0.82rem; }
-  .bar-unit { position: absolute; right: 0.6rem; bottom: 0; height: 34px; display: flex; align-items: center; font-size: 0.76rem; color: var(--text-dim); pointer-events: none; }
+  .schedule-options-body label { font-family: var(--font); font-size: var(--fs-small); font-weight: 500; letter-spacing: 0; text-transform: none; }
+  .schedule-options-body input { width: 100%; height: 34px; padding-right: 4rem; font-size: var(--fs-body); }
+  .bar-unit { position: absolute; right: 0.6rem; bottom: 0; height: 34px; display: flex; align-items: center; font-size: var(--fs-small); color: var(--text-dim); pointer-events: none; }
   .schedule-options-body input[type="number"]::-webkit-inner-spin-button { display: none; }
 
   .paste-summary { display: none; }
-  body.local .paste-summary { display: block; margin-bottom: 0.9rem; }
+  body.local .paste-summary { display: block; margin-bottom: var(--space-m); }
   .paste-summary-stats { min-width: 0; }
   .paste-summary .summary-bar { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .paste-summary .summary-part:last-child { padding-right: 0.8rem; }
   .schedule-preview-head .bar-btn { height: 28px; min-width: 7rem; }
-  body.local #csv-slot { position: relative; min-height: 0; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+  body.local #csv-slot { position: relative; min-height: 0; border: 1px solid var(--border); border-radius: var(--radius-control); overflow: hidden; }
   body.local #csv-slot > .table-wrap { border: 0; border-radius: 0; }
   body.local #csv-slot > .notices-below:not(:empty) { padding: 0 0.75rem 0.75rem; overflow-y: auto; flex: 0 1 auto; }
   :root[data-theme="light"] .schedule-preview .summary-bar { background: #fbfbfb; border-color: var(--border-strong); }
@@ -1692,7 +1692,7 @@
   .run-activity { display: flex; margin-top: var(--space-m); flex: 0 1 auto; min-height: 0; flex-direction: column; }
   .runs-log:not(.full) .runs-timeline .empty-hint { margin: 0; padding: 0.7rem 0 0.2rem; flex-direction: row; gap: var(--space-s); font-size: var(--fs-body); justify-content: flex-start; text-align: left; }
   /* The app's full timeline: the normal font, times written for people. */
-  table.csv-table.pretty td, table.csv-table.pretty th { font-family: var(--font); font-size: 0.82rem; }
+  table.csv-table.pretty td, table.csv-table.pretty th { font-family: var(--font); font-size: var(--fs-body); }
   table.csv-table.pretty tr.session-row td { font-weight: 600; }
   table.csv-table.pretty tr.gap-row td { font-style: normal; }
   /* Durations on the left, like the sessions table's. */
@@ -1701,7 +1701,7 @@
      its height) keep it out of the line's height, so in any font the row
      is as tall as one without it. */
   table.csv-table.pretty .undo-edit { display: inline-grid; place-items: center; box-sizing: border-box; vertical-align: middle;
-    width: 1rem; height: 1rem; padding: 0; margin: -0.5rem 0 -0.5rem 0.45rem; font-size: 0.72rem; font-weight: 400; line-height: 1; }
+    width: 1rem; height: 1rem; padding: 0; margin: -0.5rem 0 -0.5rem 0.45rem; font-size: var(--fs-caption); font-weight: 400; line-height: 1; }
   /* Numbers take a fixed width, so the + buttons after them line up. */
   table.csv-table.pretty .row-num { display: inline-block; min-width: 1.6em; }
   table.csv-table.pretty td:first-child { color: var(--text-dim); width: 4.5rem; white-space: nowrap; }
@@ -1860,7 +1860,7 @@
   /* Runs' small icon, opening the game in Library. */
   .game-run-small, .game-run-small .game-run-play { border-radius: var(--radius-control); }
   .game-run-small .game-run-play svg { width: 15px; height: 15px; }
-  .game-title { font-size: 1.15rem; font-weight: 600; color: var(--text); }
+  .game-title { font-size: var(--fs-title); font-weight: 600; color: var(--text); }
   .game-head .lib-bar { flex-basis: 16rem; }
   /* One game: the count and percentage together, after the bar, clear
      over the banner's art. */
@@ -2454,10 +2454,10 @@
   body.local :is(input, textarea):focus { box-shadow: 0 0 0 3px var(--accent-tint); }
   body.local input[type="checkbox"] { accent-color: var(--accent); }
   body.local .filters-title { font-size: var(--fs-caption); letter-spacing: 0; text-transform: none; }
-  body.local :is(.schedule-panel-intro h2, .import-intro h2, .game-title) { font-size: 17px; }
+  body.local :is(.schedule-panel-intro h2, .import-intro h2, .game-title) { font-size: var(--fs-title); }
   body.local #app-workspace .setup-step { border-color: var(--border); border-radius: var(--radius-card); }
   body.local .step-head b { font-size: 13px; color: var(--text); }
-  body.local #schedule-details .schedule-details-body, body.local .schedule-options-body .settings-form { gap: 0; padding: 4px 16px; margin-top: 16px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; }
+  body.local #schedule-details .schedule-details-body, body.local .schedule-options-body .settings-form { gap: 0; padding: 4px 16px; margin-top: 16px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-card); }
   body.local .schedule-options-body { padding-top: 0; }
   body.local .schedule-details-body .bar-field, body.local .schedule-options-body .field:has(input) { display: grid; grid-template-columns: minmax(10rem, 1fr) minmax(0, 1.35fr); align-items: center; column-gap: 20px; min-height: 58px; margin: 0; }
   body.local .schedule-details-body .bar-field + .bar-field, body.local .schedule-options-body .field:has(input) + .field:has(input) { border-top: 1px solid var(--border); }
@@ -2466,7 +2466,7 @@
   body.local .schedule-options-body label { margin: 0; }
   body.local .schedule-options-body .row2 + .row2 .field:has(input) { border-top: 1px solid var(--border); }
   body.local .schedule-options-body .field:has(#gap-limit) { border-top: 0; }
-  body.local .bar-unit { height: 58px; right: 8px; font-size: 12px; }
+  body.local .bar-unit { height: 58px; right: 8px; font-size: var(--fs-small); }
   body.local .schedule-source { width: 100%; }
   body.local #export-text { height: 16rem; background: var(--field-surface); }
   body.local .input-help { padding-left: 24px; }
@@ -2493,8 +2493,8 @@
   body.local .run-summary-title { font-size: var(--fs-title); }
   body.local .summary-bar { background: var(--surface-2); border-color: var(--border); }
   body.local .summary-value { font-size: var(--fs-body); }
-  body.local table.csv-table th { background: var(--surface-2); font-size: 12px; font-weight: 500; }
-  body.local table.csv-table td { font-size: 13px; }
+  body.local table.csv-table th { background: var(--surface-2); font-size: var(--fs-small); font-weight: 500; }
+  body.local table.csv-table td { font-size: var(--fs-body); }
   body.local .sessions-summary tr.next-row td { color: var(--text); }
   body.local .sessions-summary tr.next-row td:first-child { color: var(--accent); }
   body.local .unlocks-group { background: var(--surface-2); border-radius: var(--radius-control); }
@@ -2563,28 +2563,28 @@
 
   /* Schedule's Details: cards and rows like Settings' sections: a title
      and a line in the card, then each field as its label, then the box. */
-  body.local #schedule-details { display: flex; flex-direction: column; gap: 1rem; }
+  body.local #schedule-details { display: flex; flex-direction: column; gap: var(--space-l); }
   body.local :is(.schedule-card, #schedule-details .bar-options) {
-    padding: 1rem 1.1rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px;
+    padding: 1rem 1.1rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-card);
   }
   body.local #schedule-details .bar-options { margin-top: 0; }
   body.local #schedule-details :is(.schedule-panel-intro, .schedule-details-body, .schedule-options-body, .schedule-options-lock) { max-width: none; margin: 0; }
-  body.local #schedule-details .schedule-panel-intro h2 { font-size: 13px; }
-  body.local #schedule-details .schedule-panel-intro p { margin-top: 4px; font-size: 13px; }
+  body.local #schedule-details .schedule-panel-intro h2 { font-size: var(--fs-body); }
+  body.local #schedule-details .schedule-panel-intro p { margin-top: 4px; font-size: var(--fs-body); }
   body.local #schedule-details .schedule-details-body,
   body.local #schedule-details .schedule-options-body .settings-form {
-    display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.9rem; padding: 0.8rem 0 0;
+    display: flex; flex-direction: column; gap: var(--space-s); margin-top: var(--space-m); padding: 0.8rem 0 0;
     background: none; border: 0; border-top: 1px solid var(--border); border-radius: 0;
   }
   body.local #schedule-details :is(.schedule-details-body .bar-field, .schedule-options-body .field:has(input)) {
     display: grid; grid-template-columns: 12rem 18rem; align-items: center; column-gap: 0.5rem;
-    min-height: 0; margin: 0; padding: 0; border: 0; font-size: 13px; color: var(--text-dim);
+    min-height: 0; margin: 0; padding: 0; border: 0; font-size: var(--fs-body); color: var(--text-dim);
   }
   body.local #schedule-details .schedule-options-body .field:has(input) { grid-template-columns: 12rem 4.5rem auto; }
   body.local #schedule-details :is(.schedule-details-body .bar-field, .schedule-options-body .field:has(input)) + * { border-top: 0; }
   body.local #schedule-details :is(.bar-field, .schedule-options-body) input { width: 100%; justify-self: stretch; }
-  body.local #schedule-details .schedule-options-body label { margin: 0; color: var(--text-dim); font-size: 13px; }
-  body.local #schedule-details .bar-unit { position: static; height: auto; font-size: 13px; }
+  body.local #schedule-details .schedule-options-body label { margin: 0; color: var(--text-dim); font-size: var(--fs-body); }
+  body.local #schedule-details .bar-unit { position: static; height: auto; font-size: var(--fs-body); }
 
   /* Settings' tabs: General is every section but the two moved out of
      their folds (Run settings, Library display), each shown on its own. */
