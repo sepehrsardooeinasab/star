@@ -49,7 +49,7 @@ Runs keep going when the window is closed; open the app any time to see where th
 
 ### 3. Settings
 
-**Settings** (⌘,) shows the ArchiSteamFarm and plugin versions with **Check for updates**, the Steam account (**Use another account**), a switch (and a test) for keeping the computer awake, whether finished games are listed in Runs, the **Advanced run settings** (locked until opened), and the data folder (**Show in Finder**). Theme and accent are under the palette button.
+**Settings** (⌘,) shows the ArchiSteamFarm and plugin versions with **Check for updates**, the Steam account (**Use another account**), a switch (and a test) for keeping the computer awake, whether finished games are listed in Runs, the **Advanced run settings**, and the data folder (**Show in Finder**). Theme and accent are under the palette button.
 
 ArchiSteamFarm and the plugin are pinned to versions known to work together, and ASF's own auto-update is off so it can't drift from the plugin. **Check for updates** offers the newest ASF in the series the latest plugin is built for; newer series need a new plugin first. Updates are swapped in between sessions, never during one.
 

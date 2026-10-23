@@ -2952,7 +2952,9 @@
     run_logs_kept: ["Keep in each game's log its last", "runs", 1, 100]
   };
   var runSettings = null;  // [{key, value, default}] as saved
-  var editingSettings = false;  // locked until Edit
+  // The form differs from what's saved (or has a number that isn't valid):
+  // kept as is when the settings are read again.
+  var settingsChanged = false;
 
   function loadRunSettings() {
     runSettings = [];
@@ -3025,9 +3027,9 @@
   function syncRunSettings() {
     var values = runSettingsForm();
     var changed = !!values && (runSettings || []).some(function (s) { return s.key in values && values[s.key] !== s.value; });
+    settingsChanged = !values || changed;
     var form = byId("run-settings");
-    form.classList.toggle("locked", !editingSettings);
-    form.querySelectorAll("[data-key]").forEach(function (el) { el.disabled = !editingSettings; });
+    form.querySelectorAll("[data-key]").forEach(function (el) { el.disabled = false; });
     form.querySelectorAll("select").forEach(function (el) { el.nextElementSibling.hidden = el.value === "off"; });
     var jitter = byId("set-jitter_enabled");
     ["set-jitter_percent", "set-jitter_min_delay"].forEach(function (id) {
@@ -3035,19 +3037,16 @@
     });
     (runSettings || []).forEach(function (s) {
       var button = form.querySelector('[data-reset="' + s.key + '"]');
-      if (button) button.hidden = !editingSettings || !values || values[s.key] === s.default;
+      if (button) button.hidden = !values || values[s.key] === s.default;
     });
-    var lock = byId("run-settings-lock");
-    lock.setAttribute("aria-pressed", String(editingSettings));
-    lock.setAttribute("data-tip", editingSettings ? "Cancel editing: changes you haven't saved are discarded" : "Edit advanced run settings");
-    byId("run-settings-lock-label").textContent = editingSettings ? "Cancel editing" : "Edit settings";
-    byId("run-settings-save").hidden = !editingSettings || !changed;
+    // Apply, the bar's only button: the bar takes no room until there's something to apply.
+    byId("run-settings-save").hidden = !changed;
+    byId("run-settings-save").closest(".run-settings-top").hidden = !changed;
   }
 
   function saveRunSettings(values) {
     api("/api/settings", {settings: values}).then(function (d) {
       runSettings = d.settings;
-      editingSettings = false;
       renderRunSettings();
       showToast("Applied. Runs started from now on use these.");
     }).catch(function (err) { showToast("Couldn't save: " + err.message); });
@@ -3058,12 +3057,6 @@
   byId("run-settings-save").addEventListener("click", function () {
     var values = runSettingsForm();
     if (values) saveRunSettings(values);
-  });
-  // The lock: open to change the settings; closing it again drops
-  // anything not saved.
-  byId("run-settings-lock").addEventListener("click", function () {
-    editingSettings = !editingSettings;
-    if (editingSettings) syncRunSettings(); else renderRunSettings();
   });
   // ↺ puts a default in the form; Apply keeps it.
   function setToDefault(s) {
@@ -3175,7 +3168,7 @@
     select.disabled = true;
     api("/api/settings", {settings: {clock: select.value}}).then(function (d) {
       runSettings = d.settings;
-      if (!editingSettings) renderRunSettings();
+      if (!settingsChanged) renderRunSettings();
     }).catch(function (err) { showToast("Couldn't save: " + err.message); })
       .then(function () { select.disabled = false; syncToggles(); });
   });
@@ -3187,7 +3180,7 @@
       api("/api/settings", {settings: values}).then(function (d) {
         // Keep the run settings form as is while it's being edited.
         runSettings = d.settings;
-        if (!editingSettings) renderRunSettings();
+        if (!settingsChanged) renderRunSettings();
       }).catch(function (err) { showToast("Couldn't save: " + err.message); })
         .then(syncToggles);
     });
