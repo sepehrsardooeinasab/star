@@ -3727,7 +3727,8 @@
       swapIn(byId("unlocks-screen"));
       scrollLibraryTop();
     }
-    api("/api/unlocks/game?appid=" + encodeURIComponent(appid)).then(function (p) {
+    // Opened (not reloaded): the server asks Steam whether it's Private.
+    api("/api/unlocks/game?appid=" + encodeURIComponent(appid) + (quiet ? "" : "&check=1")).then(function (p) {
       if (gamePageFor === appid) { gamePage = p; renderGamePage(); changeSeen(p); showAchFocus(); }
     }).catch(function (e) {
       if (gamePageFor === appid && !quiet) { gamePage = {error: e}; renderGamePage(); }

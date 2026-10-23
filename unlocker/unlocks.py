@@ -29,7 +29,7 @@ Games marked Private in Steam are marked. With a key, the Web API is
 asked about every owned game once a day (PRIVACY_EVERY) and on Force
 refresh (⌥-click Refresh), not on a plain Refresh, so a game made Private
 or public again anywhere (another computer, the website) shows by the
-next day. Without one, the Steam client's own
+next day; opening a game's page asks about that game alone. Without one, the Steam client's own
 files on this computer are read, when Steam is installed here. Games
 no longer in the library (refunded, removed) are left out, their
 unlocks kept in case they come back.
@@ -63,6 +63,8 @@ CHECK_EVERY = {"1h": 1, "3h": 3, "6h": 6, "12h": 12, "24h": 24, "manual": None}
 LIVE_FOR = 86400   # a game played this recently may still be unlocking…
 LIVE_EVERY = 1800  # …so it's read again this often (or on refresh)
 PRIVACY_EVERY = 86400  # every owned game's privacy is asked this often
+PAGE_PRIVACY_EVERY = 600  # and one game's, when its page opens, at most this often
+_page_privacy = {}  # appid -> when its page last asked
 KEY_RE = re.compile(r"[0-9A-Fa-f]{32}")
 # What a saved game was read with; one read with less (older STAR) is
 # read again once. 2: counts unlocks Steam keeps no time for; 3: keeps
@@ -626,15 +628,27 @@ def change_achievements(appid, unlock, lock):
     return {**done, "game": game_page(appid)}
 
 
-def game_page(appid):
+def game_page(appid, check=False):
     """One game's own page, from what's saved: its achievements (unlocked
     newest first, then those without a time, then locked), its progress,
-    and the STAR schedule for it if there is one."""
+    and the STAR schedule for it if there is one. With check (the page
+    just opened), Steam is first asked whether the game is Private, at
+    most every PAGE_PRIVACY_EVERY, and not while a check is running (its
+    save would undo the answer)."""
     sid = steamid()
     try:
         appid = int(appid)
     except (TypeError, ValueError):
         raise Problem("No such game", "Pick a game from the list.")
+    key = _key()
+    if check and key and sid and not SYNC["running"] and time.time() - _page_privacy.get(appid, 0) >= PAGE_PRIVACY_EVERY:
+        _page_privacy[appid] = time.time()
+        answer = _private(key, sid, appid)
+        if answer is not None:
+            with _lock:
+                store = _load_store(sid)
+                _apply_privacy(store, {appid: answer})
+                _save_store(store)
     store = _load_store(sid) if sid else {"games": {}, "steamid": sid}
     saved = store["games"].get(str(appid), {})
     owned = next((g for g in store.get("owned") or [] if g["appid"] == appid), {})
