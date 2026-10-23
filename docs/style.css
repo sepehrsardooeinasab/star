@@ -2598,10 +2598,18 @@
   body.local .schedule-source { box-sizing: border-box; height: 100%; align-content: stretch; grid-template-rows: minmax(0, 1fr);
     row-gap: var(--space-l); column-gap: 3rem;
     background-image: linear-gradient(var(--border), var(--border)); background-repeat: no-repeat; background-position: center top; background-size: 1px 100%; }
-  @media (max-width: 720px) {
-    body.local .schedule-source { grid-template-rows: none; background-image: none; }
+  /* Too narrow for side by side: one column, the import first, then the
+     status (or help) and the cards, the tab scrolling as a whole so nothing
+     is cut within a card. (Short but wide, it stays side by side, the right
+     side scrolling.) */
+  @media (max-width: 900px) {
+    body.local .schedule-source { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-auto-rows: max-content; gap: var(--space-l); background-image: none; }
     body.local :is(#schedule-import, .schedule-right) { grid-column: auto; grid-row: auto; }
     body.local .schedule-right { overflow: visible; }
+    body.local .schedule-side, body.local .schedule-side:has(> .import-status:not([hidden])) { flex: none; min-height: 0; overflow: visible; }
+    body.local #export-text { flex: none; height: 14rem; }
+    body.local .import-status-ok .import-sessions { flex: none; container-type: normal; }
+    body.local .import-sessions .table-wrap { height: auto; max-height: 20rem; }
   }
   body.local #schedule-import { min-height: 0; }
   body.local #export-text { flex: 1 1 auto; height: auto; min-height: 10rem; }
