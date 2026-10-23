@@ -1614,9 +1614,14 @@
   body.local .schedule-source .import-intro .bar-reset { grid-column: 2; grid-row: 1; }
   body.local .schedule-source .import-intro p { grid-column: 1 / -1; grid-row: 2; }
   body.local .schedule-cards { flex: none; display: flex; flex-direction: column; gap: var(--space-l); min-width: 0; }
-  /* The help or status takes the room above the cards, at least 16rem (in
-     a short window the right side scrolls); what doesn't fit scrolls within it. */
-  body.local .schedule-side { flex: 1 0 16rem; display: flex; flex-direction: column; gap: var(--space-l); min-width: 0; min-height: 16rem; overflow-y: auto;
+  /* The help or status takes the room the cards below leave, so they're
+     whole. The help scrolls within it (at least 8rem). The status never
+     scrolls itself: it's at least its notice or the game and its numbers,
+     and its sessions table takes what's left, scrolling within it or hidden
+     (see .import-sessions). Only when even that doesn't fit does the right
+     side scroll as a whole. */
+  body.local .schedule-side:has(> .import-status:not([hidden])) { overflow: hidden; min-height: min-content; }
+  body.local .schedule-side { flex: 1 1 0; display: flex; flex-direction: column; gap: var(--space-l); min-width: 0; min-height: 8rem; overflow-y: auto;
     padding: var(--pad-card); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-card); }
   body.local .schedule-side .input-help { padding: 0; border: 0; }
   body.local .import-status h3 { margin: 0 0 var(--space-m); color: var(--text); font-size: var(--fs-small); font-weight: 600; line-height: 1.5; }
