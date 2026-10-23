@@ -289,6 +289,8 @@
   /* A run log with nothing in it yet: just a note, greyed, in the app's own
      font (it's a message, not log output). */
   .file-preview.empty { color: var(--text-dim); font-family: var(--font); }
+  /* The empty activity's note in the middle of its box, whatever its height. */
+  #runs-log.empty { display: flex; align-items: center; }
   :root[data-desktop] .file-preview.empty { -webkit-user-select: none; user-select: none; cursor: default; }
   /* The Appearance menu opens below the bar and its colored line. */
   :root[data-desktop] .appearance-menu { top: calc(100% + 16px); }
@@ -1686,7 +1688,10 @@
   .run-info .details-list { margin: 0; }
   /* The current session's rows, then the log filling the rest; Full
      timeline gives the whole space to every session. */
-  .runs-log:not(.full) .runs-timeline { flex: none; max-height: 45%; }
+  /* Short of room, the sessions shrink (scrolling within) before the
+     activity below is cut; the activity keeps room for its two-line hint. */
+  .runs-log:not(.full) .runs-timeline { flex: 0 1 auto; min-height: 0; max-height: 45%; }
+  .run-overview #runs-log, .run-activity #runs-log { min-height: 4.5rem; }
   /* The sessions overview: the session it's on stands out. */
   /* The same type as the full timeline's, so both tables match. */
   table.sessions-summary td, table.sessions-summary th { font-family: var(--font); font-size: var(--fs-body); }
