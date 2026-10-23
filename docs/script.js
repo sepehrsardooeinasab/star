@@ -3881,11 +3881,11 @@
     else {
       if (!p.full) html += noticeHtml("info", "Its locked achievements show after its next read from Steam.");
       html += '<div class="unlocks-bar ach-sort games-sort">' +
+        '<button class="btn-ghost ach-group' + (achGroup === "status" ? " on" : "") + '" type="button" data-ach-group aria-pressed="' +
+        (achGroup === "status") + '" data-tip="Show unlocked and locked achievements in separate lists">Split by status</button>' +
         '<details class="filters-menu sort-menu" id="ach-sort-menu"' + (achSortOpen ? " open" : "") + ">" +
         '<summary class="btn-ghost">' + sortLabel(SORTS.ach, achSort, achOrder) + "</summary>" +
         '<div class="filters-pop">' + SORT_TITLE + sortRowsHtml(SORTS.ach, achSort, achOrder) + "</div></details>" +
-        '<button class="btn-ghost ach-group' + (achGroup === "status" ? " on" : "") + '" type="button" data-ach-group aria-pressed="' +
-        (achGroup === "status") + '" data-tip="Show unlocked and locked achievements in separate lists">Split by status</button>' +
         '<span class="ach-right">' + achApplyHtml() +
         '<button class="lock-toggle ach-lock" type="button" data-ach-lock aria-pressed="' + achEdit + '"' + (achRunning() ? " disabled" : "") +
         ' data-tip="' + (achEdit ? "Discard changes you haven't applied" : "Choose achievements to unlock or lock again") + '">' + LOCK_ICON +
