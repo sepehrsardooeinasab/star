@@ -28,6 +28,8 @@ internet, what's saved is shown.
 Games marked Private in the Steam client are marked: Steam keeps that
 list on the computer, so it's read from the Steam client's own files
 when Steam is installed here (and, with a key, asked of the Web API).
+Games no longer in the library (refunded, removed) are left out, their
+unlocks kept in case they come back.
 """
 import json
 import re
@@ -238,6 +240,16 @@ def private_marks(sid):
     return set()
 
 
+def _shown(store):
+    """Whether a saved game belongs in the lists: with a key, only games
+    still in the library (or in STAR), so a refunded game drops out."""
+    owned = store.get("owned")
+    if not _key() or owned is None:
+        return lambda appid: True
+    keep = {g["appid"] for g in owned} | set(_star_appids())
+    return lambda appid: int(appid) in keep
+
+
 def _star_appids():
     """The games in STAR, finished ones too: {appid: when its progress last
     changed}, so a game is read again only after it played."""
@@ -439,7 +451,7 @@ def set_finished(appid, finished):
     return {"appid": appid, "finished": appid in games}
 
 
-def _games_list(store, key, private):
+def _games_list(store, key, private, shown):
     """Every game, for the Library's Games: the library's (with a key) and
     those read, each with its achievement progress, most recently played
     first."""
@@ -447,7 +459,7 @@ def _games_list(store, key, private):
     owned = {g["appid"]: g for g in (store.get("owned") or [])} if key else {}
     finished = finished_games()
     out = []
-    for appid in set(owned) | {int(a) for a in games}:
+    for appid in set(owned) | {int(a) for a in games if shown(a)}:
         o, saved = owned.get(appid, {}), games.get(str(appid), {})
         unlocks = saved.get("unlocks") or []
         out.append({
@@ -469,10 +481,10 @@ def _games_list(store, key, private):
 
 def _result(store):
     games = store["games"]
-    private = private_marks(store["steamid"])
+    private, shown = private_marks(store["steamid"]), _shown(store)
     unlocks = []
     for appid, g in games.items():
-        if not g.get("unlocks"):
+        if not g.get("unlocks") or not shown(appid):
             continue
         secret = achievements.app_hidden(int(appid)) or {}  # hidden achievements' descriptions
         unlocks += [{**u, "icon": achievements.current_host(u.get("icon")), "appid": int(appid),
@@ -483,7 +495,7 @@ def _result(store):
                     for u in g["unlocks"]]
     unlocks.sort(key=lambda u: u["time"], reverse=True)
     key = bool(_key())
-    return {"unlocks": unlocks[:SHOWN], "games_list": _games_list(store, key, private),
+    return {"unlocks": unlocks[:SHOWN], "games_list": _games_list(store, key, private, shown),
             "has_key": key, "library": store.get("library") if key else None,
             "games": len(games),
             "fetched_at": int(store["checked"]),
