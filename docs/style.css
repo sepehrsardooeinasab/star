@@ -1731,6 +1731,10 @@
   .schedule-preview-head .bar-btn { height: 28px; min-width: 7rem; }
   body.local #csv-slot { position: relative; min-height: 0; border: 1px solid var(--border); border-radius: var(--radius-control); overflow: hidden; }
   body.local #csv-slot > .table-wrap { border: 0; border-radius: 0; }
+  /* The sessions (not the full timeline) are short: the frame fits them and
+     the notices under them, rather than a tall box with a gap in it. */
+  body.local #csv-slot:has(> .table-wrap > table.sessions-summary) { flex: 0 1 auto; }
+  body.local #csv-slot > .table-wrap:has(> table.sessions-summary) { flex: 0 1 auto; min-height: 0; }
   body.local #csv-slot > .notices-below:not(:empty) { padding: 0 0.75rem 0.75rem; overflow-y: auto; flex: 0 1 auto; }
   :root[data-theme="light"] .schedule-preview .summary-bar { background: #fbfbfb; border-color: var(--border-strong); }
 
