@@ -2254,7 +2254,7 @@
     lock.disabled = !!game.running && !runEdit;
     lock.setAttribute("data-tip", game.running ? "Stop the game to change its timeline"
       : runEdit ? "Cancel editing: changes you haven't saved are discarded" : "Edit the delays and breaks still ahead");
-    byId("timeline-lock-label").textContent = runEdit ? "Cancel editing" : "Edit timeline";
+    byId("timeline-lock-label").textContent = runEdit ? "Cancel" : "Edit";
     byId("timeline-save").hidden = !runEdit;
     byId("timeline-save").disabled = !runEdit || JSON.stringify(runEdit.config) === JSON.stringify(runEdit.base);
     byId("timeline-bar-text").textContent = "";  // the lock's tooltip says it
@@ -3889,7 +3889,7 @@
         '<span class="ach-right">' + achApplyHtml() +
         '<button class="lock-toggle ach-lock" type="button" data-ach-lock aria-pressed="' + achEdit + '"' + (achRunning() ? " disabled" : "") +
         ' data-tip="' + (achEdit ? "Discard changes you haven't applied" : "Choose achievements to unlock or lock again") + '">' + LOCK_ICON +
-        "<span>" + (achEdit ? "Cancel editing" : "Edit achievements") + "</span></button></span></div>" +
+        "<span>" + (achEdit ? "Cancel" : "Edit") + "</span></button></span></div>" +
         (achEdit && achError ? problemHtml("warn", (achError.data || {}).title, achError.message) : "");
       var tag = function (list, kind) { return list.map(function (a) { return Object.assign({kind: kind}, a); }); };
       if (achGroup === "none") {

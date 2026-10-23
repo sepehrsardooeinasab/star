@@ -562,6 +562,9 @@
   .lock-toggle svg { flex: none; width: 14px; height: 14px; }
   /* The label centred in the room beside the icon. */
   .lock-toggle > span { flex: 1; text-align: center; }
+  /* The label keeps the width of its longer word, Cancel, hidden under it,
+     so the button and its lock stay put between Edit and Cancel. */
+  .lock-toggle > span::after { content: "Cancel"; display: block; height: 0; overflow: hidden; visibility: hidden; }
   .lock-toggle:hover:not(:disabled):not([aria-pressed="true"]) { color: var(--text); }
   .lock-toggle:disabled { opacity: 0.45; cursor: not-allowed; }
   /* Unlocked: the shackle swings open and it takes the accent. */
@@ -1040,7 +1043,7 @@
     color: var(--text-dim);
   }
   .timeline-bar > span { flex: 1; min-width: 0; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .timeline-bar button { padding: 0.25rem 0.75rem; font-size: var(--fs-small); }
+  .timeline-bar button:not(.lock-toggle) { padding: 0.25rem 0.75rem; font-size: var(--fs-small); }
   .timeline-bar .primary-ghost { border-color: var(--accent); color: var(--accent); }
   td.delay-cell.run-editable { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
   td.delay-cell.run-editable:hover { color: var(--accent); }
@@ -2263,11 +2266,9 @@
     background: var(--surface);
     border: 1px solid var(--border-strong);
     border-radius: 999px;
-    min-width: 8.2rem;
     justify-content: center;
     white-space: nowrap;
   }
-  .ach-lock { min-width: 10rem; }
   .run-card:focus-visible { outline-offset: -3px; }
   table.csv-table.pretty th { white-space: normal; line-height: 1.4; }
   :is(.runs-log, body.local #csv-slot) table.csv-table { background: var(--surface); }
