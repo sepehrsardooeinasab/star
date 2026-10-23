@@ -3143,6 +3143,10 @@
       }
     }
     if (lib.library_check) byId("library-check").value = lib.library_check;
+    if (lib.week_start) {
+      byId("week-start").value = lib.week_start;
+      if (lib.week_start !== weekStart) { weekStart = lib.week_start; if (unlocksData) renderUnlocks(); }
+    }
     if (lib.hidden_descriptions) {
       byId("hidden-descriptions").value = lib.hidden_descriptions;
       if (lib.hidden_descriptions !== hiddenDesc) {
@@ -3404,7 +3408,7 @@
   }
   // How far back the list goes (Day … All, unlocks_range in settings.json):
   // the calendar's day, week, month or year so far, so Day is since
-  // midnight, not the last 24 hours. Weeks start on Monday.
+  // midnight, not the last 24 hours. Weeks start on week_start's day.
   var unlocksRange = "month", weekStart = "monday";
   var WEEK_STARTS = {sunday: 0, monday: 1, saturday: 6};
   function rangeSince(range) {
@@ -4233,6 +4237,7 @@
   });
   byId("library-check").addEventListener("change", function () { saveSetting({library_check: this.value}); });
   byId("hidden-descriptions").addEventListener("change", function () { saveSetting({hidden_descriptions: this.value}); });
+  byId("week-start").addEventListener("change", function () { saveSetting({week_start: this.value}); });
   onChoice(byId("lib-sort"), function (c) {
     var change = {library_order: c.order};
     if (c.sort) change.library_sort = c.sort;

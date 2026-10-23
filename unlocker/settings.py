@@ -72,8 +72,10 @@ DEFAULTS = {
     # or "blur"; and the colour glows behind a game: "off" or "on".
     "banners": "off",
     "gradient": "off",
-    # How far back the app's Library lists achievements: day, week, month, year or all.
+    # How far back the app's Library lists achievements: today, this week,
+    # this month, this year, or all. Weeks start on week_start's day.
     "unlocks_range": "month",
+    "week_start": "monday",
     # How the Library's Games are sorted: by when last played, the last
     # achievement, name or progress; descending (newest, Z–A, most) or not.
     "library_sort": "played",
@@ -133,6 +135,7 @@ _TYPES = {
     "banners": (str,),
     "gradient": (str,),
     "unlocks_range": (str,),
+    "week_start": (str,),
     "library_sort": (str,),
     "library_order": (str,),
     "achievement_sort": (str,),
@@ -167,6 +170,7 @@ APP_CHOICES = {"clock": ["system", "12h", "24h"], "theme": ["dark", "light"],
                "banners": ["off", "normal", "blur"],
                "gradient": ["off", "on"],
                "unlocks_range": ["day", "week", "month", "year", "all"],
+               "week_start": ["monday", "sunday", "saturday"],
                "library_sort": ["played", "achievement", "name", "progress", "playtime", "duration"],
                "library_order": ["desc", "asc"],
                "achievement_sort": ["default", "date", "name"],
