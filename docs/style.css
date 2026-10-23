@@ -562,7 +562,7 @@
   .run-settings .setting-unit { width: 3.6rem; }
   .run-settings input[type="number"] {
     width: 5.5rem;
-    height: 1.9rem;
+    height: 1.7rem;
     box-sizing: border-box;
     padding: 0 0.5rem;
     font: inherit;
@@ -1535,7 +1535,7 @@
   }
   :root[data-desktop] body[data-screen="guide"] #step-about .update-row span { color: var(--text); font-size: 0.82rem; }
   /* Every row the same height, checkbox or number, evenly spaced. */
-  .run-settings .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; font-size: 0.82rem; min-height: 2rem; margin-top: 0.4rem; }
+  .run-settings .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; font-size: 0.82rem; min-height: 1.7rem; margin-top: 0.4rem; }
   .run-settings .setting-group-title { margin: 0 0 0.1rem; }
   /* The first group as far from the note above as the groups are apart. */
   :root[data-desktop] body[data-screen="guide"] #hero-setup .run-settings { grid-template-columns: minmax(0, 1fr); gap: 1.1rem; margin-top: 1.1rem; }
@@ -2148,7 +2148,7 @@
   .run-settings select {
     -webkit-appearance: none;
     appearance: none;
-    height: 1.9rem;
+    height: 1.7rem;
     box-sizing: border-box;
     padding: 0 1.8rem 0 0.5rem;
     font: inherit;
@@ -2576,7 +2576,7 @@
   body.local #hero-setup:not([data-settings-section="advanced"]) #step-run-settings,
   body.local #hero-setup:not([data-settings-section="display"]) :is(#step-lib-display, #step-lib-view),
   body.local #hero-setup:is([data-settings-section="advanced"], [data-settings-section="display"]) .setup-step:not(.settings-tab-card) { display: none !important; }
-  body.local .settings-tab-card .run-settings-box { margin-top: 0.6rem; padding-top: 0; border-top: 0; }
+  body.local .settings-tab-card .run-settings-box { margin-top: 0; padding-top: 0; border-top: 0; }
   body.local .settings-tab-card .run-settings-box > summary { display: none; }
   /* Run settings: each group (Breaks, Delays, …) a card of its own, as
      Library display's are; above them only Apply, once something changed. */
@@ -2585,8 +2585,14 @@
   body.local #hero-setup #step-run-settings :is(.run-settings-box, .run-settings) { margin-top: 0; }
   body.local #hero-setup #step-run-settings .run-settings-top { margin: 0 0 1rem; }
   body.local #hero-setup #step-run-settings .run-settings { display: flex; flex-direction: column; gap: 1rem; }
-  body.local #hero-setup #step-run-settings .setting-group { padding: 0.8rem 0.9rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; }
-  body.local #hero-setup #step-run-settings .setting-group-title { margin: 0 0 0.6rem; font: 600 13px var(--font); letter-spacing: 0; text-transform: none; color: var(--text); }
+  /* The same card, title, labels and label column as the other tabs' cards. */
+  body.local #hero-setup #step-run-settings .setting-group { padding: 1rem 1.1rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; }
+  /* A card's title to its first row: 0.75rem, as in the other tabs. */
+  body.local #hero-setup #step-run-settings .setting-group-title { margin: 0 0 0.75rem; }
+  body.local #hero-setup #step-run-settings .setting-group-title + .setting-row { margin-top: 0; }
+  body.local #hero-setup #step-run-settings .setting-row label { font-size: 0.8rem; color: var(--text-dim); }
+  body.local #hero-setup #step-run-settings .setting-row label.setting-check { font-size: 0.82rem; font-weight: 500; color: var(--text); }
+  body.local #hero-setup .lib-default > span { min-width: 22rem; }
 
   /* Games, in columns: the game, its bar, unlocked / total, the percentage
      (a column of its own), last played, playtime, duration. The icon and
@@ -2613,7 +2619,7 @@
   }
   /* Run settings' rows like the rest of Settings: the label, then its box. */
   body.local .settings-tab-card .setting-row:has(input[type="number"], select) { justify-content: flex-start; }
-  body.local .settings-tab-card .setting-row:has(input[type="number"], select) > :first-child { flex: 0 0 24rem; }
+  body.local .settings-tab-card .setting-row:has(input[type="number"], select) > :first-child { flex: 0 0 22rem; }
 
   /* Keep awake's Test: an icon at the end of its row; it pulses while testing. */
   body.local .awake-row { display: flex; align-items: center; }
