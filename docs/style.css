@@ -30,6 +30,20 @@
     /* Height of each tab's main box (paste box, JSON preview, Timeline
        table), so switching tabs keeps them the same size and place. */
     --pane-box-h: clamp(280px, 50vh, 600px);
+    /* One scale for text, corners and spacing: new rules use these, not raw
+       values. */
+    --fs-caption: 0.74rem;     /* section and card titles */
+    --fs-small: 0.78rem;       /* buttons, units, secondary text */
+    --fs-body: 0.82rem;        /* labels, rows, body text */
+    --radius-control: 7px;     /* buttons, fields, chips */
+    --radius-card: 9px;        /* cards and panels */
+    --pad-control: 0.3rem 0.7rem;
+    --control-h: 1.7rem;       /* fields and chips in a row */
+    --pad-card: 1rem 1.1rem;
+    --space-s: 0.5rem;
+    --space-m: 0.75rem;
+    --space-l: 1rem;
+    --label-col: 22rem;        /* a settings row's label column */
   }
   :root[data-accent="wine"]   { --accent: #d4677f; }
   :root[data-accent="blue"]   { --accent: #6fa8ff; }
@@ -321,7 +335,7 @@
     text-transform: uppercase;
     color: var(--text-dim);
   }
-  body[data-screen="guide"] .setup-step { padding: 1rem 1.1rem; }
+  body[data-screen="guide"] .setup-step { padding: var(--pad-card); }
   body[data-screen="guide"] #hero-setup .setup-steps {
     flex: 1;
     min-height: 0;
@@ -337,18 +351,18 @@
   }
   body[data-screen="guide"] #hero-setup #step-runs { grid-column: 1 / -1; }
   /* Keep awake, under Runs, with Test beside it. */
-  .awake-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem 0.8rem; margin-top: 0.5rem; }
+  .awake-row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-s) var(--space-m); margin-top: var(--space-s); }
   .awake-row[hidden] { display: none; }
   .setup-step .awake-row .setting-check { margin: 0; }
-  .awake-row button { padding: 0.3rem 0.7rem; font-size: 0.78rem; border-radius: 7px; }
+  .awake-row button { padding: var(--pad-control); font-size: var(--fs-small); border-radius: var(--radius-control); }
   body[data-screen="guide"] #hero-setup .run-settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 2.5rem; }
   body[data-screen="guide"] #setup-error { margin: 0; padding: 0 1.3rem 0.8rem; }
   /* About STAR: the version and updates, in Settings only. */
   body:not([data-screen="guide"]) #step-about { display: none; }
   body[data-screen="guide"] #hero-setup #step-other { grid-column: 1 / -1; }
-  #step-about .update-row { flex: 1; min-width: 0; margin: 0; padding: 0; border: 0; gap: 0.4rem; }
-  #step-about .update-row span { flex: 1 1 12rem; color: var(--text-dim); font-size: 0.76rem; }
-  #step-about .update-row :is(button, a.btn-ghost) { padding: 0.3rem 0.7rem; font-size: 0.78rem; border-radius: 7px; }
+  #step-about .update-row { flex: 1; min-width: 0; margin: 0; padding: 0; border: 0; gap: var(--space-s); }
+  #step-about .update-row span { flex: 1 1 12rem; color: var(--text-dim); font-size: var(--fs-small); }
+  #step-about .update-row :is(button, a.btn-ghost) { padding: var(--pad-control); font-size: var(--fs-small); border-radius: var(--radius-control); }
   @media (max-width: 900px) {
     body[data-screen="guide"] #hero-setup .setup-steps { grid-template-columns: minmax(0, 1fr); }
   }
@@ -495,20 +509,20 @@
   .hero-panel p { margin: 0.5rem 0 0; line-height: 1.5; }
   .panel-title { color: var(--text); font-weight: 600; font-size: 0.95rem; }
 
-  .setup-steps { margin: 0.9rem 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.8rem; }
-  .setup-step { padding: 0.8rem 0.9rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; }
-  .step-head { display: flex; align-items: center; gap: 0.55rem; color: var(--text); }
+  .setup-steps { margin: var(--space-m) 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-m); }
+  .setup-step { padding: var(--pad-card); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-card); }
+  .step-head { display: flex; align-items: center; gap: var(--space-s); color: var(--text); }
   .step-head b { font-weight: 500; }
   .step-mark { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--border-strong); flex: none; }
   .setup-step.done .step-mark { border-color: var(--accent); background: var(--accent); box-shadow: inset 0 0 0 3px var(--surface-2); }
   .setup-step.busy .step-mark { border-color: var(--accent); border-right-color: transparent; animation: step-spin 0.8s linear infinite; }
   @keyframes step-spin { to { transform: rotate(360deg); } }
-  .step-text { font-size: 0.82rem; white-space: pre-line; }
-  .setup-step > button, .setup-form, .step-actions { margin-top: 0.7rem; }
-  .setup-form button { padding: 0.45rem 0.95rem; font-size: 0.8rem; }
+  .step-text { font-size: var(--fs-body); white-space: pre-line; }
+  .setup-step > button, .setup-form, .step-actions { margin-top: var(--space-m); }
+  .setup-form button { padding: var(--pad-control); font-size: var(--fs-body); }
   /* The size of Settings' chips. */
-  .setup-step > button, .step-actions button { padding: 0.3rem 0.7rem; font-size: 0.78rem; border-radius: 7px; }
-  .step-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .setup-step > button, .step-actions button { padding: var(--pad-control); font-size: var(--fs-small); border-radius: var(--radius-control); }
+  .step-actions { display: flex; flex-wrap: wrap; gap: var(--space-s); }
   .data-path { display: block; margin-top: 0.5rem; font-size: 0.76rem; word-break: break-all; color: var(--text-dim); }
   .step-actions:not(:has(button:not([hidden]))) { display: none; }
   .step-actions .primary-ghost { border-color: var(--accent); color: var(--accent); }
@@ -527,21 +541,21 @@
   }
   .setup-step .setting-check input { accent-color: var(--accent); margin: 0; }
   /* Switches that belong together: one block, close to each other. */
-  .setting-checks { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.7rem; }
+  .setting-checks { display: flex; flex-direction: column; gap: var(--space-s); margin-top: var(--space-m); }
   .setting-checks .setting-check { margin: 0; }
   .setting-checks .setting-why { margin: -0.25rem 0 0 1.55rem; color: var(--text-dim); }
-  .run-settings-box { margin-top: 0.8rem; border-top: 1px solid var(--border); padding-top: 0.7rem; }
-  .run-settings-box summary { cursor: pointer; font-size: 0.82rem; font-weight: 500; color: var(--text); list-style-position: inside; }
+  .run-settings-box { margin-top: var(--space-m); border-top: 1px solid var(--border); padding-top: var(--space-m); }
+  .run-settings-box summary { cursor: pointer; font-size: var(--fs-body); font-weight: 500; color: var(--text); list-style-position: inside; }
   .run-settings-box summary span { color: var(--text-dim); font-weight: 400; }
-  .run-settings-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 0.7rem; }
+  .run-settings-top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-l); margin-top: var(--space-m); }
   .run-settings-top[hidden] { display: none; }
-  .run-settings-top .step-text { color: var(--text-dim); font-size: 0.76rem; }
-  .run-settings-btns { display: flex; align-items: center; gap: 0.5rem; flex: none; margin-left: auto; }
+  .run-settings-top .step-text { color: var(--text-dim); font-size: var(--fs-small); }
+  .run-settings-btns { display: flex; align-items: center; gap: var(--space-s); flex: none; margin-left: auto; }
   /* Apply: as tall as the lock beside it. */
   .run-settings-btns > * { height: 1.8rem; }
-  #run-settings-save { box-sizing: border-box; min-width: 4.8rem; padding: 0 0.8rem; font-size: 0.78rem; border-radius: 999px; border-color: var(--accent); color: var(--accent); }
+  #run-settings-save { box-sizing: border-box; min-width: 4.8rem; padding: 0 0.8rem; font-size: var(--fs-small); border-radius: var(--radius-control); border-color: var(--accent); color: var(--accent); }
   /* Library's display options: the rows straight under the summary. */
-  .lib-defaults-box .lib-defaults { margin-top: 0.8rem; padding-top: 0; border-top: 0; }
+  .lib-defaults-box .lib-defaults { margin-top: var(--space-m); padding-top: 0; border-top: 0; }
   .lock-toggle svg { flex: none; width: 14px; height: 14px; }
   /* The label centred in the room beside the icon. */
   .lock-toggle > span { flex: 1; text-align: center; }
@@ -551,18 +565,18 @@
   .lock-toggle[aria-pressed="true"] { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); background: var(--accent-tint); }
   .lock-toggle[aria-pressed="true"] .lock-shackle { transform: translateX(-2.5px) translateY(-1px); }
   .lock-shackle { transition: transform 0.15s ease; }
-  .run-settings { display: flex; flex-direction: column; gap: 0.9rem; margin-top: 0.4rem; }
+  .run-settings { display: flex; flex-direction: column; gap: var(--space-m); margin-top: var(--space-s); }
   .run-settings .setting-row .setting-check { margin: 0; }
-  .setting-reset { padding: 0 0.35rem; height: 1.6rem; font-size: 0.85rem; line-height: 1; background: none; border: 0; color: var(--accent); }
+  .setting-reset { padding: 0 0.35rem; height: 1.6rem; font-size: var(--fs-body); line-height: 1; background: none; border: 0; color: var(--accent); }
   .setting-reset:hover { color: var(--text); }
   .setting-reset[hidden] { display: none; }
-  .setting-group-title { margin-top: 0.5rem; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); }
-  .run-settings .setting-row label { margin: 0; font-size: 0.82rem; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--text); }
-  .run-settings .setting-row span { flex: none; display: flex; align-items: center; gap: 0.5rem; color: var(--text-dim); font-size: 0.78rem; }
+  .setting-group-title { margin-top: var(--space-s); font-size: var(--fs-caption); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); }
+  .run-settings .setting-row label { margin: 0; font-size: var(--fs-body); font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--text); }
+  .run-settings .setting-row span { flex: none; display: flex; align-items: center; gap: var(--space-s); color: var(--text-dim); font-size: var(--fs-small); }
   .run-settings .setting-unit { width: 3.6rem; }
   .run-settings input[type="number"] {
     width: 5.5rem;
-    height: 1.7rem;
+    height: var(--control-h);
     box-sizing: border-box;
     padding: 0 0.5rem;
     font: inherit;
@@ -575,7 +589,7 @@
   .run-settings :is(input, select):disabled { opacity: 0.45; }
   .run-settings input.invalid { border-color: var(--danger); }
 
-  .setup-form { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .setup-form { display: flex; flex-wrap: wrap; gap: var(--space-s); }
   .setup-form input { flex: 1 1 9rem; width: auto; font-family: var(--font); }
   .setup-error { color: var(--danger); font-size: 0.82rem; }
   .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
@@ -591,9 +605,9 @@
     font-size: 0.8rem;
   }
   .update-row span { flex: 1 1 12rem; }
-  .update-row button { padding: 0.35rem 0.8rem; font-size: 0.78rem; }
+  .update-row button { padding: var(--pad-control); font-size: var(--fs-small); }
   .update-row .primary-ghost { border-color: var(--accent); color: var(--accent); }
-  .update-row a.btn-ghost { padding: 0.35rem 0.8rem; font-size: 0.78rem; font-weight: 500; border: 1px solid var(--border-strong); border-radius: 8px; text-decoration: none; }
+  .update-row a.btn-ghost { padding: var(--pad-control); font-size: var(--fs-small); font-weight: 500; border: 1px solid var(--border-strong); border-radius: var(--radius-control); text-decoration: none; }
   .update-row a.btn-ghost:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .hero [hidden] { display: none !important; }
 
@@ -1476,7 +1490,7 @@
   /* Labels in the system's own style, not the start screen's mono. */
   :root[data-desktop] :is(.runs-list-head, .help-title, .detail-label, .setting-group-title, body[data-screen="guide"] .step-head b) {
     font-family: var(--font);
-    font-size: 0.74rem;
+    font-size: var(--fs-caption);
     font-weight: 600;
     letter-spacing: 0.01em;
     text-transform: none;
@@ -1514,14 +1528,14 @@
     /* A centered column, with the scrollbar at the window's edge. */
     padding: var(--workspace-inset);
   }
-  :root[data-desktop] body[data-screen="guide"] .setup-step { background: var(--surface); border-radius: 10px; }
+  :root[data-desktop] body[data-screen="guide"] .setup-step { background: var(--surface); border-radius: var(--radius-card); }
   :root[data-desktop] body[data-screen="guide"] #step-about .update-row { align-items: center; }
   /* Other: rows like Library's, straight under the title; buttons on
      the right. */
-  #step-other .other-rows { margin-top: 0.7rem; padding-top: 0; border-top: 0; }
+  #step-other .other-rows { margin-top: var(--space-m); padding-top: 0; border-top: 0; }
   #step-other .lib-default[hidden] { display: none; }
   #step-data .data-path { flex: 1; min-width: 0; margin: 0; }
-  #step-other .lib-default :is(button, a.btn-ghost) { padding: 0.3rem 0.7rem; font-size: 0.78rem; border-radius: 7px; }
+  #step-other .lib-default :is(button, a.btn-ghost) { padding: var(--pad-control); font-size: var(--fs-small); border-radius: var(--radius-control); }
   /* ArchiSteamFarm, Steam account and Library: the buttons on the right
      of the title and its text; what opens under them (sign-in, the key,
      Library's rows) is full width. */
@@ -1533,12 +1547,12 @@
   :root[data-desktop] body[data-screen="guide"] :is(#step-asf > .step-actions, #step-steam > #steam-change, #step-unlocks > #unlocks-key-actions) {
     grid-column: 2; grid-row: 1 / span 2; justify-self: end; margin-top: 0;
   }
-  :root[data-desktop] body[data-screen="guide"] #step-about .update-row span { color: var(--text); font-size: 0.82rem; }
+  :root[data-desktop] body[data-screen="guide"] #step-about .update-row span { color: var(--text); font-size: var(--fs-body); }
   /* Every row the same height, checkbox or number, evenly spaced. */
-  .run-settings .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; font-size: 0.82rem; min-height: 1.7rem; margin-top: 0.4rem; }
+  .run-settings .setting-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-m); font-size: var(--fs-body); min-height: var(--control-h); margin-top: var(--space-s); }
   .run-settings .setting-group-title { margin: 0 0 0.1rem; }
   /* The first group as far from the note above as the groups are apart. */
-  :root[data-desktop] body[data-screen="guide"] #hero-setup .run-settings { grid-template-columns: minmax(0, 1fr); gap: 1.1rem; margin-top: 1.1rem; }
+  :root[data-desktop] body[data-screen="guide"] #hero-setup .run-settings { grid-template-columns: minmax(0, 1fr); gap: var(--space-l); margin-top: var(--space-l); }
 
   /* Schedule fills the same content area as the other app screens. */
   .schedule-bar { display: none; }
@@ -2023,8 +2037,8 @@
   }
   .lib-default select { margin-top: 0 !important; display: inline-block !important; }
   .games-sort .btn-ghost { box-sizing: border-box; width: 7.2rem; height: 2.2rem; padding: 0 0.8rem; font-size: 0.8rem; text-align: center; }
-  .lib-defaults { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.9rem; padding-top: 0.8rem; border-top: 1px solid var(--border); }
-  .lib-default { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; font-size: 0.8rem; color: var(--text-dim); }
+  .lib-defaults { display: flex; flex-direction: column; gap: var(--space-s); margin-top: var(--space-m); padding-top: var(--space-m); border-top: 1px solid var(--border); }
+  .lib-default { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-s); font-size: var(--fs-body); color: var(--text-dim); }
   .lib-default > span { min-width: 12rem; }
   /* Games: icon, name, progress bar; when it was played on the right. */
   /* What's counted, in Today's place on Achievements: just above the
@@ -2133,7 +2147,7 @@
     background-size: 12px !important;
     display: block;
     /* The size of the chips beside them. */
-    height: 1.7rem;
+    height: var(--control-h);
     margin-top: 0.6rem;
     padding: 0 1.8rem 0 0.7rem;
     font: inherit;
@@ -2148,7 +2162,7 @@
   .run-settings select {
     -webkit-appearance: none;
     appearance: none;
-    height: 1.7rem;
+    height: var(--control-h);
     box-sizing: border-box;
     padding: 0 1.8rem 0 0.5rem;
     font: inherit;
@@ -2314,7 +2328,7 @@
   body.local #app-workspace #hero-setup { background: var(--surface); }
   body.local #app-workspace .setup-step { background: var(--surface-2); }
   body.local[data-screen="guide"] #hero-setup .setup-steps { display: flex; flex-direction: column; gap: 1rem; padding: var(--workspace-inset); overflow-y: auto; }
-  body.local[data-screen="guide"] .setup-step { flex: none; width: 100%; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); }
+  body.local[data-screen="guide"] .setup-step { flex: none; width: 100%; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface-2); }
   body.local[data-screen="guide"] .step-head b { font: 600 0.8rem var(--font); letter-spacing: 0; text-transform: none; }
   body.local[data-screen="unlocks"] #unlocks-screen { flex: 1; min-height: 0; width: 100%; max-width: none; margin: 0; padding: var(--workspace-inset); overflow-y: auto; }
   body.local :is(.bar-btn, .lock-toggle, .btn-ghost, .filters-menu > summary, a.btn-ghost) { border-radius: var(--control-radius); }
@@ -2440,7 +2454,7 @@
   body.local input[type="checkbox"] { accent-color: var(--accent); }
   body.local .filters-title { font-size: 11px; letter-spacing: 0; text-transform: none; }
   body.local :is(.schedule-panel-intro h2, .import-intro h2, .game-title) { font-size: 17px; }
-  body.local #app-workspace .setup-step { border-color: var(--border); border-radius: 9px; }
+  body.local #app-workspace .setup-step { border-color: var(--border); border-radius: var(--radius-card); }
   body.local .step-head b { font-size: 13px; color: var(--text); }
   body.local #schedule-details .schedule-details-body, body.local .schedule-options-body .settings-form { gap: 0; padding: 4px 16px; margin-top: 16px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; }
   body.local .schedule-options-body { padding-top: 0; }
@@ -2583,16 +2597,16 @@
   body.local #hero-setup #step-run-settings { padding: 0; border: 0; background: none; }
   body.local #hero-setup #step-run-settings > .step-head { display: none; }
   body.local #hero-setup #step-run-settings :is(.run-settings-box, .run-settings) { margin-top: 0; }
-  body.local #hero-setup #step-run-settings .run-settings-top { margin: 0 0 1rem; }
-  body.local #hero-setup #step-run-settings .run-settings { display: flex; flex-direction: column; gap: 1rem; }
+  body.local #hero-setup #step-run-settings .run-settings-top { margin: 0 0 var(--space-l); }
+  body.local #hero-setup #step-run-settings .run-settings { display: flex; flex-direction: column; gap: var(--space-l); }
   /* The same card, title, labels and label column as the other tabs' cards. */
-  body.local #hero-setup #step-run-settings .setting-group { padding: 1rem 1.1rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; }
-  /* A card's title to its first row: 0.75rem, as in the other tabs. */
-  body.local #hero-setup #step-run-settings .setting-group-title { margin: 0 0 0.75rem; }
+  body.local #hero-setup #step-run-settings .setting-group { padding: var(--pad-card); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-card); }
+  /* A card's title to its first row: --space-m, as in the other tabs. */
+  body.local #hero-setup #step-run-settings .setting-group-title { margin: 0 0 var(--space-m); }
   body.local #hero-setup #step-run-settings .setting-group-title + .setting-row { margin-top: 0; }
-  body.local #hero-setup #step-run-settings .setting-row label { font-size: 0.8rem; color: var(--text-dim); }
-  body.local #hero-setup #step-run-settings .setting-row label.setting-check { font-size: 0.82rem; font-weight: 500; color: var(--text); }
-  body.local #hero-setup .lib-default > span { min-width: 22rem; }
+  body.local #hero-setup #step-run-settings .setting-row label { font-size: var(--fs-body); color: var(--text-dim); }
+  body.local #hero-setup #step-run-settings .setting-row label.setting-check { font-size: var(--fs-body); font-weight: 500; color: var(--text); }
+  body.local #hero-setup .lib-default > span { min-width: var(--label-col); }
 
   /* Games, in columns: the game, its bar, unlocked / total, the percentage
      (a column of its own), last played, playtime, duration. The icon and
@@ -2619,7 +2633,7 @@
   }
   /* Run settings' rows like the rest of Settings: the label, then its box. */
   body.local .settings-tab-card .setting-row:has(input[type="number"], select) { justify-content: flex-start; }
-  body.local .settings-tab-card .setting-row:has(input[type="number"], select) > :first-child { flex: 0 0 22rem; }
+  body.local .settings-tab-card .setting-row:has(input[type="number"], select) > :first-child { flex: 0 0 var(--label-col); }
 
   /* Keep awake's Test: an icon at the end of its row; it pulses while testing. */
   body.local .awake-row { display: flex; align-items: center; }
