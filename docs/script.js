@@ -552,6 +552,8 @@
     return opts;
   }
   function fmtClock(d) { return d.toLocaleTimeString([], clockOpts({})); }
+  // Library's unlock times, to the second ("14:30:07").
+  function fmtClockSec(d) { return d.toLocaleTimeString([], clockOpts({second: "2-digit"})); }
 
   // The app's timeline, written for people: "Oct 9, 21:25" and "1h 21m".
   function prettyTime(text) {
@@ -1059,6 +1061,7 @@
       byId(tab.getAttribute("aria-controls")).hidden = !active;
       if (active && focus) tab.focus();
     });
+    if (combined) renderImportSide();
   }
 
   function renderScheduleSource(ok) {
@@ -1071,7 +1074,7 @@
     else if (!ok && schedulePanel === "preview") setSchedulePanel("import");
     if (els.exportText.value.trim() && latest && !latest.pending && !latest.inputNotice &&
         (!els.appid.value || !els.gameName.value.trim())) {
-      setSchedulePanel("details");
+      setSchedulePanel("import");
     }
     if (!ok) return;
     var appid = parseInt(els.appid.value, 10);
@@ -1115,6 +1118,28 @@
   }
 
   function render() {
+    renderView();
+    if (combined) renderImportSide();
+  }
+  // The app's Import tab, right side: the help until something's pasted,
+  // then the import's status (ArchiSteamFarm's steps, what's missing, or
+  // ready). On the Timeline tab the status goes back under it, where its
+  // notices (edits not saved) belong.
+  function renderImportSide() {
+    var pasted = !!els.exportText.value.trim(), ok = latest && !latest.errors.length;
+    var home = schedulePanel === "import" ? byId("import-status-body") : byId("schedule-workspace-footer");
+    if (els.inputAlertSlot.parentNode !== home) home.prepend(els.inputAlertSlot);
+    byId("import-status").hidden = !pasted;
+    document.querySelector(".input-help").hidden = pasted;
+    // Ready: the game and its numbers, as Timeline heads them, and its
+    // sessions, a row each (as in Runs), the rest of the card.
+    var ready = byId("import-status-ok");
+    ready.hidden = !ok || !!els.inputAlertSlot.innerHTML.trim();
+    if (ok) patchHtml(ready, '<div class="run-summary-title">' + byId("schedule-game").innerHTML + "</div>" +
+      '<div class="paste-summary"><div class="summary-bar">' + els.statsStrip.innerHTML + "</div></div>" +
+      '<div class="import-sessions">' + sessionsHtml(latest.csvRows, null) + "</div>");
+  }
+  function renderView() {
     // Pasted text is locked while there are edits: changing it would
     // re-parse into a different achievement list the edits don't match.
     var locked = editCount() > 0;
@@ -2252,7 +2277,7 @@
     lock.disabled = !!game.running && !runEdit;
     lock.setAttribute("data-tip", game.running ? "Stop the game to change its timeline"
       : runEdit ? "Cancel editing: changes you haven't saved are discarded" : "Edit the delays and breaks still ahead");
-    byId("timeline-lock-label").textContent = runEdit ? "Cancel editing" : "Edit timeline";
+    byId("timeline-lock-label").textContent = runEdit ? "Cancel" : "Edit";
     byId("timeline-save").hidden = !runEdit;
     byId("timeline-save").disabled = !runEdit || JSON.stringify(runEdit.config) === JSON.stringify(runEdit.base);
     byId("timeline-bar-text").textContent = "";  // the lock's tooltip says it
@@ -2716,7 +2741,8 @@
     // Advanced run settings and Library's display options, folded away in
     // their sections on the website, are each a Settings tab of their own
     // in the app, open: a card of their own, their fold's title as its.
-    [["run-settings-box", "step-run-settings", "advanced"], ["lib-defaults-box", "step-lib-display", "display"]].forEach(function (f) {
+    [["run-settings-box", "step-run-settings", "advanced"], ["lib-defaults-box", "step-lib-display", "display"],
+     ["lib-view-box", "step-lib-view", "display"]].forEach(function (f) {
       var box = byId(f[0]), card = document.createElement("li");
       card.className = "setup-step done settings-tab-card";
       card.id = f[1];
@@ -2818,8 +2844,30 @@
     document.querySelector(".hover-help").remove();
     // Keep the input actionable; detailed import instructions are optional.
     var help = document.querySelector(".input-help");
-    source.appendChild(help);
-    els.exportText.placeholder = "Paste a Steam or SteamHunters link here…";
+    // Import and Details in one tab, half and half: the paste the whole
+    // height on the left; on the right the help (or the import's status
+    // once something's pasted, see renderImportSide), and at the bottom the
+    // game's details and the session options. In a short window only the
+    // right side scrolls, so the paste box always fits.
+    var right = document.createElement("div"), side = document.createElement("div"), cards = document.createElement("div"), details = byId("schedule-details");
+    right.className = "schedule-right";
+    side.className = "schedule-side";
+    cards.className = "schedule-cards";
+    details.classList.remove("schedule-panel");
+    ["role", "aria-labelledby", "tabindex", "hidden"].forEach(function (a) { details.removeAttribute(a); });
+    byId("schedule-tab-details").remove();
+    side.innerHTML = '<section class="import-status" id="import-status" hidden><h3>Import status</h3>' +
+      '<div id="import-status-body"><p class="import-status-ok" id="import-status-ok" hidden></p></div></section>';
+    side.appendChild(help);
+    // Reset all fields at the end of the import's title; Import sources
+    // explains what to paste, so the line under the box goes.
+    var options = details.querySelector(".bar-options"), actions = document.querySelector(".import-actions");
+    cards.append(details, options);
+    document.querySelector(".import-intro").appendChild(actions.querySelector('[data-slot="reset"]'));
+    actions.remove();
+    right.append(side, cards);
+    source.append(byId("schedule-import"), right);
+    els.exportText.placeholder = "Paste here…";
     setSchedulePanel("import");
     // It opens on Runs (Settings takes over while setup isn't done; see
     // refreshSetup).
@@ -2890,15 +2938,12 @@
     byId("asf-check").disabled = checking;
     byId("asf-check").textContent = checking ? "Checking…" : "Check for updates";
     byId("asf-update-latest").hidden = !asfCurrent || installing || !(latest && latest.newer);
-    // "Up to date" (or a failed check) answers the click; it's gone once
-    // you leave Settings. A newer pair stays, since it can be installed.
-    var shown = latest && (latest.newer || asfCheckAnswer);
-    byId("asf-latest-text").hidden = !asfCurrent || installing || !shown;
-    if (latest) {
-      byId("asf-latest-text").textContent = latest.error ? latest.error
-        : latest.newer ? latest.asf + " is available. It installs between sessions."
-        : "Up to date.";
-      byId("asf-update-latest").textContent = "Update to " + (latest.asf || "");
+    // A newer pair shows here, since it can be installed; up to date (or a
+    // failed check) answers Check for updates as a toast.
+    byId("asf-latest-text").hidden = !asfCurrent || installing || !(latest && latest.newer);
+    if (latest && latest.newer) {
+      byId("asf-latest-text").textContent = latest.asf + " is available. It installs between sessions.";
+      byId("asf-update-latest").textContent = "Update to " + latest.asf;
     }
 
     var signing = d.busy === "login" || d.busy === "code";
@@ -2949,7 +2994,9 @@
     run_logs_kept: ["Keep in each game's log its last", "runs", 1, 100]
   };
   var runSettings = null;  // [{key, value, default}] as saved
-  var editingSettings = false;  // locked until Edit
+  // The form differs from what's saved (or has a number that isn't valid):
+  // kept as is when the settings are read again.
+  var settingsChanged = false;
 
   function loadRunSettings() {
     runSettings = [];
@@ -3022,9 +3069,9 @@
   function syncRunSettings() {
     var values = runSettingsForm();
     var changed = !!values && (runSettings || []).some(function (s) { return s.key in values && values[s.key] !== s.value; });
+    settingsChanged = !values || changed;
     var form = byId("run-settings");
-    form.classList.toggle("locked", !editingSettings);
-    form.querySelectorAll("[data-key]").forEach(function (el) { el.disabled = !editingSettings; });
+    form.querySelectorAll("[data-key]").forEach(function (el) { el.disabled = false; });
     form.querySelectorAll("select").forEach(function (el) { el.nextElementSibling.hidden = el.value === "off"; });
     var jitter = byId("set-jitter_enabled");
     ["set-jitter_percent", "set-jitter_min_delay"].forEach(function (id) {
@@ -3032,19 +3079,16 @@
     });
     (runSettings || []).forEach(function (s) {
       var button = form.querySelector('[data-reset="' + s.key + '"]');
-      if (button) button.hidden = !editingSettings || !values || values[s.key] === s.default;
+      if (button) button.hidden = !values || values[s.key] === s.default;
     });
-    var lock = byId("run-settings-lock");
-    lock.setAttribute("aria-pressed", String(editingSettings));
-    lock.setAttribute("data-tip", editingSettings ? "Cancel editing: changes you haven't saved are discarded" : "Edit advanced run settings");
-    byId("run-settings-lock-label").textContent = editingSettings ? "Cancel editing" : "Edit settings";
-    byId("run-settings-save").hidden = !editingSettings || !changed;
+    // Apply, the bar's only button: the bar takes no room until there's something to apply.
+    byId("run-settings-save").hidden = !changed;
+    byId("run-settings-save").closest(".run-settings-top").hidden = !changed;
   }
 
   function saveRunSettings(values) {
     api("/api/settings", {settings: values}).then(function (d) {
       runSettings = d.settings;
-      editingSettings = false;
       renderRunSettings();
       showToast("Applied. Runs started from now on use these.");
     }).catch(function (err) { showToast("Couldn't save: " + err.message); });
@@ -3055,12 +3099,6 @@
   byId("run-settings-save").addEventListener("click", function () {
     var values = runSettingsForm();
     if (values) saveRunSettings(values);
-  });
-  // The lock: open to change the settings; closing it again drops
-  // anything not saved.
-  byId("run-settings-lock").addEventListener("click", function () {
-    editingSettings = !editingSettings;
-    if (editingSettings) syncRunSettings(); else renderRunSettings();
   });
   // ↺ puts a default in the form; Apply keeps it.
   function setToDefault(s) {
@@ -3132,7 +3170,7 @@
       var fromSettings = {};
       FILTERS.forEach(function (f) { fromSettings[f[0]] = lib[f[2]]; });
       fromSettings.match = lib.library_match || "all";
-      renderFilterList("lib-filters", fromSettings);
+      renderFilterList("lib-filters", fromSettings, "lib-match", true);
       var filterKey = FILTERS.map(function (f) { return lib[f[2]]; }).join(" ") + " " + fromSettings.match;
       if (filterKey !== appliedLib.filter) {
         appliedLib.filter = filterKey;
@@ -3141,6 +3179,10 @@
       }
     }
     if (lib.library_check) byId("library-check").value = lib.library_check;
+    if (lib.week_start) {
+      byId("week-start").value = lib.week_start;
+      if (lib.week_start !== weekStart) { weekStart = lib.week_start; if (unlocksData) renderUnlocks(); }
+    }
     if (lib.hidden_descriptions) {
       byId("hidden-descriptions").value = lib.hidden_descriptions;
       if (lib.hidden_descriptions !== hiddenDesc) {
@@ -3168,7 +3210,7 @@
     select.disabled = true;
     api("/api/settings", {settings: {clock: select.value}}).then(function (d) {
       runSettings = d.settings;
-      if (!editingSettings) renderRunSettings();
+      if (!settingsChanged) renderRunSettings();
     }).catch(function (err) { showToast("Couldn't save: " + err.message); })
       .then(function () { select.disabled = false; syncToggles(); });
   });
@@ -3180,7 +3222,7 @@
       api("/api/settings", {settings: values}).then(function (d) {
         // Keep the run settings form as is while it's being edited.
         runSettings = d.settings;
-        if (!editingSettings) renderRunSettings();
+        if (!settingsChanged) renderRunSettings();
       }).catch(function (err) { showToast("Couldn't save: " + err.message); })
         .then(syncToggles);
     });
@@ -3206,12 +3248,17 @@
   }
 
   byId("setup-install").addEventListener("click", function () { setupPost("/api/setup/install", {}); });
-  var asfCheckAnswer = false;  // show what Check for updates found
   byId("asf-check").addEventListener("click", function () {
-    asfCheckAnswer = true;
     byId("asf-check").textContent = "Checking…";
     byId("asf-check").disabled = true;
-    setupPost("/api/setup/asf-check", {});
+    api("/api/setup/asf-check", {}).then(function (d) {
+      setupData = d;
+      renderSetup();
+      var latest = d.asf_latest || {};
+      if (latest.error) showToast(latest.error);
+      else if (!latest.newer) showToast("ArchiSteamFarm and its plugin are up to date.");
+    }).catch(function (err) { showToast(err.message); })
+      .then(function () { setTimeout(refreshSetup, 300); });
   });
   byId("asf-update-latest").addEventListener("click", function () { setupPost("/api/setup/install", {latest: true}); });
   byId("awake-check").addEventListener("click", function () {
@@ -3256,12 +3303,11 @@
   // hours) and from Check for updates / the app's menu. Updating runs the
   // install script, which closes the app and opens the new one.
   var updateData = null;
-  var updateChecked = false;   // checked on request, so say "up to date"
 
   function renderUpdate() {
     var u = updateData;
     if (!u) return;
-    var text = "STAR " + u.current + (updateChecked && !u.error ? " is up to date." : "");
+    var text = "STAR " + u.current;
     if (u.updating) {
       text = "Updating to " + u.latest + "… The app closes and opens again when it's done.";
     } else if (u.failed && u.available) {
@@ -3269,21 +3315,24 @@
     } else if (u.available) {
       text = "Version " + u.latest + " is out (you have " + u.current + ")." +
         (u.can_update ? "" : " Update with git pull.");
-    } else if (u.error && updateChecked) {
-      text = "STAR " + u.current + ". " + u.error;
     }
     byId("update-text").textContent = text;
     byId("update-now").hidden = !u.available || !u.can_update || u.updating;
     byId("update-check").hidden = u.updating;
   }
 
+  // force (Check for updates, or the app's menu): up to date, or a failed
+  // check, answers as a toast; a newer version shows in the row.
   function checkUpdates(force) {
-    if (force) byId("update-text").textContent = "Checking for updates…";
+    var button = byId("update-check");
+    if (force) { button.textContent = "Checking…"; button.disabled = true; }
     return api("/api/update" + (force ? "?force=1" : "")).then(function (u) {
       updateData = u;
-      updateChecked = updateChecked || force;
       renderUpdate();
-    }).catch(function () {});
+      if (force && u.error) showToast("Couldn't check for STAR updates: " + u.error);
+      else if (force && !u.available) showToast("STAR is up to date.");
+    }).catch(function (err) { if (force) showToast(err.message); })
+      .then(function () { if (force) { button.textContent = "Check for updates"; button.disabled = false; } });
   }
 
   // Without the app, the install script restarts the page's server: reload
@@ -3347,13 +3396,6 @@
     }
     // Leaving the Guide tab closes the panel, unless it's first-run setup,
     // which stays on the start screen until it's done.
-    // What Check for updates found answers the click; leaving Settings
-    // clears it (a newer version stays, since it can be installed).
-    if (name !== "guide" && (asfCheckAnswer || updateChecked)) {
-      asfCheckAnswer = updateChecked = false;
-      renderSetup();
-      renderUpdate();
-    }
     if (name !== "guide" && setupOpen && !setupAutoClose) {
       setupOpen = false;
       renderSetup();
@@ -3369,11 +3411,13 @@
   // Whether a Steam Web API key is set: null until the server says, so
   // neither screen shows the wrong text first.
   var unlocksHasKey = null, unlocksKeyOpen = false, unlocksKeyError = null, unlocksKeyLoaded = false;
-  function loadUnlocks(refresh) {
+  // force: Force refresh (⌥-click Refresh), which also asks Steam which
+  // games are Private (otherwise once a day).
+  function loadUnlocks(refresh, force) {
     if (unlocksBusy) return;
     unlocksBusy = true;
     renderUnlocks();
-    api("/api/unlocks" + (refresh ? "?refresh=1" : ""))
+    api("/api/unlocks" + (refresh ? "?refresh=1" + (force ? "&force=1" : "") : ""))
       .then(function (d) {
         unlocksData = d; unlocksError = null; unlocksHasKey = d.has_key;
         if (gamePage && !gamePage.error && !d.syncing) openGamePage(gamePageFor, true);
@@ -3400,10 +3444,23 @@
     return date.toLocaleDateString([], {weekday: "long", month: "long", day: "numeric",
       year: date.getFullYear() === new Date().getFullYear() ? undefined : "numeric"});
   }
-  // How far back the list goes (Day … All, unlocks_range in settings.json).
-  var unlocksRange = "month";
-  var RANGES = {day: [86400, "in the last day"], week: [7 * 86400, "in the last week"],
-    month: [30 * 86400, "in the last month"], year: [365 * 86400, "in the last year"], all: [Infinity, "in total"]};
+  // How far back the list goes (Day … All, unlocks_range in settings.json):
+  // the calendar's day, week, month or year so far, so Day is since
+  // midnight, not the last 24 hours. Weeks start on week_start's day.
+  var unlocksRange = "month", weekStart = "monday";
+  var WEEK_STARTS = {sunday: 0, monday: 1, saturday: 6};
+  function rangeSince(range) {
+    var d = new Date();
+    d.setHours(0, 0, 0, 0);
+    if (range === "week") d.setDate(d.getDate() - (d.getDay() - WEEK_STARTS[weekStart] + 7) % 7);
+    else if (range === "month") d.setDate(1);
+    else if (range === "year") d.setMonth(0, 1);
+    else if (range !== "day") return -Infinity;
+    return d.getTime() / 1000;
+  }
+  function rangeText(range) {
+    return {day: "today", week: "this week", month: "this month", year: "in " + new Date().getFullYear()}[range] || "in total";
+  }
   var unlocksPoll = null;
   // The Library's two sections (library_tab in settings.json).
   var libraryTab = "achievements";
@@ -3552,10 +3609,12 @@
     groups.active = !(groups.finished || groups.private || groups.noAch);
     return groups;
   }
-  // matchId: where Match goes, when not under the chips in the same list.
-  // Each chip's hover says what it does, or unset, what a click makes it.
-  function renderFilterList(id, values, matchId) {
-    if (matchId) byId(matchId).innerHTML = matchHtml(values);
+  // matchId: where Match goes, when not under the chips in the same list;
+  // with chips (Settings, a row of its own), as All / Any chips like the
+  // other rows'. Each chip's hover says what it does, or unset, what a
+  // click makes it.
+  function renderFilterList(id, values, matchId, chips) {
+    if (matchId) byId(matchId).innerHTML = chips ? matchChipsHtml(values) : matchHtml(values);
     var focused = byId(id).contains(document.activeElement) ? document.activeElement.getAttribute("data-filter") : null;
     byId(id).innerHTML = FILTERS.map(function (f) {
       var v = values[f[0]];
@@ -3578,8 +3637,16 @@
       (any ? "Games that fit any status set" : "Games that fit every status set") + "</span></span>" +
       '<span class="seg-switch" role="group" aria-label="Match">' + side("all", "All") + side("any", "Any") + "</span>";
   }
-  // A click goes either way → only → not → either way; right-click (or
-  // Option-click) goes back to either way. match-all / match-any pick that.
+  function matchChipsHtml(values) {
+    var any = values.match === "any";
+    return [["all", "All", "Games that fit every status set"], ["any", "Any", "Games that fit any status set"]].map(function (c) {
+      var on = any === (c[0] === "any");
+      return '<button class="filter-chip' + (on ? " on" : "") + '" type="button" data-filter="match-' + c[0] +
+        '" aria-pressed="' + on + '" data-tip="' + c[2] + '">' + c[1] + "</button>";
+    }).join("");
+  }
+  // A click goes either way → only → not → either way; Option-click goes
+  // back to either way. match-all / match-any pick that.
   function nextFilters(values, key, clear) {
     var next = {match: values.match === "any" ? "any" : "all"};
     FILTERS.forEach(function (f) { next[f[0]] = values[f[0]] === "only" || values[f[0]] === "hide" ? values[f[0]] : "show"; });
@@ -3595,7 +3662,6 @@
       then(chip.getAttribute("data-filter"), only);
     }
     byId(id).addEventListener("click", function (e) { pick(e, e.altKey); });
-    byId(id).addEventListener("contextmenu", function (e) { pick(e, true); });
   }
   var libFilter = {active: "show", finished: "show", private: "show", noAch: "show", match: "all"};
   // Match all / any applies only to explicit include or exclude rules.
@@ -3706,7 +3772,8 @@
       swapIn(byId("unlocks-screen"));
       scrollLibraryTop();
     }
-    api("/api/unlocks/game?appid=" + encodeURIComponent(appid)).then(function (p) {
+    // Opened (not reloaded): the server asks Steam whether it's Private.
+    api("/api/unlocks/game?appid=" + encodeURIComponent(appid) + (quiet ? "" : "&check=1")).then(function (p) {
       if (gamePageFor === appid) { gamePage = p; renderGamePage(); changeSeen(p); showAchFocus(); }
     }).catch(function (e) {
       if (gamePageFor === appid && !quiet) { gamePage = {error: e}; renderGamePage(); }
@@ -3778,7 +3845,7 @@
       var when = "", kind = groupKind || a.kind;
       if (kind === "unlocked") {
         var at = new Date(a.time * 1000);
-        when = '<div class="unlock-meta"><div>' + escapeHtml(fmtDay(a.time)) + "</div><div>" + escapeHtml(fmtClock(at)) + "</div></div>";
+        when = '<div class="unlock-meta"><div>' + escapeHtml(fmtDay(a.time)) + "</div><div>" + escapeHtml(fmtClockSec(at)) + "</div></div>";
       }
       var icon = iconHtml("unlock-icon", a.icon, "ach"), attrs = "";
       var pick = achPicks.indexOf(a.name), drop = !!achDrops[a.name];
@@ -3859,15 +3926,15 @@
     else {
       if (!p.full) html += noticeHtml("info", "Its locked achievements show after its next read from Steam.");
       html += '<div class="unlocks-bar ach-sort games-sort">' +
+        '<button class="btn-ghost ach-group' + (achGroup === "status" ? " on" : "") + '" type="button" data-ach-group aria-pressed="' +
+        (achGroup === "status") + '" data-tip="Show unlocked and locked achievements in separate lists">Split by status</button>' +
         '<details class="filters-menu sort-menu" id="ach-sort-menu"' + (achSortOpen ? " open" : "") + ">" +
         '<summary class="btn-ghost">' + sortLabel(SORTS.ach, achSort, achOrder) + "</summary>" +
         '<div class="filters-pop">' + SORT_TITLE + sortRowsHtml(SORTS.ach, achSort, achOrder) + "</div></details>" +
-        '<button class="btn-ghost ach-group' + (achGroup === "status" ? " on" : "") + '" type="button" data-ach-group aria-pressed="' +
-        (achGroup === "status") + '" data-tip="Show unlocked and locked achievements in separate lists">Split by status</button>' +
         '<span class="ach-right">' + achApplyHtml() +
         '<button class="lock-toggle ach-lock" type="button" data-ach-lock aria-pressed="' + achEdit + '"' + (achRunning() ? " disabled" : "") +
         ' data-tip="' + (achEdit ? "Discard changes you haven't applied" : "Choose achievements to unlock or lock again") + '">' + LOCK_ICON +
-        "<span>" + (achEdit ? "Cancel editing" : "Edit achievements") + "</span></button></span></div>" +
+        "<span>" + (achEdit ? "Cancel" : "Edit") + "</span></button></span></div>" +
         (achEdit && achError ? problemHtml("warn", (achError.data || {}).title, achError.message) : "");
       var tag = function (list, kind) { return list.map(function (a) { return Object.assign({kind: kind}, a); }); };
       if (achGroup === "none") {
@@ -4096,7 +4163,7 @@
       b.setAttribute("aria-pressed", String(b.getAttribute("data-range") === unlocksRange));
     });
     // The unlocks in the chosen range, and in how many games.
-    var range = RANGES[unlocksRange] || RANGES.all, since = Date.now() / 1000 - range[0];
+    var range = rangeText(unlocksRange), since = rangeSince(unlocksRange);
     var shown = d && !unlocksError ? d.unlocks.filter(function (u) { return u.time >= since; }) : [];
     var gameCount = {};
     shown.forEach(function (u) { gameCount[u.appid] = 1; });
@@ -4105,7 +4172,7 @@
     var lines = [];
     if (d && !unlocksError) {
       var line = "<b>" + shown.length.toLocaleString() + "</b> achievement" + (shown.length === 1 ? "" : "s") + " in <b>" +
-        gameCount + "</b> game" + (gameCount === 1 ? "" : "s") + " " + range[1];
+        gameCount + "</b> game" + (gameCount === 1 ? "" : "s") + " " + range;
       if (d.offline) line = '<span class="warn">' + escapeHtml(d.offline) + "</span> " + line;
       lines.push(line);
     }
@@ -4121,7 +4188,7 @@
     if (unlocksError) {
       patchHtml(list, problemHtml("warn", (unlocksError.data || {}).title, unlocksError.message));
     } else if (d && !shown.length) {
-      patchHtml(list, syncing && !d.unlocks.length ? "" : emptyHtml("\u2606", "No unlocks " + range[1] + "."));
+      patchHtml(list, syncing && !d.unlocks.length ? "" : emptyHtml("\u2606", "No unlocks " + range + "."));
     } else if (d) {
       var html = "", lastDay = null;
       shown.forEach(function (u) {
@@ -4136,7 +4203,7 @@
           '<div class="unlock-text"><div class="unlock-name">' + escapeHtml(u.name) + "</div>" +
           achDescHtml(u, false) + "</div>" +
           '<div class="unlock-meta"><div class="unlock-game">' + markHtml(u) + escapeHtml(u.game) + "</div>" +
-          '<div class="unlock-time">' + escapeHtml(fmtClock(at)) + "</div></div></div>";
+          '<div class="unlock-time">' + escapeHtml(fmtClockSec(at)) + "</div></div></div>";
       });
       patchHtml(list, html + (lastDay ? "</div>" : ""));
     } else if (!unlocksBusy) patchHtml(list, "");
@@ -4206,7 +4273,7 @@
       .catch(function (err) { showToast("Couldn't save: " + err.message); });
   }
   byId("default-range").addEventListener("change", function () { saveSetting({unlocks_range: this.value}); });
-  onFilterList("lib-filters", function (key, only) {
+  function saveLibFilter(key, only) {
     var values = {}, now = {}, change = {};
     (runSettings || []).forEach(function (x) { values[x.key] = x.value; });
     FILTERS.forEach(function (f) { now[f[0]] = values[f[2]]; });
@@ -4215,9 +4282,12 @@
     FILTERS.forEach(function (f) { change[f[2]] = next[f[0]]; });
     change.library_match = next.match;
     saveSetting(change);
-  });
+  }
+  onFilterList("lib-filters", saveLibFilter);
+  onFilterList("lib-match", saveLibFilter);
   byId("library-check").addEventListener("change", function () { saveSetting({library_check: this.value}); });
   byId("hidden-descriptions").addEventListener("change", function () { saveSetting({hidden_descriptions: this.value}); });
+  byId("week-start").addEventListener("change", function () { saveSetting({week_start: this.value}); });
   onChoice(byId("lib-sort"), function (c) {
     var change = {library_order: c.order};
     if (c.sort) change.library_sort = c.sort;
@@ -4267,7 +4337,12 @@
     var key = byId("unlocks-key-input").value.trim();
     if (key) saveUnlocksKey(key);
   });
-  byId("unlocks-refresh").addEventListener("click", function () { loadUnlocks(true); });
+  byId("unlocks-refresh").addEventListener("click", function (e) { loadUnlocks(true, e.altKey); });
+  // Holding ⌥ turns Refresh into Force refresh, as a Mac menu shows an item's alternate.
+  function refreshLabel(e) { byId("unlocks-refresh").textContent = e.altKey ? "Force refresh" : "Refresh"; }
+  document.addEventListener("keydown", refreshLabel);
+  document.addEventListener("keyup", refreshLabel);
+  window.addEventListener("blur", function () { byId("unlocks-refresh").textContent = "Refresh"; });
   function showUnlocks() {
     showScreen("unlocks");
     if (unlocksHasKey === null) {

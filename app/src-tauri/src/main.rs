@@ -451,7 +451,8 @@ fn main() {
                 })
                 .title("STAR")
                 .inner_size(1180.0, 860.0)
-                .min_inner_size(960.0, 560.0)
+                // Half of a 1470×956 screen, so STAR fits beside another window.
+                .min_inner_size(735.0, 478.0)
                 // Restore the frame while hidden, then show it once at
                 // its final size instead of visibly zooming on launch.
                 .visible(false)

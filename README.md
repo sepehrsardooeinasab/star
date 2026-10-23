@@ -49,7 +49,7 @@ Runs keep going when the window is closed; open the app any time to see where th
 
 ### 3. Settings
 
-**Settings** (⌘,) shows the ArchiSteamFarm and plugin versions with **Check for updates**, the Steam account (**Use another account**), a switch (and a test) for keeping the computer awake, whether finished games are listed in Runs, the **Advanced run settings** (locked until opened), and the data folder (**Show in Finder**). Theme and accent are under the palette button.
+**Settings** (⌘,) shows the ArchiSteamFarm and plugin versions with **Check for updates**, the Steam account (**Use another account**), a switch (and a test) for keeping the computer awake, whether finished games are listed in Runs, the **Advanced run settings**, and the data folder (**Show in Finder**). Theme and accent are under the palette button.
 
 ArchiSteamFarm and the plugin are pinned to versions known to work together, and ASF's own auto-update is off so it can't drift from the plugin. **Check for updates** offers the newest ASF in the series the latest plugin is built for; newer series need a new plugin first. Updates are swapped in between sessions, never during one.
 
@@ -158,11 +158,12 @@ In the app, **Settings** has the keep-awake and update switches and **Advanced r
 | `steam_api_key` | `null` | A [Steam Web API key](https://steamcommunity.com/dev/apikey), so the app's **Library** covers every game you play, not just the games in STAR. Set it in Settings → Library. |
 | `clock` | `"system"` | How the app writes times: `"12h"` (2:30 PM) or `"24h"` (14:30). Until one's set (`"system"`), the usual one for the computer's language. Set it in Settings → Clock. |
 | `theme`, `accent` | `"dark"`, `"violet"` | The app's look, from its Appearance menu: `"dark"` or `"light"`; `"violet"`, `"wine"`, `"blue"`, `"teal"` or `"amber"`. |
-| `unlocks_range` | `"month"` | How far back the app's **Library** lists achievements: `"day"`, `"week"`, `"month"`, `"year"` or `"all"`. Set it in Settings → Library. |
+| `unlocks_range` | `"month"` | How far back the app's **Library** lists achievements: today (`"day"`), this week, this month, this year, or `"all"`. Set it in Settings → Library. |
+| `week_start` | `"monday"` | The day **Library**'s Week starts on: `"monday"`, `"sunday"` or `"saturday"`. Set it in Settings → Library. |
 | `library_tab` | `"achievements"` | Which section **Library** opens on: `"achievements"` or `"games"`. |
 | `library_check` | `"6h"` | How often **Library** checks Steam for new games and achievements, in the background, at set times of day counted from midnight (`"6h"`: 12 AM, 6 AM, 12 PM, 6 PM; a check older than the latest of them is made up at once): `"1h"`, `"3h"`, `"6h"`, `"12h"`, `"24h"`, or `"manual"` (only on Refresh). Set it in Settings → Library. |
 | `achievement_sort`, `achievement_order`, `achievement_group` | `"date"`, `"desc"`, `"status"` | How a game's page in **Library** lists its achievements: in Steam's own order (`"default"`, as ArchiSteamFarm's `alist` lists them), by `"date"` unlocked or `"name"`; `"desc"` (reversed, newest, Z–A) or `"asc"`; grouped into unlocked and locked (`"status"`) or not (`"none"`). Set it in Settings → Library. |
-| `library_active`, `library_finished`, `library_private`, `library_no_achievements` | `"show"` each | Which games **Library**'s Games lists, by group, each `"show"` or `"hide"`: those you marked finished on their page, those marked Private in Steam, those without achievements, and the rest (`library_active`). A game shows when any group it's in is shown. Set it in Settings → Library, or for a while in Games' Filters (right-click a group to show only it). |
+| `library_active`, `library_finished`, `library_private`, `library_no_achievements` | `"show"` each | Which games **Library**'s Games lists, by group, each `"show"` or `"hide"`: those you marked finished on their page, those marked Private in Steam, those without achievements, and the rest (`library_active`). A game shows when any group it's in is shown. Set it in Settings → Library, or for a while in Games' Filters. |
 | `hidden_descriptions` | `"unlocked"` | When **Library** shows a hidden achievement's description: `"unlocked"` (once you've unlocked it), `"all"` or `"none"`. Set it in Settings → Library. |
 | `library_sort`, `library_order` | `"played"`, `"desc"` | How **Library**'s Games are sorted: `"played"` (last played), `"achievement"` (last achievement), `"name"`, `"progress"` or `"playtime"`; `"desc"` (newest, Z–A, most first) or `"asc"`. Set it in Settings → Library. |
 

@@ -21,6 +21,7 @@
   "theme": "dark",
   "accent": "violet",
   "unlocks_range": "month",
+  "week_start": "monday",
   "library_tab": "achievements",
   "library_sort": "played",
   "library_order": "desc",
