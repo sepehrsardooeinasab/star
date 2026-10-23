@@ -3134,7 +3134,7 @@
       var fromSettings = {};
       FILTERS.forEach(function (f) { fromSettings[f[0]] = lib[f[2]]; });
       fromSettings.match = lib.library_match || "all";
-      renderFilterList("lib-filters", fromSettings);
+      renderFilterList("lib-filters", fromSettings, "lib-match", true);
       var filterKey = FILTERS.map(function (f) { return lib[f[2]]; }).join(" ") + " " + fromSettings.match;
       if (filterKey !== appliedLib.filter) {
         appliedLib.filter = filterKey;
@@ -3573,10 +3573,12 @@
     groups.active = !(groups.finished || groups.private || groups.noAch);
     return groups;
   }
-  // matchId: where Match goes, when not under the chips in the same list.
-  // Each chip's hover says what it does, or unset, what a click makes it.
-  function renderFilterList(id, values, matchId) {
-    if (matchId) byId(matchId).innerHTML = matchHtml(values);
+  // matchId: where Match goes, when not under the chips in the same list;
+  // with chips (Settings, a row of its own), as All / Any chips like the
+  // other rows'. Each chip's hover says what it does, or unset, what a
+  // click makes it.
+  function renderFilterList(id, values, matchId, chips) {
+    if (matchId) byId(matchId).innerHTML = chips ? matchChipsHtml(values) : matchHtml(values);
     var focused = byId(id).contains(document.activeElement) ? document.activeElement.getAttribute("data-filter") : null;
     byId(id).innerHTML = FILTERS.map(function (f) {
       var v = values[f[0]];
@@ -3598,6 +3600,14 @@
     return '<span class="match-text"><span class="filters-title">Match</span><span class="match-desc">' +
       (any ? "Games that fit any status set" : "Games that fit every status set") + "</span></span>" +
       '<span class="seg-switch" role="group" aria-label="Match">' + side("all", "All") + side("any", "Any") + "</span>";
+  }
+  function matchChipsHtml(values) {
+    var any = values.match === "any";
+    return [["all", "All", "Games that fit every status set"], ["any", "Any", "Games that fit any status set"]].map(function (c) {
+      var on = any === (c[0] === "any");
+      return '<button class="filter-chip' + (on ? " on" : "") + '" type="button" data-filter="match-' + c[0] +
+        '" aria-pressed="' + on + '" data-tip="' + c[2] + '">' + c[1] + "</button>";
+    }).join("");
   }
   // A click goes either way → only → not → either way; Option-click goes
   // back to either way. match-all / match-any pick that.
@@ -4227,7 +4237,7 @@
       .catch(function (err) { showToast("Couldn't save: " + err.message); });
   }
   byId("default-range").addEventListener("change", function () { saveSetting({unlocks_range: this.value}); });
-  onFilterList("lib-filters", function (key, only) {
+  function saveLibFilter(key, only) {
     var values = {}, now = {}, change = {};
     (runSettings || []).forEach(function (x) { values[x.key] = x.value; });
     FILTERS.forEach(function (f) { now[f[0]] = values[f[2]]; });
@@ -4236,7 +4246,9 @@
     FILTERS.forEach(function (f) { change[f[2]] = next[f[0]]; });
     change.library_match = next.match;
     saveSetting(change);
-  });
+  }
+  onFilterList("lib-filters", saveLibFilter);
+  onFilterList("lib-match", saveLibFilter);
   byId("library-check").addEventListener("change", function () { saveSetting({library_check: this.value}); });
   byId("hidden-descriptions").addEventListener("change", function () { saveSetting({hidden_descriptions: this.value}); });
   byId("week-start").addEventListener("change", function () { saveSetting({week_start: this.value}); });
