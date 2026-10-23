@@ -552,6 +552,8 @@
     return opts;
   }
   function fmtClock(d) { return d.toLocaleTimeString([], clockOpts({})); }
+  // Library's unlock times, to the second ("14:30:07").
+  function fmtClockSec(d) { return d.toLocaleTimeString([], clockOpts({second: "2-digit"})); }
 
   // The app's timeline, written for people: "Oct 9, 21:25" and "1h 21m".
   function prettyTime(text) {
@@ -3778,7 +3780,7 @@
       var when = "", kind = groupKind || a.kind;
       if (kind === "unlocked") {
         var at = new Date(a.time * 1000);
-        when = '<div class="unlock-meta"><div>' + escapeHtml(fmtDay(a.time)) + "</div><div>" + escapeHtml(fmtClock(at)) + "</div></div>";
+        when = '<div class="unlock-meta"><div>' + escapeHtml(fmtDay(a.time)) + "</div><div>" + escapeHtml(fmtClockSec(at)) + "</div></div>";
       }
       var icon = iconHtml("unlock-icon", a.icon, "ach"), attrs = "";
       var pick = achPicks.indexOf(a.name), drop = !!achDrops[a.name];
@@ -4136,7 +4138,7 @@
           '<div class="unlock-text"><div class="unlock-name">' + escapeHtml(u.name) + "</div>" +
           achDescHtml(u, false) + "</div>" +
           '<div class="unlock-meta"><div class="unlock-game">' + markHtml(u) + escapeHtml(u.game) + "</div>" +
-          '<div class="unlock-time">' + escapeHtml(fmtClock(at)) + "</div></div></div>";
+          '<div class="unlock-time">' + escapeHtml(fmtClockSec(at)) + "</div></div></div>";
       });
       patchHtml(list, html + (lastDay ? "</div>" : ""));
     } else if (!unlocksBusy) patchHtml(list, "");
