@@ -2175,7 +2175,7 @@
   .unlock-game { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
   /* Jump to achievement: Achievements' rows open their game's page there,
      where the row is lit, fading out. */
-  #unlocks-list .unlock[data-jump-ach] { cursor: pointer; }
+  :where(#unlocks-list) .unlock[data-jump-ach] { cursor: pointer; }
   #unlocks-list .unlock[data-jump-ach]:hover .unlock-name { color: var(--accent); }
   #unlocks-list .unlock[data-jump-ach]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
   .unlock.ach-focus { animation: ach-focus 2.4s ease-out; }
@@ -2430,7 +2430,9 @@
   body.local #unlocks-screen > .unlocks-bar:first-child { display: none; }
 
   /* Shared control sizes and quiet focus feedback, including grouped forms. */
-  body.local :is(button, summary, .run-card, .lib-game, .ach-link, [role="button"]) { cursor: default; }
+  /* Like a Mac app, clickable things keep the arrow, rows and cells too;
+     only text (I-beam), help marks and what can't be used differ. */
+  body.local :is(button, summary, label, .run-card, .lib-game, .ach-link, .unlock, .delay-cell, [role="button"]) { cursor: default; }
   body.local :is(.btn-ghost, .bar-btn, .lock-toggle, a.btn-ghost, .filters-menu > summary) { min-height: 26px; border-radius: var(--control-radius); font-size: 12px; background-color: var(--control-surface); border-color: var(--border-strong); box-shadow: 0 1px 1px rgba(0, 0, 0, 0.06); }
   body.local :is(.btn-ghost, .bar-btn, .lock-toggle):hover:not(:disabled) { background-color: color-mix(in srgb, var(--control-surface) 94%, var(--text)); border-color: var(--border-strong); }
   body.local :is(input:not([type="checkbox"]), textarea, select) { background-color: var(--field-surface); border-radius: 6px; border-color: var(--border-strong); font-size: 13px; }
