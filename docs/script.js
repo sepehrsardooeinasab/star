@@ -3599,8 +3599,8 @@
       (any ? "Games that fit any status set" : "Games that fit every status set") + "</span></span>" +
       '<span class="seg-switch" role="group" aria-label="Match">' + side("all", "All") + side("any", "Any") + "</span>";
   }
-  // A click goes either way → only → not → either way; right-click (or
-  // Option-click) goes back to either way. match-all / match-any pick that.
+  // A click goes either way → only → not → either way; Option-click goes
+  // back to either way. match-all / match-any pick that.
   function nextFilters(values, key, clear) {
     var next = {match: values.match === "any" ? "any" : "all"};
     FILTERS.forEach(function (f) { next[f[0]] = values[f[0]] === "only" || values[f[0]] === "hide" ? values[f[0]] : "show"; });
@@ -3616,7 +3616,6 @@
       then(chip.getAttribute("data-filter"), only);
     }
     byId(id).addEventListener("click", function (e) { pick(e, e.altKey); });
-    byId(id).addEventListener("contextmenu", function (e) { pick(e, true); });
   }
   var libFilter = {active: "show", finished: "show", private: "show", noAch: "show", match: "all"};
   // Match all / any applies only to explicit include or exclude rules.
