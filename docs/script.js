@@ -1061,6 +1061,7 @@
       byId(tab.getAttribute("aria-controls")).hidden = !active;
       if (active && focus) tab.focus();
     });
+    if (combined) renderImportSide();
   }
 
   function renderScheduleSource(ok) {
@@ -1073,7 +1074,7 @@
     else if (!ok && schedulePanel === "preview") setSchedulePanel("import");
     if (els.exportText.value.trim() && latest && !latest.pending && !latest.inputNotice &&
         (!els.appid.value || !els.gameName.value.trim())) {
-      setSchedulePanel("details");
+      setSchedulePanel("import");
     }
     if (!ok) return;
     var appid = parseInt(els.appid.value, 10);
@@ -1117,6 +1118,28 @@
   }
 
   function render() {
+    renderView();
+    if (combined) renderImportSide();
+  }
+  // The app's Import tab, right side: the help until something's pasted,
+  // then the import's status (ArchiSteamFarm's steps, what's missing, or
+  // ready). On the Timeline tab the status goes back under it, where its
+  // notices (edits not saved) belong.
+  function renderImportSide() {
+    var pasted = !!els.exportText.value.trim(), ok = latest && !latest.errors.length;
+    var home = schedulePanel === "import" ? byId("import-status-body") : byId("schedule-workspace-footer");
+    if (els.inputAlertSlot.parentNode !== home) home.prepend(els.inputAlertSlot);
+    byId("import-status").hidden = !pasted;
+    document.querySelector(".input-help").hidden = pasted;
+    // Ready: the game and its numbers, as Timeline heads them, and its
+    // sessions, a row each (as in Runs), the rest of the card.
+    var ready = byId("import-status-ok");
+    ready.hidden = !ok || !!els.inputAlertSlot.innerHTML.trim();
+    if (ok) patchHtml(ready, '<div class="run-summary-title">' + byId("schedule-game").innerHTML + "</div>" +
+      '<div class="paste-summary"><div class="summary-bar">' + els.statsStrip.innerHTML + "</div></div>" +
+      '<div class="import-sessions">' + sessionsHtml(latest.csvRows, null) + "</div>");
+  }
+  function renderView() {
     // Pasted text is locked while there are edits: changing it would
     // re-parse into a different achievement list the edits don't match.
     var locked = editCount() > 0;
@@ -2821,8 +2844,30 @@
     document.querySelector(".hover-help").remove();
     // Keep the input actionable; detailed import instructions are optional.
     var help = document.querySelector(".input-help");
-    source.appendChild(help);
-    els.exportText.placeholder = "Paste a Steam or SteamHunters link here…";
+    // Import and Details in one tab, half and half: the paste the whole
+    // height on the left; on the right the help (or the import's status
+    // once something's pasted, see renderImportSide), and at the bottom the
+    // game's details and the session options. In a short window only the
+    // right side scrolls, so the paste box always fits.
+    var right = document.createElement("div"), side = document.createElement("div"), cards = document.createElement("div"), details = byId("schedule-details");
+    right.className = "schedule-right";
+    side.className = "schedule-side";
+    cards.className = "schedule-cards";
+    details.classList.remove("schedule-panel");
+    ["role", "aria-labelledby", "tabindex", "hidden"].forEach(function (a) { details.removeAttribute(a); });
+    byId("schedule-tab-details").remove();
+    side.innerHTML = '<section class="import-status" id="import-status" hidden><h3>Import status</h3>' +
+      '<div id="import-status-body"><p class="import-status-ok" id="import-status-ok" hidden></p></div></section>';
+    side.appendChild(help);
+    // Reset all fields at the end of the import's title; Import sources
+    // explains what to paste, so the line under the box goes.
+    var options = details.querySelector(".bar-options"), actions = document.querySelector(".import-actions");
+    cards.append(details, options);
+    document.querySelector(".import-intro").appendChild(actions.querySelector('[data-slot="reset"]'));
+    actions.remove();
+    right.append(side, cards);
+    source.append(byId("schedule-import"), right);
+    els.exportText.placeholder = "Paste here…";
     setSchedulePanel("import");
     // It opens on Runs (Settings takes over while setup isn't done; see
     // refreshSetup).

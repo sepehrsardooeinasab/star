@@ -1593,12 +1593,48 @@
   .schedule-panel-intro, .schedule-details-body, .schedule-options-body, .schedule-options-lock { width: 100%; max-width: 32rem; margin-left: auto; margin-right: auto; }
   .schedule-panel-intro h2, .import-intro h2 { margin: 0; font-size: var(--fs-title); line-height: 1.4; font-weight: 600; color: var(--text); }
   .schedule-panel-intro p, .import-intro p { margin: var(--space-s) 0 0; color: var(--text-dim); font-size: var(--fs-body); line-height: 1.5; }
-  body.local .schedule-source { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 2rem; align-content: start; }
+  body.local .schedule-source { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2rem; align-content: start; }
   body.local #schedule-import { display: flex; flex-direction: column; min-width: 0; gap: var(--space-l); margin: 0; }
   body.local .import-intro { display: block; }
-  body.local #export-text { flex: none; width: 100%; height: 14rem; min-height: 0; padding: 0.85rem; font-family: var(--font); font-size: var(--fs-body); line-height: 1.6; resize: none; background: var(--bg); }
+  body.local #export-text { flex: 1; width: 100%; height: auto; min-height: 14rem; padding: 0.85rem; font-family: var(--font); font-size: var(--fs-body); line-height: 1.6; resize: none; background: var(--bg); }
   body.local div.import-actions { display: flex; align-items: center; justify-content: space-between; gap: var(--space-l); font-size: var(--fs-small); color: var(--text-dim); line-height: 1.5; }
   .import-actions .link-btn { font-size: inherit; }
+  /* Half and half: the import the whole height on the left, its box
+     taking the room; on the right the help or the import's status, and at
+     the bottom the game's details and the session options. A line down
+     the middle. */
+  body.local #schedule-import { grid-column: 1; grid-row: 1; }
+  body.local .schedule-right { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; gap: var(--space-l); min-width: 0; min-height: 0; overflow-y: auto; }
+  /* The import is a card too, its title and line like the cards beside it. */
+  body.local .schedule-source > #schedule-import { box-sizing: border-box; padding: var(--pad-card); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-card); }
+  body.local .schedule-source .import-intro h2 { font-size: var(--fs-body); }
+  body.local .schedule-source .import-intro p { margin-top: 4px; font-size: var(--fs-body); }
+  body.local .schedule-source .import-intro { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-l); }
+  body.local .schedule-source .import-intro h2 { grid-column: 1; grid-row: 1; }
+  body.local .schedule-source .import-intro .bar-reset { grid-column: 2; grid-row: 1; }
+  body.local .schedule-source .import-intro p { grid-column: 1 / -1; grid-row: 2; }
+  body.local .schedule-cards { flex: none; display: flex; flex-direction: column; gap: var(--space-l); min-width: 0; }
+  /* The help or status takes the room above the cards, at least 16rem (in
+     a short window the right side scrolls); what doesn't fit scrolls within it. */
+  body.local .schedule-side { flex: 1 0 16rem; display: flex; flex-direction: column; gap: var(--space-l); min-width: 0; min-height: 16rem; overflow-y: auto;
+    padding: var(--pad-card); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-card); }
+  body.local .schedule-side .input-help { padding: 0; border: 0; }
+  body.local .import-status h3 { margin: 0 0 var(--space-m); color: var(--text); font-size: var(--fs-small); font-weight: 600; line-height: 1.5; }
+  .import-status-ok { display: flex; flex-direction: column; gap: var(--space-m); margin: 0; color: var(--text-dim); font-size: var(--fs-small); line-height: 1.5; }
+  .import-status-ok .paste-summary { margin: 0; }
+  /* The status fills its card; the sessions table scrolls within it. */
+  body.local .import-status:not([hidden]), body.local #import-status-body, body.local .import-status-ok:not([hidden]) { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  /* The sessions take the room left, scrolling; with too little for its
+     head and one session, the table hides rather than show a sliver. */
+  body.local .import-status-ok .import-sessions { flex: 1; min-height: 0; container-type: size; }
+  body.local .import-sessions .table-wrap { height: 100%; overflow-y: auto; }
+  @container (max-height: 4.25rem) { body.local .import-sessions .table-wrap { display: none; } }
+  /* Columns as wide as their words; too narrow for all four, it scrolls sideways. */
+  body.local .import-sessions .table-wrap { overflow-x: auto; }
+  body.local .import-sessions table.sessions-summary { table-layout: auto; }
+  body.local .import-sessions table.sessions-summary :is(th, td) { width: auto; white-space: nowrap; }
+  body.local .import-status-ok :is(.run-summary-title, .paste-summary) { flex: none; }
+  body.local #app-workspace > .schedule-workspace-footer:empty { display: none; }
   body.local .input-help { position: static; flex: none; margin: 0; padding: 0 0 0 2rem; max-height: none; overflow: visible; border: 0; border-left: 1px solid var(--border); font-size: var(--fs-small); }
   .input-help h3 { margin: 0; color: var(--text-dim); font-size: var(--fs-body); font-weight: 600; line-height: 1.5; }
   .import-help-body { padding-top: var(--space-m); line-height: 1.6; }
@@ -2358,7 +2394,7 @@
   }
   @media (max-width: 720px) {
     .schedule-panel { padding: 1rem; }
-    body.local .schedule-source { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
+    body.local .schedule-source { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; background-image: none; }
     body.local .input-help { padding: 1rem 0 0; border-left: 0; border-top: 1px solid var(--border); }
     body.local #export-text { height: 10rem; }
     .summary-value { white-space: normal; }
@@ -2462,7 +2498,7 @@
   body.local :is(.schedule-panel-intro h2, .import-intro h2, .game-title) { font-size: var(--fs-title); }
   body.local #app-workspace .setup-step { border-color: var(--border); border-radius: var(--radius-card); }
   body.local .step-head b { font-size: var(--fs-body); color: var(--text); }
-  body.local #schedule-details .schedule-details-body, body.local .schedule-options-body .settings-form { gap: 0; padding: 4px 16px; margin-top: 16px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-card); }
+  body.local :is(#schedule-details, .schedule-source) .schedule-details-body, body.local .schedule-options-body .settings-form { gap: 0; padding: 4px 16px; margin-top: 16px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-card); }
   body.local .schedule-options-body { padding-top: 0; }
   body.local .schedule-details-body .bar-field, body.local .schedule-options-body .field:has(input) { display: grid; grid-template-columns: minmax(10rem, 1fr) minmax(0, 1.35fr); align-items: center; column-gap: 20px; min-height: 58px; margin: 0; }
   body.local .schedule-details-body .bar-field + .bar-field, body.local .schedule-options-body .field:has(input) + .field:has(input) { border-top: 1px solid var(--border); }
@@ -2530,7 +2566,7 @@
   }
   @media (max-width: 720px) {
     body.local .screen-switch button { padding: 2px 8px; }
-    body.local #schedule-details .schedule-details-body, body.local .schedule-options-body .settings-form { padding-left: 12px; padding-right: 12px; }
+    body.local :is(#schedule-details, .schedule-source) .schedule-details-body, body.local .schedule-options-body .settings-form { padding-left: 12px; padding-right: 12px; }
     body.local .schedule-details-body .bar-field, body.local .schedule-options-body .field:has(input) { grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 10px 0; }
     body.local .bar-unit { height: 28px; bottom: 10px; }
     body.local .schedule-options-body input { width: 100%; }
@@ -2538,7 +2574,7 @@
   }
 
   /* Session options under the game's details, in Schedule's Details tab. */
-  body.local #schedule-details .bar-options { margin-top: 28px; }
+  body.local :is(#schedule-details, .schedule-source) .bar-options { margin-top: 28px; }
 
   /* Library's games as columns across the width: the game, its progress,
      when it was last played, and for how long. */
@@ -2563,7 +2599,14 @@
   body.local #unlocks-range button { min-height: 30px; }
 
   /* Schedule's Import uses the window's height: the paste box grows into it. */
-  body.local .schedule-source { box-sizing: border-box; height: 100%; align-content: stretch; grid-template-rows: minmax(0, 1fr); }
+  body.local .schedule-source { box-sizing: border-box; height: 100%; align-content: stretch; grid-template-rows: minmax(0, 1fr);
+    row-gap: var(--space-l); column-gap: 3rem;
+    background-image: linear-gradient(var(--border), var(--border)); background-repeat: no-repeat; background-position: center top; background-size: 1px 100%; }
+  @media (max-width: 720px) {
+    body.local .schedule-source { grid-template-rows: none; background-image: none; }
+    body.local :is(#schedule-import, .schedule-right) { grid-column: auto; grid-row: auto; }
+    body.local .schedule-right { overflow: visible; }
+  }
   body.local #schedule-import { min-height: 0; }
   body.local #export-text { flex: 1 1 auto; height: auto; min-height: 10rem; }
   body.local .input-help { overflow-y: auto; }
@@ -2571,27 +2614,27 @@
   /* Schedule's Details: cards and rows like Settings' sections: a title
      and a line in the card, then each field as its label, then the box. */
   body.local #schedule-details { display: flex; flex-direction: column; gap: var(--space-l); }
-  body.local :is(.schedule-card, #schedule-details .bar-options) {
+  body.local :is(.schedule-card, #schedule-details .bar-options, .schedule-source .bar-options) {
     padding: 1rem 1.1rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-card);
   }
-  body.local #schedule-details .bar-options { margin-top: 0; }
-  body.local #schedule-details :is(.schedule-panel-intro, .schedule-details-body, .schedule-options-body, .schedule-options-lock) { max-width: none; margin: 0; }
-  body.local #schedule-details .schedule-panel-intro h2 { font-size: var(--fs-body); }
-  body.local #schedule-details .schedule-panel-intro p { margin-top: 4px; font-size: var(--fs-body); }
-  body.local #schedule-details .schedule-details-body,
-  body.local #schedule-details .schedule-options-body .settings-form {
+  body.local :is(#schedule-details, .schedule-source) .bar-options { margin-top: 0; }
+  body.local :is(#schedule-details, .schedule-source) :is(.schedule-panel-intro, .schedule-details-body, .schedule-options-body, .schedule-options-lock) { max-width: none; margin: 0; }
+  body.local :is(#schedule-details, .schedule-source) .schedule-panel-intro h2 { font-size: var(--fs-body); }
+  body.local :is(#schedule-details, .schedule-source) .schedule-panel-intro p { margin-top: 4px; font-size: var(--fs-body); }
+  body.local :is(#schedule-details, .schedule-source) .schedule-details-body,
+  body.local :is(#schedule-details, .schedule-source) .schedule-options-body .settings-form {
     display: flex; flex-direction: column; gap: var(--space-s); margin-top: var(--space-m); padding: 0.8rem 0 0;
     background: none; border: 0; border-top: 1px solid var(--border); border-radius: 0;
   }
-  body.local #schedule-details :is(.schedule-details-body .bar-field, .schedule-options-body .field:has(input)) {
-    display: grid; grid-template-columns: 12rem 18rem; align-items: center; column-gap: 0.5rem;
+  body.local :is(#schedule-details, .schedule-source) :is(.schedule-details-body .bar-field, .schedule-options-body .field:has(input)) {
+    display: grid; grid-template-columns: minmax(7rem, 12rem) minmax(0, 18rem); align-items: center; column-gap: 0.5rem;
     min-height: 0; margin: 0; padding: 0; border: 0; font-size: var(--fs-body); color: var(--text-dim);
   }
-  body.local #schedule-details .schedule-options-body .field:has(input) { grid-template-columns: 12rem 4.5rem auto; }
-  body.local #schedule-details :is(.schedule-details-body .bar-field, .schedule-options-body .field:has(input)) + * { border-top: 0; }
-  body.local #schedule-details :is(.bar-field, .schedule-options-body) input { width: 100%; justify-self: stretch; }
-  body.local #schedule-details .schedule-options-body label { margin: 0; color: var(--text-dim); font-size: var(--fs-body); }
-  body.local #schedule-details .bar-unit { position: static; height: auto; font-size: var(--fs-body); }
+  body.local :is(#schedule-details, .schedule-source) .schedule-options-body .field:has(input) { grid-template-columns: minmax(7rem, 12rem) 4.5rem auto; }
+  body.local :is(#schedule-details, .schedule-source) :is(.schedule-details-body .bar-field, .schedule-options-body .field:has(input)) + * { border-top: 0; }
+  body.local :is(#schedule-details, .schedule-source) :is(.bar-field, .schedule-options-body) input { width: 100%; justify-self: stretch; }
+  body.local :is(#schedule-details, .schedule-source) .schedule-options-body label { margin: 0; color: var(--text-dim); font-size: var(--fs-body); }
+  body.local :is(#schedule-details, .schedule-source) .bar-unit { position: static; height: auto; font-size: var(--fs-body); }
 
   /* Settings' tabs: General is every section but the two moved out of
      their folds (Run settings, Library display), each shown on its own. */
@@ -2722,8 +2765,8 @@
   }
 
   /* Session options' hours: a narrow box with up/down arrows, as App ID has. */
-  body.local #schedule-details .schedule-options-body input[type="number"] { padding-right: 4px; }
-  body.local #schedule-details .schedule-options-body input[type="number"]::-webkit-inner-spin-button { display: block; }
+  body.local :is(#schedule-details, .schedule-source) .schedule-options-body input[type="number"] { padding-right: 4px; }
+  body.local :is(#schedule-details, .schedule-source) .schedule-options-body input[type="number"]::-webkit-inner-spin-button { display: block; }
 
   /* Something that can't be used right now (Save with nothing to save, a
      tab with nothing in it yet) says so under the pointer. */
