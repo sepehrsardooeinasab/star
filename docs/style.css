@@ -2018,7 +2018,7 @@
   /* A game's sorts are shorter (Date unlocked at most); Split by status
      beside it is as wide. */
   .ach-sort.games-sort .filters-menu.sort-menu summary.btn-ghost,
-  .ach-sort.games-sort .btn-ghost.ach-group { width: 8.5rem; justify-content: center; }
+  .ach-sort.games-sort .btn-ghost.ach-group { width: auto; justify-content: center; }
   .sort-menu summary .sort-name { flex: 1; text-align: center; }
   .sort-menu summary .sort-arrow { flex: none; margin-left: 0.4rem; }
   .ach-sort .sort-menu .filters-pop { right: auto; left: 0; }
