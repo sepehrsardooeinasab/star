@@ -26,9 +26,10 @@ game, which can be hundreds of pages, so checks run in the background
 internet, what's saved is shown.
 
 Games marked Private in Steam are marked. With a key, the Web API is
-asked about every owned game once a day (PRIVACY_EVERY), not on Refresh,
-so a game made Private or public again anywhere (another computer, the
-website) shows by the next day. Without one, the Steam client's own
+asked about every owned game once a day (PRIVACY_EVERY) and on Force
+refresh (⌥-click Refresh), not on a plain Refresh, so a game made Private
+or public again anywhere (another computer, the website) shows by the
+next day. Without one, the Steam client's own
 files on this computer are read, when Steam is installed here. Games
 no longer in the library (refunded, removed) are left out, their
 unlocks kept in case they come back.
@@ -663,14 +664,15 @@ def game_page(appid):
     }
 
 
-def recent(refresh=False):
+def recent(refresh=False, force=False):
     """The saved unlocks, starting a check with Steam in the background
     when one is due (or on refresh): {"unlocks": [...] newest first,
     "games_list": every game with its progress (see _games_list),
     "has_key", "library": counts of the library's games (with a key),
     "games": how many are saved, "fetched_at": when Steam was last
     asked, "offline": a message when it couldn't be, "syncing": how far a
-    running check is}."""
+    running check is}. force (Force refresh) also asks which games are
+    Private, as the daily check does."""
     sid = steamid()
     if not sid:
         raise Problem("STAR doesn't know your Steam account yet",
@@ -684,11 +686,11 @@ def recent(refresh=False):
             raise Problem(title, message)
         if not SYNC["running"] and (refresh or _due(store)):
             SYNC.update(running=True, done=0, total=0, notice=None, error=None)
-            threading.Thread(target=_sync, args=(sid, refresh), daemon=True).start()
+            threading.Thread(target=_sync, args=(sid, refresh, force), daemon=True).start()
         return _result(store)
 
 
-def _sync(sid, refresh):
+def _sync(sid, refresh, force=False):
     """Reads from Steam what changed (see the top), saving as it goes so
     the app shows the unlocks while the rest is read."""
     try:
@@ -708,7 +710,7 @@ def _sync(sid, refresh):
             store["library"] = {"games": len(owned), "with_achievements": with_stats,
                                 "without_achievements": len(owned) - with_stats}
             store["owned"] = owned
-            if time.time() - store.get("privacy_checked", 0) >= PRIVACY_EVERY:
+            if force or time.time() - store.get("privacy_checked", 0) >= PRIVACY_EVERY:
                 _check_privacy(store, key, sid)
         appids, played = _to_read(store, _star_appids(), owned, refresh)
         SYNC["total"] = len(appids)

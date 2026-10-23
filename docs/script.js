@@ -3375,11 +3375,13 @@
   // Whether a Steam Web API key is set: null until the server says, so
   // neither screen shows the wrong text first.
   var unlocksHasKey = null, unlocksKeyOpen = false, unlocksKeyError = null, unlocksKeyLoaded = false;
-  function loadUnlocks(refresh) {
+  // force: Force refresh (⌥-click Refresh), which also asks Steam which
+  // games are Private (otherwise once a day).
+  function loadUnlocks(refresh, force) {
     if (unlocksBusy) return;
     unlocksBusy = true;
     renderUnlocks();
-    api("/api/unlocks" + (refresh ? "?refresh=1" : ""))
+    api("/api/unlocks" + (refresh ? "?refresh=1" + (force ? "&force=1" : "") : ""))
       .then(function (d) {
         unlocksData = d; unlocksError = null; unlocksHasKey = d.has_key;
         if (gamePage && !gamePage.error && !d.syncing) openGamePage(gamePageFor, true);
@@ -4287,7 +4289,12 @@
     var key = byId("unlocks-key-input").value.trim();
     if (key) saveUnlocksKey(key);
   });
-  byId("unlocks-refresh").addEventListener("click", function () { loadUnlocks(true); });
+  byId("unlocks-refresh").addEventListener("click", function (e) { loadUnlocks(true, e.altKey); });
+  // Holding ⌥ turns Refresh into Force refresh, as a Mac menu shows an item's alternate.
+  function refreshLabel(e) { byId("unlocks-refresh").textContent = e.altKey ? "Force refresh" : "Refresh"; }
+  document.addEventListener("keydown", refreshLabel);
+  document.addEventListener("keyup", refreshLabel);
+  window.addEventListener("blur", function () { byId("unlocks-refresh").textContent = "Refresh"; });
   function showUnlocks() {
     showScreen("unlocks");
     if (unlocksHasKey === null) {

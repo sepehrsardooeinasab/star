@@ -722,10 +722,10 @@ def app_counters(appid):
     return {"appid": appid, "counters": achievements.app_counters(appid)}
 
 
-def recent_unlocks(refresh):
+def recent_unlocks(refresh, force=False):
     """This account's latest unlocks, read from Steam (see unlocks)."""
     try:
-        return unlocks.recent(refresh)
+        return unlocks.recent(refresh, force)
     except unlocks.Problem as e:
         raise AppError(str(e), 409, title=e.title, has_key=bool(unlocks._key()))
 
@@ -947,7 +947,7 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/achievements/progress": lambda: numbers_progress(query.get("appid")),
             "/api/achievements/counters": lambda: app_counters(query.get("appid")),
             "/api/settings": run_settings,
-            "/api/unlocks": lambda: recent_unlocks(query.get("refresh") == "1"),
+            "/api/unlocks": lambda: recent_unlocks(query.get("refresh") == "1", query.get("force") == "1"),
             "/api/unlocks/key": lambda: {"has_key": bool(unlocks._key())},
             "/api/unlocks/game": lambda: unlocks_game(query.get("appid")),
         }
