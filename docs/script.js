@@ -2718,7 +2718,8 @@
     // Advanced run settings and Library's display options, folded away in
     // their sections on the website, are each a Settings tab of their own
     // in the app, open: a card of their own, their fold's title as its.
-    [["run-settings-box", "step-run-settings", "advanced"], ["lib-defaults-box", "step-lib-display", "display"]].forEach(function (f) {
+    [["run-settings-box", "step-run-settings", "advanced"], ["lib-defaults-box", "step-lib-display", "display"],
+     ["lib-view-box", "step-lib-view", "display"]].forEach(function (f) {
       var box = byId(f[0]), card = document.createElement("li");
       card.className = "setup-step done settings-tab-card";
       card.id = f[1];

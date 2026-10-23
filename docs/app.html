@@ -218,36 +218,12 @@
         <details class="run-settings-box lib-defaults-box" id="lib-defaults-box">
           <summary>Display options</summary>
         <div class="lib-defaults">
-          <div class="lib-default"><span>Achievements shown</span>
-            <select id="default-range" aria-label="Achievements shown">
-              <option value="day">Today</option>
-              <option value="week">This week</option>
-              <option value="month">This month</option>
-              <option value="year">This year</option>
-              <option value="all">All</option>
-            </select>
-          </div>
           <div class="lib-default"><span>Week starts on</span>
             <select id="week-start" aria-label="Week starts on">
               <option value="monday">Monday</option>
               <option value="sunday">Sunday</option>
               <option value="saturday">Saturday</option>
             </select>
-          </div>
-          <div class="lib-default lib-filters"><span>Games sorted by</span>
-            <div class="chip-rows" id="lib-sort"></div>
-          </div>
-          <div class="lib-default lib-filters"><span>Games shown</span>
-            <div class="filter-list" id="lib-filters" data-scope="settings"></div>
-          </div>
-          <div class="lib-default lib-filters"><span>Filter match</span>
-            <div class="filter-list" id="lib-match" data-scope="settings"></div>
-          </div>
-          <div class="lib-default lib-filters"><span>Achievements sorted by</span>
-            <div class="chip-rows" id="lib-ach-sort"></div>
-          </div>
-          <div class="lib-default lib-filters"><span>Split by status</span>
-            <div class="chip-rows" id="lib-ach-group"></div>
           </div>
           <div class="lib-default"><span>Check Steam</span>
             <select id="library-check" aria-label="How often to check Steam">
@@ -265,6 +241,36 @@
               <option value="all">Always describe</option>
               <option value="none">Never describe</option>
             </select>
+          </div>
+        </div>
+        </details>
+        <!-- What Library opens with; picking another there lasts until these change. -->
+        <details class="run-settings-box lib-defaults-box" id="lib-view-box">
+          <summary>Defaults</summary>
+        <div class="lib-defaults">
+          <div class="lib-default"><span>Achievements shown</span>
+            <select id="default-range" aria-label="Achievements shown">
+              <option value="day">Today</option>
+              <option value="week">This week</option>
+              <option value="month">This month</option>
+              <option value="year">This year</option>
+              <option value="all">All</option>
+            </select>
+          </div>
+          <div class="lib-default lib-filters"><span>Games sorted by</span>
+            <div class="chip-rows" id="lib-sort"></div>
+          </div>
+          <div class="lib-default lib-filters"><span>Games shown</span>
+            <div class="filter-list" id="lib-filters" data-scope="settings"></div>
+          </div>
+          <div class="lib-default lib-filters"><span>Filter match</span>
+            <div class="filter-list" id="lib-match" data-scope="settings"></div>
+          </div>
+          <div class="lib-default lib-filters"><span>Achievements sorted by</span>
+            <div class="chip-rows" id="lib-ach-sort"></div>
+          </div>
+          <div class="lib-default lib-filters"><span>Split by status</span>
+            <div class="chip-rows" id="lib-ach-group"></div>
           </div>
         </div>
         </details>

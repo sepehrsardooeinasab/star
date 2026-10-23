@@ -2574,7 +2574,7 @@
   /* Settings' tabs: General is every section but the two moved out of
      their folds (Run settings, Library display), each shown on its own. */
   body.local #hero-setup:not([data-settings-section="advanced"]) #step-run-settings,
-  body.local #hero-setup:not([data-settings-section="display"]) #step-lib-display,
+  body.local #hero-setup:not([data-settings-section="display"]) :is(#step-lib-display, #step-lib-view),
   body.local #hero-setup:is([data-settings-section="advanced"], [data-settings-section="display"]) .setup-step:not(.settings-tab-card) { display: none !important; }
   body.local .settings-tab-card .run-settings-box { margin-top: 0.6rem; padding-top: 0; border-top: 0; }
   body.local .settings-tab-card .run-settings-box > summary { display: none; }
