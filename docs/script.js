@@ -2893,15 +2893,12 @@
     byId("asf-check").disabled = checking;
     byId("asf-check").textContent = checking ? "Checking…" : "Check for updates";
     byId("asf-update-latest").hidden = !asfCurrent || installing || !(latest && latest.newer);
-    // "Up to date" (or a failed check) answers the click; it's gone once
-    // you leave Settings. A newer pair stays, since it can be installed.
-    var shown = latest && (latest.newer || asfCheckAnswer);
-    byId("asf-latest-text").hidden = !asfCurrent || installing || !shown;
-    if (latest) {
-      byId("asf-latest-text").textContent = latest.error ? latest.error
-        : latest.newer ? latest.asf + " is available. It installs between sessions."
-        : "Up to date.";
-      byId("asf-update-latest").textContent = "Update to " + (latest.asf || "");
+    // A newer pair shows here, since it can be installed; up to date (or a
+    // failed check) answers Check for updates as a toast.
+    byId("asf-latest-text").hidden = !asfCurrent || installing || !(latest && latest.newer);
+    if (latest && latest.newer) {
+      byId("asf-latest-text").textContent = latest.asf + " is available. It installs between sessions.";
+      byId("asf-update-latest").textContent = "Update to " + latest.asf;
     }
 
     var signing = d.busy === "login" || d.busy === "code";
@@ -3206,12 +3203,17 @@
   }
 
   byId("setup-install").addEventListener("click", function () { setupPost("/api/setup/install", {}); });
-  var asfCheckAnswer = false;  // show what Check for updates found
   byId("asf-check").addEventListener("click", function () {
-    asfCheckAnswer = true;
     byId("asf-check").textContent = "Checking…";
     byId("asf-check").disabled = true;
-    setupPost("/api/setup/asf-check", {});
+    api("/api/setup/asf-check", {}).then(function (d) {
+      setupData = d;
+      renderSetup();
+      var latest = d.asf_latest || {};
+      if (latest.error) showToast(latest.error);
+      else if (!latest.newer) showToast("ArchiSteamFarm and its plugin are up to date.");
+    }).catch(function (err) { showToast(err.message); })
+      .then(function () { setTimeout(refreshSetup, 300); });
   });
   byId("asf-update-latest").addEventListener("click", function () { setupPost("/api/setup/install", {latest: true}); });
   byId("awake-check").addEventListener("click", function () {
@@ -3256,12 +3258,11 @@
   // hours) and from Check for updates / the app's menu. Updating runs the
   // install script, which closes the app and opens the new one.
   var updateData = null;
-  var updateChecked = false;   // checked on request, so say "up to date"
 
   function renderUpdate() {
     var u = updateData;
     if (!u) return;
-    var text = "STAR " + u.current + (updateChecked && !u.error ? " is up to date." : "");
+    var text = "STAR " + u.current;
     if (u.updating) {
       text = "Updating to " + u.latest + "… The app closes and opens again when it's done.";
     } else if (u.failed && u.available) {
@@ -3269,21 +3270,24 @@
     } else if (u.available) {
       text = "Version " + u.latest + " is out (you have " + u.current + ")." +
         (u.can_update ? "" : " Update with git pull.");
-    } else if (u.error && updateChecked) {
-      text = "STAR " + u.current + ". " + u.error;
     }
     byId("update-text").textContent = text;
     byId("update-now").hidden = !u.available || !u.can_update || u.updating;
     byId("update-check").hidden = u.updating;
   }
 
+  // force (Check for updates, or the app's menu): up to date, or a failed
+  // check, answers as a toast; a newer version shows in the row.
   function checkUpdates(force) {
-    if (force) byId("update-text").textContent = "Checking for updates…";
+    var button = byId("update-check");
+    if (force) { button.textContent = "Checking…"; button.disabled = true; }
     return api("/api/update" + (force ? "?force=1" : "")).then(function (u) {
       updateData = u;
-      updateChecked = updateChecked || force;
       renderUpdate();
-    }).catch(function () {});
+      if (force && u.error) showToast("Couldn't check for STAR updates: " + u.error);
+      else if (force && !u.available) showToast("STAR is up to date.");
+    }).catch(function (err) { if (force) showToast(err.message); })
+      .then(function () { if (force) { button.textContent = "Check for updates"; button.disabled = false; } });
   }
 
   // Without the app, the install script restarts the page's server: reload
@@ -3347,13 +3351,6 @@
     }
     // Leaving the Guide tab closes the panel, unless it's first-run setup,
     // which stays on the start screen until it's done.
-    // What Check for updates found answers the click; leaving Settings
-    // clears it (a newer version stays, since it can be installed).
-    if (name !== "guide" && (asfCheckAnswer || updateChecked)) {
-      asfCheckAnswer = updateChecked = false;
-      renderSetup();
-      renderUpdate();
-    }
     if (name !== "guide" && setupOpen && !setupAutoClose) {
       setupOpen = false;
       renderSetup();
