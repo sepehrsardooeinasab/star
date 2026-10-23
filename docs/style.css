@@ -1636,10 +1636,13 @@
   body.local .import-status-ok .import-sessions { flex: 1; min-height: 0; container-type: size; }
   body.local .import-sessions .table-wrap { height: 100%; overflow-y: auto; }
   @container (max-height: 4.25rem) { body.local .import-sessions .table-wrap { display: none; } }
-  /* Columns as wide as their words; too narrow for all four, it scrolls sideways. */
-  body.local .import-sessions .table-wrap { overflow-x: auto; }
-  body.local .import-sessions table.sessions-summary { table-layout: auto; }
-  body.local .import-sessions table.sessions-summary :is(th, td) { width: auto; white-space: nowrap; }
+  /* The sessions tables (Runs, the import status): columns as wide as
+     their words, too narrow for all four scrolling sideways; scrolled, they
+     stop at whole rows, none half under the header. */
+  body.local .table-wrap:has(> table.sessions-summary) { overflow-x: auto; scroll-snap-type: y mandatory; scroll-padding-top: 2.4rem; }
+  body.local table.sessions-summary { table-layout: auto; }
+  body.local .table-wrap table.sessions-summary :is(th, td) { width: auto; white-space: nowrap; }
+  body.local table.sessions-summary tbody tr { scroll-snap-align: start; }
   body.local .import-status-ok :is(.run-summary-title, .paste-summary) { flex: none; }
   body.local #app-workspace > .schedule-workspace-footer:empty { display: none; }
   body.local .input-help { position: static; flex: none; margin: 0; padding: 0 0 0 2rem; max-height: none; overflow: visible; border: 0; border-left: 1px solid var(--border); font-size: var(--fs-small); }
