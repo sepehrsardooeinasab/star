@@ -3402,10 +3402,23 @@
     return date.toLocaleDateString([], {weekday: "long", month: "long", day: "numeric",
       year: date.getFullYear() === new Date().getFullYear() ? undefined : "numeric"});
   }
-  // How far back the list goes (Day … All, unlocks_range in settings.json).
-  var unlocksRange = "month";
-  var RANGES = {day: [86400, "in the last day"], week: [7 * 86400, "in the last week"],
-    month: [30 * 86400, "in the last month"], year: [365 * 86400, "in the last year"], all: [Infinity, "in total"]};
+  // How far back the list goes (Day … All, unlocks_range in settings.json):
+  // the calendar's day, week, month or year so far, so Day is since
+  // midnight, not the last 24 hours. Weeks start on Monday.
+  var unlocksRange = "month", weekStart = "monday";
+  var WEEK_STARTS = {sunday: 0, monday: 1, saturday: 6};
+  function rangeSince(range) {
+    var d = new Date();
+    d.setHours(0, 0, 0, 0);
+    if (range === "week") d.setDate(d.getDate() - (d.getDay() - WEEK_STARTS[weekStart] + 7) % 7);
+    else if (range === "month") d.setDate(1);
+    else if (range === "year") d.setMonth(0, 1);
+    else if (range !== "day") return -Infinity;
+    return d.getTime() / 1000;
+  }
+  function rangeText(range) {
+    return {day: "today", week: "this week", month: "this month", year: "in " + new Date().getFullYear()}[range] || "in total";
+  }
   var unlocksPoll = null;
   // The Library's two sections (library_tab in settings.json).
   var libraryTab = "achievements";
@@ -4098,7 +4111,7 @@
       b.setAttribute("aria-pressed", String(b.getAttribute("data-range") === unlocksRange));
     });
     // The unlocks in the chosen range, and in how many games.
-    var range = RANGES[unlocksRange] || RANGES.all, since = Date.now() / 1000 - range[0];
+    var range = rangeText(unlocksRange), since = rangeSince(unlocksRange);
     var shown = d && !unlocksError ? d.unlocks.filter(function (u) { return u.time >= since; }) : [];
     var gameCount = {};
     shown.forEach(function (u) { gameCount[u.appid] = 1; });
@@ -4107,7 +4120,7 @@
     var lines = [];
     if (d && !unlocksError) {
       var line = "<b>" + shown.length.toLocaleString() + "</b> achievement" + (shown.length === 1 ? "" : "s") + " in <b>" +
-        gameCount + "</b> game" + (gameCount === 1 ? "" : "s") + " " + range[1];
+        gameCount + "</b> game" + (gameCount === 1 ? "" : "s") + " " + range;
       if (d.offline) line = '<span class="warn">' + escapeHtml(d.offline) + "</span> " + line;
       lines.push(line);
     }
@@ -4123,7 +4136,7 @@
     if (unlocksError) {
       patchHtml(list, problemHtml("warn", (unlocksError.data || {}).title, unlocksError.message));
     } else if (d && !shown.length) {
-      patchHtml(list, syncing && !d.unlocks.length ? "" : emptyHtml("\u2606", "No unlocks " + range[1] + "."));
+      patchHtml(list, syncing && !d.unlocks.length ? "" : emptyHtml("\u2606", "No unlocks " + range + "."));
     } else if (d) {
       var html = "", lastDay = null;
       shown.forEach(function (u) {
