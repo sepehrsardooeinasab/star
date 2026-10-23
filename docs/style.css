@@ -2441,7 +2441,10 @@
   body.local .app-workspace { inset: 0; margin: 0; width: auto; height: auto; border: 0; border-radius: 0; }
   body.local .workspace-toolbar {
     height: var(--titlebar-height);
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    /* The sides at least as wide as what's in them: the middle tabs sit in
+       the window's middle while there's room, then ease aside, never over
+       the sections or the actions. */
+    grid-template-columns: 1fr auto 1fr;
     grid-template-rows: auto;
     padding: 0 16px;
     gap: 12px;
@@ -2557,13 +2560,6 @@
   @media (prefers-reduced-motion: reduce) { body.local .swap-in { animation: none; } }
   @media (max-width: 1100px) { body.local .workspace-actions .unlocks-when { display: none; } }
   /* Narrower: the sections and action on top, the section's tabs under. */
-  /* One row down to where the sections, the widest middle tabs (Settings')
-     and the actions stop fitting side by side; two rows below that. */
-  @media (max-width: 900px) {
-    body.local .workspace-toolbar { height: 84px; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: 28px 28px; align-content: center; row-gap: 8px; }
-    body.local .workspace-navigation { grid-column: 1 / -1; grid-row: 2; }
-    body.local .workspace-actions { grid-column: 2; grid-row: 1; }
-  }
   @media (max-width: 720px) {
     body.local .screen-switch button { padding: 2px 8px; }
     body.local :is(#schedule-details, .schedule-source) .schedule-details-body, body.local .schedule-options-body .settings-form { padding-left: 12px; padding-right: 12px; }
