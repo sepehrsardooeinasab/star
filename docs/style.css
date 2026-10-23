@@ -2411,8 +2411,10 @@
     gap: 12px;
     background: var(--chrome);
   }
-  /* Clear of the window's buttons by about their own margin from the edge. */
-  :root[data-desktop="macos"] body.local .workspace-toolbar { padding-left: 94px; }
+  /* The sections clear of the window's buttons by about their own margin
+     from the edge (94px from it). The bar's own padding stays even, so the
+     middle tabs sit in the window's middle. */
+  :root[data-desktop="macos"] body.local .workspace-toolbar .screen-switch { margin-left: 78px; }
   body.local #workspace-title { display: none; }
   body.local .workspace-toolbar .screen-switch { grid-column: 1; grid-row: 1; justify-self: start; }
   body.local .workspace-navigation { grid-column: 2; grid-row: 1; }
