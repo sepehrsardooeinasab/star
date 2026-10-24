@@ -254,6 +254,8 @@
     display: flex;
     flex-direction: column;
   }
+  /* Nothing inside bounces either: a table's header would slide down with it. */
+  :root[data-desktop] .page * { overscroll-behavior: none; }
   :root[data-desktop] .page > .hero,
   :root[data-desktop] .page > .shell { width: 100%; margin-top: auto; margin-bottom: auto; }
   :root[data-desktop] .page > .hero { padding-top: 2.5rem; padding-bottom: 2.5rem; }
@@ -1735,7 +1737,10 @@
      the notices under them, rather than a tall box with a gap in it. */
   body.local #csv-slot:has(> .table-wrap > table.sessions-summary) { flex: 0 1 auto; }
   body.local #csv-slot > .table-wrap:has(> table.sessions-summary) { flex: 0 1 auto; min-height: 0; }
-  body.local #csv-slot > .notices-below:not(:empty) { padding: 0 0.75rem 0.75rem; overflow-y: auto; flex: 0 1 auto; }
+  body.local #csv-slot > .notices-below:not(:empty) { padding: 0 var(--space-l) var(--space-l); max-height: 10rem; overflow-y: auto; flex: 0 1 auto; }
+  /* The Timeline's warnings: apart from the last row, room inside, a line apart. */
+  body.local #csv-slot > .notices-below .notice { margin-top: var(--space-m); padding: var(--space-m) var(--space-l); }
+  body.local #csv-slot > .notices-below .notice.stack { gap: var(--space-s); }
   :root[data-theme="light"] .schedule-preview .summary-bar { background: #fbfbfb; border-color: var(--border-strong); }
 
   /* The overview and the log take only the room they need: a short

@@ -1061,17 +1061,31 @@
       byId(tab.getAttribute("aria-controls")).hidden = !active;
       if (active && focus) tab.focus();
     });
-    if (combined) renderImportSide();
+    if (combined) { renderImportSide(); renderSaveLabel(); }
+  }
+
+  // Warnings to check before saving: until the Timeline has been open
+  // with these exact ones showing, Save reads Review and opens it.
+  var reviewedWarnings = "";
+  function warningsKey() {
+    return latest && !latest.errors.length ? latest.dangers.concat(latest.warnings).join("\n") : "";
+  }
+  function needsReview() {
+    return combined && warningsKey() !== "" && warningsKey() !== reviewedWarnings;
+  }
+  function renderSaveLabel() {
+    if (combined && schedulePanel === "preview") reviewedWarnings = warningsKey();
+    // A warning makes it red, not longer.
+    els.downloadBtn.textContent = local && isArmed("overwrite") ? "Confirm" : needsReview() ? "Review" : "Save";
   }
 
   function renderScheduleSource(ok) {
-    var imported = ok && !scheduleReady;
+    if (ok && !scheduleReady) reviewedWarnings = "";  // a new import is checked anew
     scheduleReady = !!ok;
     byId("schedule-tab-preview").disabled = !ok;
     if (ok) byId("schedule-tab-preview").removeAttribute("data-tip");
     else byId("schedule-tab-preview").setAttribute("data-tip", "Appears once achievements are imported");
-    if (imported) setSchedulePanel("preview", byId("schedule-workspace").contains(document.activeElement));
-    else if (!ok && schedulePanel === "preview") setSchedulePanel("import");
+    if (!ok && schedulePanel === "preview") setSchedulePanel("import");
     if (els.exportText.value.trim() && latest && !latest.pending && !latest.inputNotice &&
         (!els.appid.value || !els.gameName.value.trim())) {
       setSchedulePanel("import");
@@ -1200,8 +1214,7 @@
     els.downloadBtn.classList.toggle("btn-danger", dangers.length > 0);
     var replacing = local && isArmed("overwrite");
     els.downloadBtn.classList.toggle("armed", replacing);
-    // A warning makes it red, not longer.
-    els.downloadBtn.textContent = replacing ? "Confirm" : "Save";
+    renderSaveLabel();
     els.downloadBtn.title = dangers.join("\n");
 
     var fileKey = fileKeyForView(currentView);
@@ -1572,6 +1585,7 @@
   // second click (Confirm) replaces a game saved before.
   els.downloadBtn.addEventListener("click", function () {
     if (!latest || latest.errors.length) return;
+    if (needsReview()) { setSchedulePanel("preview"); return; }
     var overwrite = isArmed("overwrite");
     delete armedUntil["overwrite"];
     saveToProject(overwrite);
