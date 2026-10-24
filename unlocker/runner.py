@@ -216,6 +216,18 @@ def _format_duration(seconds):
     return f"{int(seconds)}s"
 
 
+def _sleep(seconds):
+    """time.sleep(), saying so in the run activity when the computer slept
+    during it (lid closed). The waits count on time.monotonic(), which stops
+    while the computer sleeps, so every later unlock moves back by that
+    long instead of firing together on wake."""
+    wall, mono = time.time(), time.monotonic()
+    time.sleep(seconds)
+    slept = (time.time() - wall) - (time.monotonic() - mono)
+    if slept >= 60:
+        print(f"The computer slept for {_format_duration(slept)}, so unlocks are {_format_duration(slept)} later.")
+
+
 def _session_status(config, progress):
     """Read-only summary of a profile's next session, for listing: returns
     None when every achievement is done, else (session_number, session_total,
@@ -649,9 +661,9 @@ def _run(game_name, force=False, time_only=False, delay=None, wait_ready=False):
                 wait_until = time.monotonic() + remaining_delay
                 check_until = wait_until - RECONNECT_SETTLE_DELAY
                 while (left := check_until - time.monotonic()) > 0:
-                    time.sleep(min(left, PLAY_CHECK_INTERVAL))
+                    _sleep(min(left, PLAY_CHECK_INTERVAL))
                     ensure_playing()
-                time.sleep(max(0, wait_until - time.monotonic()))
+                _sleep(max(0, wait_until - time.monotonic()))
 
             # Catches a reconnect in the last moments of the wait. Before
             # issued_at, so any pause it adds doesn't shorten the next gap.

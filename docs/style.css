@@ -1693,9 +1693,14 @@
   .run-info .details-list { margin: 0; }
   /* The current session's rows, then the log filling the rest; Full
      timeline gives the whole space to every session. */
-  /* Short of room, the sessions shrink (scrolling within) before the
-     activity below is cut; the activity keeps room for its two-line hint. */
-  .runs-log:not(.full) .runs-timeline { flex: 0 1 auto; min-height: 0; max-height: 45%; }
+  /* The sessions keep whole rows however long the log is: 2 in the
+     smallest window, one more per bit of height, up to 5. Past that they
+     scroll within; it's the activity below that gives up room.
+     --session-row is a row's measured height. */
+  .runs-log:not(.full) .runs-timeline { flex: none; min-height: 0; max-height: 45%; --session-row: 1.862rem; }
+  .runs-log:not(.full) .runs-timeline .table-wrap {
+    max-height: calc(var(--th-h, 2.2rem) + clamp(2 * var(--session-row), round(down, 25vh - 4rem, var(--session-row)), 5 * var(--session-row)));
+  }
   .run-overview #runs-log, .run-activity #runs-log { min-height: 4.5rem; }
   /* The sessions overview: the session it's on stands out. */
   /* The same type as the full timeline's, so both tables match. */
