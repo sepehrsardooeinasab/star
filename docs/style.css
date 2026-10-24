@@ -254,6 +254,8 @@
     display: flex;
     flex-direction: column;
   }
+  /* Nothing inside bounces either: a table's header would slide down with it. */
+  :root[data-desktop] .page * { overscroll-behavior: none; }
   :root[data-desktop] .page > .hero,
   :root[data-desktop] .page > .shell { width: 100%; margin-top: auto; margin-bottom: auto; }
   :root[data-desktop] .page > .hero { padding-top: 2.5rem; padding-bottom: 2.5rem; }
