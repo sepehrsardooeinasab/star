@@ -1065,13 +1065,11 @@
   }
 
   function renderScheduleSource(ok) {
-    var imported = ok && !scheduleReady;
     scheduleReady = !!ok;
     byId("schedule-tab-preview").disabled = !ok;
     if (ok) byId("schedule-tab-preview").removeAttribute("data-tip");
     else byId("schedule-tab-preview").setAttribute("data-tip", "Appears once achievements are imported");
-    if (imported) setSchedulePanel("preview", byId("schedule-workspace").contains(document.activeElement));
-    else if (!ok && schedulePanel === "preview") setSchedulePanel("import");
+    if (!ok && schedulePanel === "preview") setSchedulePanel("import");
     if (els.exportText.value.trim() && latest && !latest.pending && !latest.inputNotice &&
         (!els.appid.value || !els.gameName.value.trim())) {
       setSchedulePanel("import");
