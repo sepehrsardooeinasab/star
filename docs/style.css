@@ -1703,6 +1703,15 @@
     box-sizing: content-box;
     max-height: calc(var(--th-h, 2.2rem) + clamp(2 * var(--session-row), round(down, 25vh - 4rem, var(--session-row)), 5 * var(--session-row)));
   }
+  /* More rows out of sight: that edge fades into the table's background
+     (the top one under the header), set by markScrollEdges. */
+  .timeline-table .table-wrap::before, .timeline-table .table-wrap::after {
+    content: ""; display: block; position: sticky; z-index: 2; --fade-h: calc(2 * var(--space-m)); height: var(--fade-h);
+    pointer-events: none; opacity: 0; transition: opacity 0.15s;
+  }
+  .timeline-table .table-wrap::before { top: var(--th-h, 2.2rem); margin-bottom: calc(-1 * var(--fade-h)); background: linear-gradient(var(--surface), transparent); }
+  .timeline-table .table-wrap::after { bottom: 0; margin-top: calc(-1 * var(--fade-h)); background: linear-gradient(transparent, var(--surface)); }
+  .timeline-table .table-wrap.more-above::before, .timeline-table .table-wrap.more-below::after { opacity: 1; }
   .run-overview #runs-log, .run-activity #runs-log { min-height: 4.5rem; }
   /* The sessions overview: the session it's on stands out. */
   /* The same type as the full timeline's, so both tables match. */
