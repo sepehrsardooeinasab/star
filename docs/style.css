@@ -1035,6 +1035,12 @@
   .runs-timeline .empty-hint { margin: auto; }
   /* Long achievement names wrap, so the table fits beside the game list. */
   .runs-timeline table.csv-table td:nth-child(3) { white-space: normal; min-width: 8rem; }
+  /* In the app, the full timeline goes like the sessions table: every
+     column on one line, as wide as its words; too narrow for all four, it
+     scrolls sideways rather than wrap or spill past the frame. */
+  body.local .runs-timeline .table-wrap:has(> table.csv-table.pretty) { overflow-x: auto; }
+  body.local .runs-timeline table.csv-table.pretty { table-layout: auto; }
+  body.local .runs-timeline table.csv-table.pretty :is(th, td) { width: auto; min-width: 0; white-space: nowrap; }
   /* In the tabs' row, on the right; only on the Timeline tab. */
   .timeline-bar {
     flex: 1;
