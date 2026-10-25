@@ -2796,13 +2796,14 @@
   body.local .library-games-table .lib-count { grid-column: 4; justify-self: end; margin: 0; white-space: nowrap; }
   body.local .library-games-table .lib-state { grid-column: 5; justify-self: end; margin: 0; }
   body.local .library-games-table .lib-dim { grid-column: 3 / 6; }
-  @media (max-width: 1100px) {
+  /* A column shows whole or not at all: all eight need the table's
+     minimums, gaps and padding (about 1140px) plus the page's margins. */
+  @media (max-width: 1180px) {
     body.local .library-games-table { --games-columns: 40px minmax(10rem, 1fr) 7rem 5.5rem 3.5rem 7.5rem; }
     body.local .library-games-table .unlock-meta > div:nth-child(n+2), body.local .games-col-playtime, body.local .games-col-duration { display: none; }
   }
   @media (max-width: 760px) {
     body.local .library-games-table { --games-columns: 40px minmax(0, 1fr) minmax(4rem, 1fr) 4.5rem 3rem; }
-    body.local .library-games-table :is(.library-games-header, .lib-game) { column-gap: 12px; }
     body.local .library-games-table .unlock-meta > div, body.local .games-col-played { display: none; }
   }
 
