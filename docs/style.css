@@ -1696,9 +1696,11 @@
   /* The sessions keep whole rows however long the log is: 2 in the
      smallest window, one more per bit of height, up to 5. Past that they
      scroll within; it's the activity below that gives up room.
-     --session-row is a row's measured height. */
+     --session-row is a row's measured height; the height leaves out the
+     frame, so all 5 of 5 fit without a sliver left to scroll. */
   .runs-log:not(.full) .runs-timeline { flex: none; min-height: 0; max-height: 45%; --session-row: 1.862rem; }
   .runs-log:not(.full) .runs-timeline .table-wrap {
+    box-sizing: content-box;
     max-height: calc(var(--th-h, 2.2rem) + clamp(2 * var(--session-row), round(down, 25vh - 4rem, var(--session-row)), 5 * var(--session-row)));
   }
   .run-overview #runs-log, .run-activity #runs-log { min-height: 4.5rem; }
