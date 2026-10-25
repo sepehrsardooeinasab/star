@@ -1035,6 +1035,12 @@
   .runs-timeline .empty-hint { margin: auto; }
   /* Long achievement names wrap, so the table fits beside the game list. */
   .runs-timeline table.csv-table td:nth-child(3) { white-space: normal; min-width: 8rem; }
+  /* In the app, the full timeline goes like the sessions table: every
+     column on one line, as wide as its words; too narrow for all four, it
+     scrolls sideways rather than wrap or spill past the frame. */
+  body.local .runs-timeline .table-wrap:has(> table.csv-table.pretty) { overflow-x: auto; }
+  body.local .runs-timeline table.csv-table.pretty { table-layout: auto; }
+  body.local .runs-timeline table.csv-table.pretty :is(th, td) { width: auto; min-width: 0; white-space: nowrap; }
   /* In the tabs' row, on the right; only on the Timeline tab. */
   .timeline-bar {
     flex: 1;
@@ -1696,11 +1702,22 @@
   /* The sessions keep whole rows however long the log is: 2 in the
      smallest window, one more per bit of height, up to 5. Past that they
      scroll within; it's the activity below that gives up room.
-     --session-row is a row's measured height. */
+     --session-row is a row's measured height; the height leaves out the
+     frame, so all 5 of 5 fit without a sliver left to scroll. */
   .runs-log:not(.full) .runs-timeline { flex: none; min-height: 0; max-height: 45%; --session-row: 1.862rem; }
   .runs-log:not(.full) .runs-timeline .table-wrap {
+    box-sizing: content-box;
     max-height: calc(var(--th-h, 2.2rem) + clamp(2 * var(--session-row), round(down, 25vh - 4rem, var(--session-row)), 5 * var(--session-row)));
   }
+  /* More rows out of sight: that edge fades into the table's background
+     (the top one under the header), set by markScrollEdges. */
+  .timeline-table .table-wrap::before, .timeline-table .table-wrap::after {
+    content: ""; display: block; position: sticky; z-index: 2; --fade-h: calc(2 * var(--space-m)); height: var(--fade-h);
+    pointer-events: none; opacity: 0; transition: opacity 0.15s;
+  }
+  .timeline-table .table-wrap::before { top: var(--th-h, 2.2rem); margin-bottom: calc(-1 * var(--fade-h)); background: linear-gradient(var(--surface), transparent); }
+  .timeline-table .table-wrap::after { bottom: 0; margin-top: calc(-1 * var(--fade-h)); background: linear-gradient(transparent, var(--surface)); }
+  .timeline-table .table-wrap.more-above::before, .timeline-table .table-wrap.more-below::after { opacity: 1; }
   .run-overview #runs-log, .run-activity #runs-log { min-height: 4.5rem; }
   /* The sessions overview: the session it's on stands out. */
   /* The same type as the full timeline's, so both tables match. */
@@ -2414,6 +2431,14 @@
     .workspace-navigation .segmented button { padding-left: 0.5rem; padding-right: 0.5rem; }
     body.local .app-workspace .view-pane[data-view="runs"].active { grid-template-columns: 14rem minmax(0, 1fr); }
   }
+  /* Too narrow for side by side (as Schedule): the games become a strip
+     across the top, scrolling sideways, and the game gets the full width. */
+  @media (max-width: 900px) {
+    body.local .app-workspace .view-pane[data-view="runs"].active { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+    body.local .app-workspace .runs-side { padding: var(--space-m) var(--space-m) var(--space-s); border-right: 0; border-bottom: 1px solid var(--border); }
+    body.local .app-workspace .runs-list { flex-direction: row; gap: var(--space-s); overflow-x: auto; overflow-y: hidden; }
+    body.local .app-workspace .runs-list .run-card { flex: 0 0 15rem; }
+  }
 
   @media (max-width: 1050px) {
     .paste-summary .summary-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -2785,13 +2810,14 @@
   body.local .library-games-table .lib-count { grid-column: 4; justify-self: end; margin: 0; white-space: nowrap; }
   body.local .library-games-table .lib-state { grid-column: 5; justify-self: end; margin: 0; }
   body.local .library-games-table .lib-dim { grid-column: 3 / 6; }
-  @media (max-width: 1100px) {
+  /* A column shows whole or not at all: all eight need the table's
+     minimums, gaps and padding (about 1140px) plus the page's margins. */
+  @media (max-width: 1180px) {
     body.local .library-games-table { --games-columns: 40px minmax(10rem, 1fr) 7rem 5.5rem 3.5rem 7.5rem; }
     body.local .library-games-table .unlock-meta > div:nth-child(n+2), body.local .games-col-playtime, body.local .games-col-duration { display: none; }
   }
   @media (max-width: 760px) {
     body.local .library-games-table { --games-columns: 40px minmax(0, 1fr) minmax(4rem, 1fr) 4.5rem 3rem; }
-    body.local .library-games-table :is(.library-games-header, .lib-game) { column-gap: 12px; }
     body.local .library-games-table .unlock-meta > div, body.local .games-col-played { display: none; }
   }
 

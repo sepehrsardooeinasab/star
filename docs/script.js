@@ -2303,12 +2303,23 @@
     // Back where it was scrolled: redrawing (after an edit) starts it at the top.
     var wrap = byId("timeline-table").querySelector(".table-wrap");
     if (wrap) wrap.scrollTop = timelineScroll[timelineScrollKey()] || 0;
+    markScrollEdges();
   }
   var timelineScroll = {};  // by game, its sessions overview and full timeline apart
   function timelineScrollKey() { return selectedRun + (runFull || runEdit ? "|full" : ""); }
   byId("timeline-table").addEventListener("scroll", function (e) {
     if (e.target.classList.contains("table-wrap")) timelineScroll[timelineScrollKey()] = e.target.scrollTop;
+    markScrollEdges();
   }, true);
+  // The table's edges fade where more rows are scrolled out of sight, as
+  // scrollbars are hidden in the app.
+  function markScrollEdges() {
+    var wrap = byId("timeline-table").querySelector(".table-wrap");
+    if (!wrap) return;
+    wrap.classList.toggle("more-above", wrap.scrollTop > 1);
+    wrap.classList.toggle("more-below", wrap.scrollTop + wrap.clientHeight < wrap.scrollHeight - 1);
+  }
+  window.addEventListener("resize", markScrollEdges);
 
   // Editing works on a copy of the schedule (runEdit.config); the rows
   // are rebuilt from it after each change, with the names and player's
