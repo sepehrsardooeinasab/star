@@ -2431,6 +2431,14 @@
     .workspace-navigation .segmented button { padding-left: 0.5rem; padding-right: 0.5rem; }
     body.local .app-workspace .view-pane[data-view="runs"].active { grid-template-columns: 14rem minmax(0, 1fr); }
   }
+  /* Too narrow for side by side (as Schedule): the games become a strip
+     across the top, scrolling sideways, and the game gets the full width. */
+  @media (max-width: 900px) {
+    body.local .app-workspace .view-pane[data-view="runs"].active { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+    body.local .app-workspace .runs-side { padding: var(--space-m) var(--space-m) var(--space-s); border-right: 0; border-bottom: 1px solid var(--border); }
+    body.local .app-workspace .runs-list { flex-direction: row; gap: var(--space-s); overflow-x: auto; overflow-y: hidden; }
+    body.local .app-workspace .runs-list .run-card { flex: 0 0 15rem; }
+  }
 
   @media (max-width: 1050px) {
     .paste-summary .summary-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
