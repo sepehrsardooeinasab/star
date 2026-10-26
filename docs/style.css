@@ -2714,6 +2714,12 @@
   body.local #hero-setup #step-run-settings .setting-row label { font-size: var(--fs-body); color: var(--text-dim); }
   body.local #hero-setup #step-run-settings .setting-row label.setting-check { font-size: var(--fs-body); font-weight: 500; color: var(--text); }
   body.local #hero-setup .lib-default > span { min-width: var(--label-col); }
+  /* A row of chips stays in the control column, wrapping there, rather
+     than dropping whole under its label when it's too long for one line. */
+  body.local #hero-setup .lib-default.lib-filters > span + * { flex: 1 1 0; min-width: 0; }
+  /* In a narrow window, a narrower label column leaves the controls the
+     room (a path on one line, the version's buttons beside it). */
+  @media (max-width: 900px) { body.local #hero-setup { --label-col: 11rem; } }
 
   /* Games, in columns: the game, its bar, unlocked / total, the percentage
      (a column of its own), last played, playtime, duration. The icon and
